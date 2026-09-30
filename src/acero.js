@@ -9,7 +9,8 @@
    ORGANIZADO POR CAPÍTULO, en el orden del AISC:
        D · tracción
        E · compresión
-       F · flexión             ← hasta aquí
+       F · flexión
+       G · corte               ← hasta aquí
        F · flexión
        G · corte
        H · fuerzas combinadas
@@ -65,7 +66,9 @@
     "F.F6.fluencia", "F.F6.sinLTB", "F.F6.b", "F.F6.Fcr",
     "F.F10.ejes", "F.F10.H2", "F.F10.estados", "F.F10.divergencia",
     "F.B4.c10", "F.B4.c11", "F.B4.c12", "F.B4.c13", "F.B4.c14", "F.B4.c15",
-    "F.B4.hss", "F.FL", "F.Lr.coef", "F.F2.manual"
+    "F.B4.hss", "F.FL", "F.Lr.coef", "F.F2.manual",
+    "V.phi", "V.phi1", "V.Vn", "V.Aw", "V.Cv1", "V.Cv2", "V.kv", "V.h",
+    "V.lim260", "V.Cv2.coef", "V.G2.rig", "V.G2.lista", "V.G3", "V.G4", "V.G5", "V.G6", "V.G6.lista"
   ]);
 
   /* ---------- materiales ------------------------------------------------ */
@@ -1343,6 +1346,289 @@
     };
   }
 
+  /* =====================================================================
+     CAPÍTULO G · CORTE
+
+     EL ÚNICO φ = 1,00 DE TODA LA ESPECIFICACIÓN vive aquí: G1(a) fija
+     φv = 0,90 «para todo este capítulo EXCEPTO G2.1(a)», y G2.1(a) da 1,00
+     para almas de perfil I LAMINADO con h/tw ≤ 2,24·√(E/Fy).  El AISC
+     considera que la fluencia por corte del alma es tan dúctil y predecible
+     que no necesita castigo.  La E.090 mantiene 0,90 siempre, así que son
+     11 % de capacidad en toda viga laminada (fila V.phi1).
+
+     DOS COEFICIENTES QUE SE PARECEN Y NO SON EL MISMO · Cv1 tiene DOS tramos
+     y Cv2 tiene TRES, y el tercero es cuadrático en h/tw porque modela el
+     pandeo elástico de la placa.  Cv1 es solo para el alma de una I o canal;
+     Cv2 lo usan G3 (ángulos y tes), G4 (HSS y cajones) y G6 (eje menor), o
+     sea casi todo lo demás (fila V.Cv2).
+
+     Y DOS UMBRALES QUE SE PARECEN Y TAMPOCO · el 2,24 de G2.1(a) es el de
+     φv = 1,00 (63,59 con A36) y el 2,54 de G2.4(a) es el de «no hacen falta
+     rigidizadores» (72,11).  El segundo no es arbitrario: 1,10·√5,34 =
+     2,54187, o sea el punto donde Cv1 = 1,0 sin rigidizadores.  Dicho en
+     claro, no hacen falta rigidizadores si el alma no pandea de todas formas
+     (fila V.G2.rig).
+     ===================================================================== */
+
+  const PHI_V = 0.90;              /* G1(a) */
+  const PHI_V_ALMA = 1.00;         /* G2.1(a) · el único 1,00 de la norma */
+  const PHI_V_E090 = 0.90;         /* la E.090 no tiene la excepción */
+  const COEF_PHI_V1 = 2.24;        /* G2.1(a) */
+  const COEF_SIN_RIGID = 2.54;     /* G2.4(a) · es 1,10·√5,34 redondeado */
+  const KV_SIN_RIGID = 5.34;       /* G2.1(b)(2)(i) */
+  const KV_E090 = 5.0;             /* E.090 6.2-1 · la divergencia */
+  const LIM_H_TW_E090 = 260;       /* E.090 §6.2.2.1 · fila V.lim260 */
+
+  /* kv · G2-5.  Sin rigidizadores 5,34; con ellos 5 + 5/(a/h)², y 5,34 en
+     cuanto a/h pasa de 3,0 — que es justo donde 5 + 5/9 = 5,56... no: la
+     norma lo fija en 5,34 por encima de 3,0, no por continuidad. */
+  function kv(d) {
+    if (d.conRigidizadores !== true) {
+      return { kv: KV_SIN_RIGID, art: ART["V.kv"], conRigidizadores: false,
+        kv_E090: KV_E090,
+        notaDivergencia: "la E.090 usa kv = 5,0 donde el AISC usa 5,34: el umbral de " +
+          "Cv1 = 1 pasa de 69,8 a 72,2 con A36, un 3,6 %. Manda el AISC." };
+    }
+    const ah = d.a_h;
+    if (!(ah > 0)) {
+      throw new Error("acero: con rigidizadores hace falta a_h, la razón entre la " +
+        "separación de rigidizadores y h");
+    }
+    if (ah > 3.0) {
+      return { kv: KV_SIN_RIGID, art: ART["V.kv"], conRigidizadores: true, a_h: ah,
+        nota: "con a/h > 3,0 la norma vuelve a 5,34: rigidizadores tan separados no cuentan" };
+    }
+    return { kv: 5 + 5 / (ah * ah), art: ART["V.kv"], conRigidizadores: true, a_h: ah };
+  }
+
+  /* Cv1 · G2-3 y G2-4.  DOS tramos. */
+  function Cv1(d) {
+    const htw = d.h_tw, Fy = d.Fy_kgcm2, k = d.kv;
+    if (!(htw > 0)) throw new Error("acero: Cv1() necesita h_tw > 0");
+    if (!(Fy > 0)) throw new Error("acero: Cv1() necesita Fy_kgcm2 > 0");
+    if (!(k > 0)) throw new Error("acero: Cv1() necesita kv (de kv())");
+    const umbral = 1.10 * Math.sqrt(k * E_ACERO / Fy);
+    if (htw <= umbral) {
+      return { Cv1: 1.0, umbral: umbral, tramo: "no pandea · Cv1 = 1", art: ART["V.Cv1"] };
+    }
+    return { Cv1: umbral / htw, umbral: umbral, tramo: "pandeo inelástico · lineal",
+      art: ART["V.Cv1"] };
+  }
+
+  /* Cv2 · G2-9, G2-10 y G2-11.  TRES tramos, y el tercero es cuadrático. */
+  function Cv2(d) {
+    const htw = d.h_tw, Fy = d.Fy_kgcm2, k = d.kv;
+    if (!(htw > 0)) throw new Error("acero: Cv2() necesita h_tw > 0");
+    if (!(Fy > 0)) throw new Error("acero: Cv2() necesita Fy_kgcm2 > 0");
+    if (!(k > 0)) throw new Error("acero: Cv2() necesita kv");
+    const u1 = 1.10 * Math.sqrt(k * E_ACERO / Fy);
+    const u2 = 1.37 * Math.sqrt(k * E_ACERO / Fy);
+    if (htw <= u1) {
+      return { Cv2: 1.0, tramo: "no pandea", u1: u1, u2: u2, art: ART["V.Cv2"] };
+    }
+    if (htw <= u2) {
+      return { Cv2: u1 / htw, tramo: "inelástico · lineal", u1: u1, u2: u2, art: ART["V.Cv2"] };
+    }
+    return { Cv2: 1.51 * k * E_ACERO / (htw * htw * Fy), tramo: "elástico · cuadrático",
+      u1: u1, u2: u2, art: ART["V.Cv2"],
+      nota: "aquí es donde Cv2 se separa de Cv1: cuadrático en h/tw, no lineal" };
+  }
+
+  /* ---------- G2.1 · el alma de una I o canal --------------------------- */
+  /* Aw = d·tw, el peralte TOTAL por el espesor del alma, no la altura libre.
+     Usar h en vez de d subestima el área, y las dos normas coinciden en esto
+     (fila V.Aw). */
+  function corteAlma(d) {
+    const mat = (typeof d.acero === "string") ? material(d.acero) : { Fy: d.Fy_kgcm2 };
+    const Fy = mat.Fy;
+    const dd = d.d_cm, tw = d.tw_cm, htw = d.h_tw;
+    if (!(dd > 0)) throw new Error("acero: corteAlma() necesita d_cm > 0 (el peralte TOTAL)");
+    if (!(tw > 0)) throw new Error("acero: corteAlma() necesita tw_cm > 0");
+    if (!(htw > 0)) {
+      throw new Error(
+        "acero: corteAlma() necesita h_tw.\n" +
+        "  Y h depende de CÓMO SE FABRICÓ la sección (fila V.h): en una laminada es la\n" +
+        "  luz libre entre alas MENOS los filetes; en una armada soldada, la luz libre;\n" +
+        "  en una armada empernada, la distancia entre líneas de conectores.");
+    }
+    const fab = d.fabricacion;
+    if (fab !== "laminado" && fab !== "soldado") {
+      throw new Error(
+        "acero: corteAlma() necesita fabricacion «laminado» o «soldado».\n" +
+        "  No es cosmética: el φv = 1,00 de G2.1(a) SOLO vale para perfil I LAMINADO,\n" +
+        "  y es un 11 % de capacidad. Un perfil soldado se queda en 0,90.");
+    }
+
+    /* ¿Cae en G2.1(a)? Solo I laminado y con h/tw por debajo del umbral. */
+    const umbral224 = COEF_PHI_V1 * Math.sqrt(E_ACERO / Fy);
+    const enG21a = (fab === "laminado") && (d.esI !== false) && (htw <= umbral224);
+
+    let k, cv, phi, art;
+    if (enG21a) {
+      k = null; cv = { Cv1: 1.0, tramo: "G2.1(a) · Cv1 = 1 por definición" };
+      phi = PHI_V_ALMA; art = ART["V.phi1"];
+    } else {
+      const kk = kv({ conRigidizadores: d.conRigidizadores, a_h: d.a_h });
+      k = kk.kv;
+      cv = Cv1({ h_tw: htw, Fy_kgcm2: Fy, kv: k });
+      phi = PHI_V; art = ART["V.phi"];
+    }
+
+    const Aw = dd * tw;
+    const Vn = 0.6 * Fy * Aw * cv.Cv1;
+    const out = {
+      Vn_kgf: Vn, phi: phi, Vd_kgf: phi * Vn,
+      Aw_cm2: Aw, Cv1: cv.Cv1, kv: k, h_tw: htw,
+      enG21a: enG21a, umbral224: umbral224, tramo: cv.tramo,
+      fabricacion: fab,
+      art: ART["V.Vn"], artPhi: art, artAw: ART["V.Aw"], artH: ART["V.h"],
+      /* LA DIVERGENCIA DEL φv · fila V.phi1 */
+      phi_E090: PHI_V_E090, Vd_E090_kgf: PHI_V_E090 * Vn,
+      notaPhi: enG21a
+        ? "φv = 1,00 por G2.1(a), el ÚNICO de toda la especificación. La E.090 se " +
+          "queda en 0,90: un 11 % de diferencia. Manda el AISC."
+        : "φv = 0,90, igual que la E.090",
+      /* El límite de aplicabilidad peruano · fila V.lim260 */
+      pasaLim260: htw <= LIM_H_TW_E090,
+      artLim260: ART["V.lim260"]
+    };
+    if (!out.pasaLim260) {
+      out.avisoLim260 = "h/tw = " + htw.toFixed(1) + " pasa de 260: la E.090 manda al " +
+        "Apéndice 6.2.2 o al Cap. 7, vigas de plancha con campo de tensiones";
+    }
+    if (d.Vu_kgf !== undefined) {
+      out.Vu_kgf = d.Vu_kgf;
+      out.ratio = Math.abs(d.Vu_kgf) / out.Vd_kgf;
+      out.cumple = out.ratio <= 1 + 1e-12;
+      out.ratio_E090 = Math.abs(d.Vu_kgf) / out.Vd_E090_kgf;
+    }
+    return out;
+  }
+
+  /* ¿Hacen falta rigidizadores transversales? · G2.4(a) */
+  function requiereRigidizadores(d) {
+    const Fy = d.Fy_kgcm2, htw = d.h_tw;
+    if (!(Fy > 0) || !(htw > 0)) {
+      throw new Error("acero: requiereRigidizadores() necesita Fy_kgcm2 y h_tw");
+    }
+    const umbral = COEF_SIN_RIGID * Math.sqrt(E_ACERO / Fy);
+    /* Es 1,10·√5,34 = 2,54187 redondeado: el punto donde Cv1 = 1 sin
+       rigidizadores. No hacen falta si el alma no pandea de todas formas. */
+    const equivalente = 1.10 * Math.sqrt(KV_SIN_RIGID * E_ACERO / Fy);
+    return {
+      requiere: htw > umbral, umbral: umbral, umbralEquivalente: equivalente,
+      art: ART["V.G2.rig"],
+      nota: "el 2,54 es 1,10·√5,34 = 2,54187 redondeado, o sea el punto donde " +
+            "Cv1 = 1 sin rigidizadores. Y ojo: el 2,24 de G2.1(a) es OTRO umbral, " +
+            "el de φv = 1,00."
+    };
+  }
+
+  /* ---------- G3 · ángulos simples y almas de tes ---------------------- */
+  const KV_G3 = 1.2, KV_G4 = 5, KV_G6 = 1.2;
+
+  function corteAngulo(d) {
+    const mat = (typeof d.acero === "string") ? material(d.acero) : { Fy: d.Fy_kgcm2 };
+    const b = d.b_cm, t = d.t_cm;
+    if (!(b > 0)) {
+      throw new Error("acero: corteAngulo() necesita b_cm, el ancho del lado que resiste " +
+        "el corte, o el peralte del alma de la te");
+    }
+    if (!(t > 0)) throw new Error("acero: corteAngulo() necesita t_cm > 0");
+    const cv = Cv2({ h_tw: b / t, Fy_kgcm2: mat.Fy, kv: KV_G3 });
+    const Vn = 0.6 * mat.Fy * b * t * cv.Cv2;
+    return ratioCorte({ Vn_kgf: Vn, phi: PHI_V, Cv2: cv.Cv2, tramo: cv.tramo,
+      razon: b / t, kv: KV_G3, art: ART["V.G3"] }, d);
+  }
+
+  /* ---------- G4 · HSS rectangular y cajones --------------------------- */
+  /* EL FACTOR 2 ES PORQUE EL TUBO TIENE DOS ALMAS.  Y h es la luz libre entre
+     alas menos el radio interior de esquina a cada lado; si el radio no se
+     conoce, la dimensión exterior menos TRES veces el espesor. */
+  function corteHSS(d) {
+    const mat = (typeof d.acero === "string") ? material(d.acero) : { Fy: d.Fy_kgcm2 };
+    const t = d.t_cm;
+    if (!(t > 0)) throw new Error("acero: corteHSS() necesita t_cm > 0 (espesor de DISEÑO, §B4.2)");
+    let h = d.h_cm;
+    let comoH = "dato";
+    if (h === undefined) {
+      const ext = d.dimExterior_cm;
+      if (!(ext > 0)) {
+        throw new Error(
+          "acero: corteHSS() necesita h_cm, o dimExterior_cm para deducirlo.\n" +
+          "  h es la luz libre entre alas MENOS el radio interior de esquina a cada\n" +
+          "  lado; si el radio no se conoce, la norma permite la dimensión exterior\n" +
+          "  menos TRES veces el espesor.");
+      }
+      h = ext - 3 * t;
+      comoH = "dimensión exterior menos 3·t (radio de esquina desconocido)";
+      if (!(h > 0)) throw new Error("acero: dimExterior_cm − 3·t salió ≤ 0");
+    }
+    const cv = Cv2({ h_tw: h / t, Fy_kgcm2: mat.Fy, kv: KV_G4 });
+    const Aw = 2 * h * t;          /* DOS almas */
+    const Vn = 0.6 * mat.Fy * Aw * cv.Cv2;
+    return ratioCorte({ Vn_kgf: Vn, phi: PHI_V, Cv2: cv.Cv2, tramo: cv.tramo,
+      Aw_cm2: Aw, h_cm: h, comoH: comoH, razon: h / t, kv: KV_G4,
+      art: ART["V.G4"],
+      nota: "Aw = 2·h·t: el factor 2 es porque el tubo tiene DOS almas" }, d);
+  }
+
+  /* ---------- G5 · HSS redondo ----------------------------------------- */
+  function corteRedondo(d) {
+    const mat = (typeof d.acero === "string") ? material(d.acero) : { Fy: d.Fy_kgcm2 };
+    const Dt = d.D_t, Lv = d.Lv_cm, D = d.D_cm, Ag = d.Ag_cm2;
+    for (const [k, v] of [["D_t", Dt], ["Lv_cm", Lv], ["D_cm", D], ["Ag_cm2", Ag]]) {
+      if (!(v > 0)) throw new Error("acero: corteRedondo() necesita " + k + " > 0");
+    }
+    const a = 1.60 * E_ACERO / (Math.sqrt(Lv / D) * Math.pow(Dt, 1.25));   /* G5-2a */
+    const b = 0.78 * E_ACERO / Math.pow(Dt, 1.5);                          /* G5-2b */
+    const tope = 0.6 * mat.Fy;
+    const Fcr = Math.min(tope, Math.max(a, b));
+    const Vn = Fcr * Ag / 2;                                               /* G5-1 */
+    return ratioCorte({ Vn_kgf: Vn, phi: PHI_V, Fcr_kgcm2: Fcr,
+      Fcr_a: a, Fcr_b: b, tope_kgcm2: tope, mandaFluencia: Fcr >= tope - 1e-9,
+      art: ART["V.G5"],
+      nota: "el Ag/2 es porque solo la mitad de la sección resiste el corte de forma " +
+            "efectiva. El pandeo solo gobierna con D/t sobre 100, aceros altos o luces largas" }, d);
+  }
+
+  /* ---------- G6 · corte en el eje menor ------------------------------- */
+  /* EL CORTE DE LA CORREA EN SU EJE DÉBIL, el de la componente paralela al
+     faldón.  Se calcula POR CADA elemento que resiste corte, o sea por ala.
+     Y la razón de esbeltez es bf/(2·tf) en I y tes pero bf/tf en CANALES: la
+     misma asimetría que en F6 (fila V.G6). */
+  function corteEjeMenor(d) {
+    const mat = (typeof d.acero === "string") ? material(d.acero) : { Fy: d.Fy_kgcm2 };
+    const bf = d.bf_cm, tf = d.tf_cm, tipo = d.tipo;
+    if (!(bf > 0) || !(tf > 0)) throw new Error("acero: corteEjeMenor() necesita bf_cm y tf_cm");
+    if (tipo !== "I" && tipo !== "te" && tipo !== "canal") {
+      throw new Error(
+        "acero: corteEjeMenor() necesita tipo «I», «te» o «canal».\n" +
+        "  No es un detalle: la razón de esbeltez es bf/(2·tf) en I y tes pero bf/tf\n" +
+        "  en CANALES, o sea un factor de 2. Es la misma asimetría que en F6.");
+    }
+    const razon = (tipo === "canal") ? bf / tf : bf / (2 * tf);
+    const cv = Cv2({ h_tw: razon, Fy_kgcm2: mat.Fy, kv: KV_G6 });
+    const nEl = (d.elementos === undefined) ? 2 : d.elementos;
+    if (!(nEl >= 1)) throw new Error("acero: elementos tiene que ser ≥ 1");
+    const VnPorElemento = 0.6 * mat.Fy * bf * tf * cv.Cv2;
+    return ratioCorte({ Vn_kgf: VnPorElemento * nEl, VnPorElemento_kgf: VnPorElemento,
+      phi: PHI_V, Cv2: cv.Cv2, tramo: cv.tramo, razon: razon, kv: KV_G6,
+      elementos: nEl, tipo: tipo, art: ART["V.G6"], artLista: ART["V.G6.lista"],
+      nota: "se calcula POR ELEMENTO que resiste corte, o sea por ala. En un perfil " +
+            "laminado Cv2 = 1 siempre con Fy ≤ 70 ksi (User Note de G6)" }, d);
+  }
+
+  function ratioCorte(out, d) {
+    out.Vd_kgf = out.phi * out.Vn_kgf;
+    if (d.Vu_kgf !== undefined) {
+      out.Vu_kgf = d.Vu_kgf;
+      out.ratio = Math.abs(d.Vu_kgf) / out.Vd_kgf;
+      out.cumple = out.ratio <= 1 + 1e-12;
+    }
+    return out;
+  }
+
   return {
     ART, ACEROS, E_ACERO, G_ACERO, PHI, CASOS_U, ESBELTEZ_TRACCION,
     FNT_ROSCADA, PHI_ROSCADA,
@@ -1358,6 +1644,10 @@
     c2DeC1, factoresE7, anchoEfectivo, areaEfectivaE7, areaEfectivaRedondo,
     PHI_B, TOPE_MP_E090, TOPE_F6, FR_E090, B4B,
     FL, FL_E090, clasificaFlexion, Cb, Lp, rts, coefC, Lr,
-    flexionF2, flexionF6, ejesAnguloF10, requiereH2
+    flexionF2, flexionF6, ejesAnguloF10, requiereH2,
+    PHI_V, PHI_V_ALMA, PHI_V_E090, COEF_PHI_V1, COEF_SIN_RIGID,
+    KV_SIN_RIGID, KV_E090, LIM_H_TW_E090, KV_G3, KV_G4, KV_G6,
+    kv, Cv1, Cv2, corteAlma, requiereRigidizadores,
+    corteAngulo, corteHSS, corteRedondo, corteEjeMenor
   };
 });

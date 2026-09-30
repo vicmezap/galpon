@@ -82,7 +82,7 @@
       "editable": false,
       "clave": true,
       "fuente": "AISC E3, las dos redacciones del propio artículo · derivado y medido",
-      "nota": "EL 4,71 ES 1,5·π REDONDEADO, y se deduce: Fy/Fe = 2,25 equivale a π²E/(Lc/r)² = Fy/2,25, o sea Lc/r = 1,5·π·√(E/Fy) = 4,712389·√(E/Fy). MEDIDO: con A36, la forma tabulada da Lc/r = 133,71 y ahi Fy/Fe = 2,2477, no 2,25; la exacta da 133,78. Las dos formas difieren un 0,051 %. POR QUÉ DA IGUAL EN LA PRÁCTICA: la curva es casi continua en la frontera —la rama inelástica da 0,658^2,25·Fy = 986,57 kgf/cm2 y la elástica 986,14, un salto de 0,044 %— asi que elegir una forma u otra cambia el resultado tres cifras mas abajo. DECISIÓN: el código usa Fy/Fe ≤ 2,25, que es la exacta. El 4,71 se calcula aparte y se muestra, porque es la forma en que aparece en los libros y en los ejemplos."
+      "nota": "EL 4,71 ES 1,5·π REDONDEADO, y se deduce: Fy/Fe = 2,25 equivale a π²E/(Lc/r)² = Fy/2,25, o sea Lc/r = 1,5·π·√(E/Fy) = 4,712389·√(E/Fy). MEDIDO: con A36, la forma tabulada da Lc/r = 133,71 y ahi Fy/Fe = 2,2477, no 2,25; la exacta da 133,78. Las dos formas difieren un 0,051 %. POR QUÉ DA IGUAL EN LA PRÁCTICA: la curva es casi continua en la frontera —la rama inelástica da 0,658^2,25·Fy = 986,57 kgf/cm2 y la elástica 986,14, un salto de 0,044 %— asi que elegir una forma u otra cambia el resultado tres cifras mas abajo. DECISIÓN: el código usa Fy/Fe ≤ 2,25, que es la exacta. El 4,71 se calcula aparte y se muestra, porque es la forma en que aparece en los libros y en los ejemplos. ES UN PATRÓN, NO UN CASO AISLADO: lo mismo pasa con el 1,95 y el 6,76 de la F2-6 y con el 1,51 de la G2-11. La regla y sus consecuencias están en la fila V.Cv2.coef."
     },
     {
       "id": "C.identicas",
