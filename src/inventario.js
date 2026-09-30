@@ -92,6 +92,33 @@
     return f.valor;
   }
 
+  /* EL VALOR COMO NÚMERO, y por qué hace falta una función aparte.
+
+     def() devuelve el TEXTO de la fila, que es texto de presentación: MAT.E
+     vale «2 039 000», con separadores de miles, y MAT.G «787 000».  Hacer
+     Number() sobre eso da NaN, y un NaN no avisa: se propaga por toda la
+     matriz de rigidez y sale al final como una celda vacía.  Me pasó al
+     escribir modelo.js —E_ACERO quedó en NaN— y lo cazó una prueba, no el
+     código.
+
+     Así que num() normaliza lo normalizable —espacios de millar de cualquier
+     clase, coma decimal— y LANZA con todo lo demás.  Una fila cuyo valor es
+     «Z4 = 0,45 · Z3 = 0,35» no es un número y pedirlo como número es un
+     error de quien llama, no algo que resolver adivinando. */
+  function num(id) {
+    const crudo = def(id);
+    if (typeof crudo === "number") return crudo;
+    const limpio = String(crudo).replace(/[\s  ]/g, "").replace(",", ".");
+    if (!/^-?\d+(\.\d+)?$/.test(limpio)) {
+      throw new Error(
+        "inventario: «" + id + "» no es un número: su valor es «" + crudo + "».\n" +
+        "  num() acepta un único número, con separador de millar o coma decimal.\n" +
+        "  Si la fila guarda una tabla, una fórmula o varios valores, hay que\n" +
+        "  leerla con def() y decidir qué se toma — no adivinarlo aquí.");
+    }
+    return parseFloat(limpio);
+  }
+
   /* La cita, para el ART del módulo y para la memoria de cálculo. */
   function art(id) { return fila(id).fuente; }
 
@@ -186,7 +213,7 @@
 
   return {
     ESTADOS, USABLES,
-    fila, def, art, todo, existe, ids, seccion, resumen, integridad, declara,
+    fila, def, num, art, todo, existe, ids, seccion, resumen, integridad, declara,
     secciones: secciones_
   };
 });

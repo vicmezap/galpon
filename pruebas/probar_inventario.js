@@ -10,7 +10,7 @@
    undefined.
    ===================================================================== */
 "use strict";
-const { comp, cierto, lanza, fin } = require("./_comun.js");
+const { comp, cerca, cierto, lanza, fin } = require("./_comun.js");
 const INV = require("../src/inventario.js");
 
 /* ---------- integridad de los datos ---------------------------------- */
@@ -30,6 +30,23 @@ comp("están las diez secciones", secs, [
 
 /* ---------- consultas que deben funcionar ---------------------------- */
 comp("Fy del A36", INV.def("MAT.A36.Fy"), "2530");
+
+/* ---------- num() · EL VALOR COMO NUMERO ------------------------------
+   def() devuelve TEXTO de presentacion: MAT.E vale «2 039 000», con
+   separadores de millar, y Number() sobre eso da NaN. Un NaN no avisa: se
+   propaga por toda una matriz de rigidez y sale al final como una celda
+   vacia. Paso de verdad al escribir modelo.js. num() normaliza lo
+   normalizable y LANZA con todo lo demas. */
+cerca("num() lee MAT.E aunque tenga separadores de millar", INV.num("MAT.E"), 2039000, 1e-12);
+cerca("y MAT.G igual", INV.num("MAT.G"), 787000, 1e-12);
+cerca("un valor sin separadores tambien", INV.num("MAT.A36.Fy"), 2530, 1e-12);
+cerca("y la coma decimal se respeta", INV.num("MAT.mu"), 0.30, 1e-12);
+cierto("Number() sobre el texto crudo de MAT.E SI da NaN, que es el fallo que evita",
+  isNaN(Number(INV.def("MAT.E"))));
+lanza("pedir como numero una fila que guarda una tabla PARA",
+  () => INV.num("S.Z"), "no es un número");
+lanza("y una que guarda una formula tambien",
+  () => INV.num("S.V"), "no es un número");
 comp("la carga viva de techo liviano", INV.def("Lr.liviana"), "30");
 cierto("la fuente del A36 menciona la E.090", INV.art("MAT.A36.Fy").indexOf("E.090") >= 0);
 cierto("la combinación que gobierna cita la E.090", INV.art("U.6").indexOf("E.090") >= 0);
