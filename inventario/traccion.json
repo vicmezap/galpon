@@ -183,7 +183,7 @@
       "editable": false,
       "clave": true,
       "fuente": "AISC Tabla D3.1, caso 8",
-      "nota": "EL CASO DEL TIJERAL. Toda diagonal de ángulo conectada por un solo lado cae aquí. Calcular con Ae = An (U = 1) sobrestima la capacidad hasta un 67 %. Si el caso 2 da más, se permite usar el mayor."
+      "nota": "EL CASO DEL TIJERAL. Toda diagonal de ángulo conectada por un solo lado cae aquí. Si el caso 2 da más, se permite usar el mayor. MEDIDO, y hay que distinguir dos números: sobre un ángulo de Ag = 24,7 cm2 con un agujero de 3/4\" y 3 pernos, calcular con U = 1 en vez de 0,60 sube el TÉRMINO DE ROTURA un 67 % —que es 1/0,60— pero la CAPACIDAD GOBERNANTE solo un 35,8 %, porque al subir la rotura pasa a mandar la fluencia y la tapa. El 67 % es del estado límite; el 36 % es lo que de verdad se llevaría al diseño. Los dos van del lado inseguro."
     },
     {
       "id": "T.U.piso",
@@ -242,7 +242,7 @@
       "editable": false,
       "clave": true,
       "fuente": "E.090 §10.4.3, ecuaciones 10.4-3a y 10.4-3b",
-      "nota": "DIVERGENCIA REAL. E.090: si Fu·Ant ≥ 0,6·Fu·Anv → Rn = 0,6·Fy·Agv + Fu·Ant; si no → Rn = 0,6·Fu·Anv + Fy·Agt. Mezcla rotura en un plano con FLUENCIA en el perpendicular y elige rama; el AISC usa siempre rotura acotada por fluencia y añade Ubs, que la E.090 no tiene. Zapata p.66 trae la misma forma de dos ramas que la E.090: es de la misma generación. DECISIÓN: manda el AISC 360-22."
+      "nota": "DIVERGENCIA REAL. E.090: si Fu·Ant ≥ 0,6·Fu·Anv → Rn = 0,6·Fy·Agv + Fu·Ant; si no → Rn = 0,6·Fu·Anv + Fy·Agt. Mezcla rotura en un plano con FLUENCIA en el perpendicular y elige rama; el AISC usa siempre rotura acotada por fluencia y añade Ubs, que la E.090 no tiene. Zapata p.66 trae la misma forma de dos ramas que la E.090: es de la misma generación. DECISIÓN: manda el AISC 360-22. CUÁNTO DIVERGEN, MEDIDO: con Ubs = 1,0 las dos quedan al 1 % —la divergencia no siempre muerde, y decirlo es parte del trabajo—. Con Ubs = 0,5 la E.090 da UN 41,7 % MÁS, porque no tiene Ubs y se lleva el término de tracción entero donde el AISC toma la mitad. En una cartela despatinada con dos filas de pernos, que es justo el caso típico de Ubs = 0,5, diseñar con la E.090 daría una conexión un 42 % más débil de lo que el AISC admite. Por eso manda el AISC."
     },
     {
       "id": "T.rotura.corte",
