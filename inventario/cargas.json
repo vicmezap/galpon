@@ -521,6 +521,85 @@
       "nota": "«En estacionamientos, auditorios y todo lugar donde la carga viva sea mayor a 4800 Pa.»"
     },
     {
+      "id": "U060.1",
+      "grupo": "Combinaciones E.060 (concreto)",
+      "magnitud": "Gravedad",
+      "valor": "U = 1,4 CM + 1,7 CV",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "fuente": "E.060 §9.2.1 Ec. 9-1",
+      "nota": "Contra el 1,2 D + 1,6 L de la E.090: la cimentación pide más en gravedad. Es la mitad de la costura de J.costura."
+    },
+    {
+      "id": "U060.viento",
+      "grupo": "Combinaciones E.060 (concreto)",
+      "magnitud": "Con viento",
+      "valor": "U = 1,25 (CM + CV ± CVi)  ·  U = 0,9 CM ± 1,25 CVi",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "fuente": "E.060 §9.2.2 Ec. 9-2 y 9-3",
+      "nota": "Los ± están verificados a nivel de glífico: el PDF los pierde en la extracción de texto —quedan dos espacios— pero el carácter  de la fuente Symbol está en las cuatro ecuaciones 9-2 a 9-5, y en las 9-6 y 9-7 hay un + de verdad. La 9-3 es la hermana de la U.6 del acero: la que gobierna el anclaje por levantamiento."
+    },
+    {
+      "id": "U060.sismo",
+      "grupo": "Combinaciones E.060 (concreto)",
+      "magnitud": "Con sismo",
+      "valor": "U = 1,25 (CM + CV) ± CS  ·  U = 0,9 CM ± CS",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "fuente": "E.060 §9.2.3 Ec. 9-4 y 9-5",
+      "nota": ""
+    },
+    {
+      "id": "U060.CS",
+      "grupo": "Combinaciones E.060 (concreto)",
+      "magnitud": "El factor de CS es 1,0, no 1,25",
+      "valor": "CS · 1,0   frente a   CVi · 1,25",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.060 §9.2.2 y §9.2.3, comparadas",
+      "nota": "ASIMETRÍA QUE HAY QUE VER: el viento entra amplificado 1,25 y el sismo entra tal cual. La razón —lectura, no cita— es que la E.030 ya entrega la fuerza sísmica reducida por R, al nivel de resistencia, mientras el viento de la E.020 es carga de servicio. Copiar el 1,25 sobre CS sobredimensiona la zapata; copiar el 1,0 sobre CVi la deja corta."
+    },
+    {
+      "id": "U060.nieve",
+      "grupo": "Combinaciones E.060 (concreto)",
+      "magnitud": "En el lado del concreto la nieve es carga VIVA",
+      "valor": "la nieve y el granizo se consideran CV · no hay caso S propio",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.060 §9.2.8, textual",
+      "nota": "«Si fuera necesario incluir en el diseño el efecto de las cargas de nieve o granizo, éstas deberán considerarse como cargas vivas (CV).» OTRA COSTURA, Y NO ESTABA REGISTRADA. En el acero la nieve es un CASO PROPIO con factores propios —0,5 en la U.2, 1,6 en la U.3, 0,2 en la U.5—; en el concreto se disuelve dentro de CV y se lleva el 1,7 de la Ec. 9-1. El mismo galpón con nieve se combina distinto según qué se esté diseñando, y el generador tiene que hacer las dos cosas desde los mismos casos sin factorizar."
+    },
+    {
+      "id": "U060.noSimul",
+      "grupo": "Combinaciones E.060 (concreto)",
+      "magnitud": "Sismo y viento no son simultáneos (lado concreto)",
+      "valor": "no se consideran a la vez",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "fuente": "E.060 §9.2.4, textual",
+      "nota": "«No será necesario considerar acciones de sismo y de viento simultáneamente.» Es permisivo, no prohibitivo —«no será necesario»—, igual que el Art. 11.1 de la E.020 con el viento y la nieve. Se aplica por omisión y se puede desactivar."
+    },
+    {
+      "id": "U060.suelo",
+      "grupo": "Combinaciones E.060 (concreto)",
+      "magnitud": "Con empuje lateral de suelos",
+      "valor": "U = 1,4 CM + 1,7 CV + 1,7 CE  ·  U = 0,9 CM + 1,7 CE si CM o CV reducen el empuje",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "fuente": "E.060 §9.2.5 Ec. 9-6 y 9-7",
+      "nota": "Entra en E8: el pedestal de un galpón tiene relleno a los lados. Ojo a la segunda: aquí el signo es + y no ±, comprobado a nivel de glífico."
+    },
+    {
       "id": "SV.viento.H",
       "grupo": "Servicio",
       "magnitud": "Deriva lateral · cerramiento metálico sobre pórtico desnudo",
