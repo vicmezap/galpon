@@ -1,0 +1,466 @@
+<title>Banco de Cargas Galpón</title>
+<style>
+/* Hoja de cálculo estructural: columna de datos a la izquierda, resultados en
+   fichas a la derecha; en móvil se apila. El SIGNO de la carga es información,
+   así que presión y succión tienen color propio. */
+:root {
+  --tinta:      #1b2430;
+  --tinta-2:    #4a5568;
+  --papel:      #f2f1ec;
+  --papel-2:    #e6e4dc;
+  --ficha:      #fbfaf7;
+  --linea:      #cdcabd;
+  --acero:      #2f6f8f;   /* el acento: azul de plano */
+  --presion:    #1d6a4f;   /* comprime */
+  --succion:    #b4531a;   /* levanta · la que gobierna el galpón */
+  --alerta:     #8c2f39;
+  --suave:      #6b6f76;
+  --disp:       "IBM Plex Sans Condensed", "Arial Narrow", sans-serif;
+  --cuerpo:     "IBM Plex Sans", system-ui, sans-serif;
+  --cifra:      "IBM Plex Mono", ui-monospace, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --tinta: #e8e6df; --tinta-2: #b3b8c0; --papel: #14181d; --papel-2: #1c2128;
+    --ficha: #1a1f26; --linea: #343b45; --acero: #79b8d4;
+    --presion: #57c79a; --succion: #f0a35e; --alerta: #e58592; --suave: #8b929c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --tinta: #e8e6df; --tinta-2: #b3b8c0; --papel: #14181d; --papel-2: #1c2128;
+  --ficha: #1a1f26; --linea: #343b45; --acero: #79b8d4;
+  --presion: #57c79a; --succion: #f0a35e; --alerta: #e58592; --suave: #8b929c;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--papel); color: var(--tinta);
+  font-family: var(--cuerpo); font-size: 15px; line-height: 1.5;
+  padding-block: 0 48px;
+}
+.env { max-width: 1180px; margin: 0 auto; padding-inline: 16px; }
+
+header.tapa { border-bottom: 2px solid var(--tinta); padding-block: 22px 14px; }
+.marca { font-family: var(--disp); font-weight: 600; font-size: clamp(26px, 5vw, 40px);
+  letter-spacing: -0.01em; line-height: 1.05; text-wrap: balance; margin: 0; }
+.marca small { display: block; font-family: var(--cifra); font-size: 11px; font-weight: 400;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--acero); margin-bottom: 6px; }
+.bajada { margin: 10px 0 0; max-width: 62ch; color: var(--tinta-2); font-size: 14px; }
+.sellos { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.sello { font-family: var(--cifra); font-size: 10.5px; letter-spacing: 0.06em;
+  text-transform: uppercase; border: 1px solid var(--linea); border-radius: 2px;
+  padding: 3px 7px; color: var(--tinta-2); background: var(--ficha); }
+.sello b { color: var(--acero); font-weight: 600; }
+
+.reja { display: grid; grid-template-columns: 310px minmax(0, 1fr); gap: 26px; margin-top: 26px; }
+@media (max-width: 860px) { .reja { grid-template-columns: 1fr; gap: 20px; } }
+
+/* ---- columna de datos ---- */
+.datos { align-self: start; }
+@media (min-width: 861px) { .datos { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); } }
+fieldset { border: 1px solid var(--linea); border-radius: 3px; background: var(--ficha);
+  margin: 0 0 12px; padding: 12px 13px 14px; }
+legend { font-family: var(--disp); font-weight: 600; font-size: 13px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--acero); padding: 0 5px; }
+.par { display: grid; grid-template-columns: 1fr 96px; gap: 7px 9px; align-items: center;
+  margin-bottom: 7px; }
+.par:last-child { margin-bottom: 0; }
+.par label { font-size: 13px; color: var(--tinta-2); min-width: 0; }
+.par input, .par select { font-family: var(--cifra); font-size: 13px; width: 100%;
+  padding: 4px 5px; border: 1px solid var(--linea); border-radius: 2px;
+  background: var(--papel); color: var(--tinta); }
+.par.ancho { grid-template-columns: 1fr; }
+.par.ancho select { width: 100%; }
+.marca-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--tinta-2); }
+.marca-check input { width: auto; }
+input:focus-visible, select:focus-visible, button:focus-visible {
+  outline: 2px solid var(--acero); outline-offset: 1px; }
+
+/* ---- fichas de resultado ---- */
+.fichas { display: grid; gap: 16px; min-width: 0; }
+.ficha { border: 1px solid var(--linea); border-left: 3px solid var(--acero);
+  border-radius: 3px; background: var(--ficha); padding: 14px 15px 15px; min-width: 0; }
+.ficha > h2 { font-family: var(--disp); font-weight: 600; font-size: 17px; margin: 0 0 3px;
+  letter-spacing: 0.01em; }
+.ficha > .sub { font-family: var(--cifra); font-size: 10.5px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--suave); margin: 0 0 12px; }
+
+.lineas { display: grid; gap: 0; }
+.ln { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 12px;
+  padding: 7px 0; border-top: 1px solid var(--papel-2); align-items: baseline; }
+.ln:first-child { border-top: 0; }
+.ln .q { font-size: 13.5px; min-width: 0; }
+.ln .v { font-family: var(--cifra); font-size: 14px; font-variant-numeric: tabular-nums;
+  white-space: nowrap; font-weight: 500; }
+.ln .fte { grid-column: 1 / -1; font-size: 11.5px; color: var(--suave); }
+.ln .fte code { font-family: var(--cifra); font-size: 11px; }
+.pos { color: var(--presion); }
+.neg { color: var(--succion); }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.rueda { overflow-x: auto; }
+th, td { text-align: right; padding: 5px 7px; border-top: 1px solid var(--papel-2); }
+th { font-family: var(--cifra); font-size: 10.5px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--suave); font-weight: 500; border-top: 0; }
+th:first-child, td:first-child { text-align: left; }
+td.n { font-family: var(--cifra); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.dos { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+.dos > div { min-width: 0; }
+.dos h3 { font-family: var(--disp); font-size: 13px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--acero); margin: 0 0 6px; }
+ul.combs { list-style: none; margin: 0; padding: 0; }
+ul.combs li { font-family: var(--cifra); font-size: 12.5px; padding: 3.5px 0;
+  border-top: 1px solid var(--papel-2); display: flex; gap: 8px; }
+ul.combs li:first-child { border-top: 0; }
+ul.combs .id { color: var(--suave); min-width: 46px; }
+ul.combs li.fuera { color: var(--suave); text-decoration: line-through; }
+
+.aviso { border: 1px solid var(--alerta); border-left-width: 3px; border-radius: 3px;
+  background: var(--ficha); padding: 11px 13px; margin-top: 10px; }
+.aviso h3 { font-family: var(--disp); font-size: 13px; margin: 0 0 5px; color: var(--alerta);
+  letter-spacing: 0.04em; text-transform: uppercase; }
+.aviso pre { font-family: var(--cifra); font-size: 11.5px; white-space: pre-wrap;
+  margin: 0; color: var(--tinta-2); }
+
+.nota { border-top: 1px solid var(--linea); margin-top: 26px; padding-top: 14px;
+  font-size: 13px; color: var(--tinta-2); max-width: 70ch; }
+.nota strong { color: var(--tinta); }
+.nota code { font-family: var(--cifra); font-size: 12px; }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@400;600&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<div class="env">
+  <header class="tapa">
+    <h1 class="marca"><small>MEZAP · Galpón · etapa E2</small>Banco de cargas</h1>
+    <p class="bajada">Las cuatro piezas de cargas del complemento, corriendo de verdad sobre
+      un pórtico. Cambia un dato y se recalcula todo. Cada número trae debajo el artículo
+      de norma que lo autoriza, que es la regla del proyecto: ningún número sin fila en el
+      inventario.</p>
+    <div class="sellos" id="sellos"></div>
+  </header>
+
+  <div class="reja">
+    <form class="datos" id="f" autocomplete="off">
+      <fieldset>
+        <legend>Geometría</legend>
+        <div class="par"><label for="luz">Luz del pórtico (m)</label><input type="number" id="luz" value="20" step="0.5" min="1"></div>
+        <div class="par"><label for="sep">Separación entre pórticos (m)</label><input type="number" id="sep" value="6" step="0.5" min="1"></div>
+        <div class="par"><label for="hcol">Altura de columna (m)</label><input type="number" id="hcol" value="7" step="0.25" min="1"></div>
+        <div class="par"><label for="pend">Pendiente del techo (%)</label><input type="number" id="pend" value="20" step="1" min="0"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Cobertura</legend>
+        <div class="par ancho"><label for="esp">Espesor de la plancha TR-4</label>
+          <select id="esp">
+            <option value="0.35">0,35 – 0,40 mm</option>
+            <option value="0.45" selected>0,45 – 0,50 mm</option>
+            <option value="0.55">0,55 – 0,60 mm</option>
+            <option value="0.75">0,75 – 0,80 mm</option>
+            <option value="0.42">0,42 mm (fuera de rango)</option>
+          </select></div>
+        <div class="par"><label for="dotros">Otras cargas muertas (kgf/m²)</label><input type="number" id="dotros" value="5" step="1" min="0"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Nieve</legend>
+        <div class="par ancho"><label class="marca-check"><input type="checkbox" id="nieve"> En el sitio puede acumularse nieve</label></div>
+        <div class="par"><label for="qs">Qs del sitio (kgf/m²)</label><input type="number" id="qs" value="40" step="5" min="0"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Viento</legend>
+        <div class="par"><label for="vmapa">V del mapa eólico (km/h)</label><input type="number" id="vmapa" value="85" step="5" min="1"></div>
+        <div class="par ancho"><label for="abert">Aberturas · Tabla 5</label>
+          <select id="abert">
+            <option value="">— sin elegir —</option>
+            <option value="repartidas">Repartidas en barlovento y sotavento</option>
+            <option value="barlovento" selected>Portón principal a barlovento</option>
+            <option value="sotavento">Portón a sotavento o costados</option>
+          </select></div>
+        <div class="par ancho"><label for="tipoed">Tipo de edificación · Art. 12.2</label>
+          <select id="tipoed"><option value="1" selected>Tipo 1 · cerrada</option><option value="2">Tipo 2 · ×1,2</option><option value="3">Tipo 3 · análisis especial</option></select></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Sismo</legend>
+        <div class="par ancho"><label for="zona">Zona · Tabla 1</label>
+          <select id="zona"><option>Z4</option><option>Z3</option><option>Z2</option><option>Z1</option></select></div>
+        <div class="par ancho"><label for="suelo">Perfil de suelo · Tabla 3</label>
+          <select id="suelo"><option>S0</option><option>S1</option><option selected>S2</option><option>S3</option><option>S4</option></select></div>
+        <div class="par"><label for="vs30">V̄s30 medido (m/s, opcional)</label><input type="number" id="vs30" value="" step="10" min="0" placeholder="sin medir"></div>
+        <div class="par ancho"><label for="cat">Categoría · Tabla 7</label>
+          <select id="cat"><option value="C" selected>C · común (almacén)</option><option value="B">B · importante</option><option value="A">A · esencial / inflamables</option></select></div>
+        <div class="par ancho"><label for="sist">Sistema · Tabla 10</label>
+          <select id="sist">
+            <option value="pendulo" selected>Péndulo invertido · R₀ 2,5</option>
+            <option value="OMF">OMF · R₀ 4</option><option value="IMF">IMF · R₀ 5</option>
+            <option value="SMF">SMF · R₀ 8</option><option value="OCBF">OCBF · R₀ 4</option>
+            <option value="SCBF">SCBF · R₀ 7</option><option value="EBF">EBF · R₀ 8</option>
+          </select></div>
+        <div class="par ancho"><label for="reg">Regularidad · Art. 50</label>
+          <select id="reg"><option value="regular" selected>Regular · 0,75R</option><option value="irregular">Irregular · 0,85R</option></select></div>
+        <div class="par ancho"><label class="marca-check"><input type="checkbox" id="indus" checked> Uso industrial (deriva hasta el doble)</label></div>
+      </fieldset>
+    </form>
+
+    <div class="fichas" id="salida"></div>
+  </div>
+
+  <p class="nota"><strong>Qué es esto y qué no.</strong> Es la etapa <strong>E2</strong> del
+  complemento: cargas y combinaciones. No hay diseño de acero todavía —eso es E4— ni
+  solucionador de pórtico —E3—, así que aquí no se elige ningún perfil ni sale ningún
+  ratio demanda/capacidad. El peso propio de la estructura entra en E5, cuando haya
+  secciones que pesar; por eso la carga muerta de aquí es cobertura más lo que declares.
+  El área tributaria de un pórtico se toma como luz × separación, que es lo que carga el
+  pórtico plano de E3. Los mensajes en rojo no son errores de la página: son las guardas
+  del complemento negándose a calcular sin un dato que la norma exige.</p>
+</div>
+
+<script>
+/*__MODULOS__*/
+</script>
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const n = (id) => parseFloat($(id).value);
+  const RAD = Math.PI / 180;
+
+  function fmt(x, d) {
+    if (x === null || x === undefined || !isFinite(x)) return "—";
+    return x.toLocaleString("es-PE", { minimumFractionDigits: d, maximumFractionDigits: d });
+  }
+  function el(t, cls, txt) {
+    const e = document.createElement(t);
+    if (cls) e.className = cls;
+    if (txt !== undefined) e.textContent = txt;
+    return e;
+  }
+  function linea(cont, q, v, fte, clase) {
+    const d = el("div", "ln");
+    d.appendChild(el("span", "q", q));
+    d.appendChild(el("span", "v" + (clase ? " " + clase : ""), v));
+    if (fte) { const f = el("div", "fte"); f.appendChild(el("code", null, fte)); d.appendChild(f); }
+    cont.appendChild(d);
+    return d;
+  }
+  function ficha(titulo, sub) {
+    const f = el("div", "ficha");
+    f.appendChild(el("h2", null, titulo));
+    f.appendChild(el("p", "sub", sub));
+    return f;
+  }
+  function aviso(f, titulo, texto) {
+    const a = el("div", "aviso");
+    a.appendChild(el("h3", null, titulo));
+    a.appendChild(el("pre", null, texto));
+    f.appendChild(a);
+  }
+
+  function sellos() {
+    const c = $("sellos"); c.textContent = "";
+    const r = INVENTARIO.resumen();
+    const pares = [["Filas de inventario", r.total], ["Verificado", r.verificado],
+      ["Conflicto con decisión escrita", r.conflicto], ["Pendiente", r.pendiente]];
+    for (const [k, v] of pares) {
+      const s = el("span", "sello"); s.appendChild(document.createTextNode(k + " "));
+      s.appendChild(el("b", null, String(v))); c.appendChild(s);
+    }
+  }
+
+  function calcula() {
+    const out = $("salida"); out.textContent = "";
+    const luz = n("luz"), sep = n("sep"), hcol = n("hcol"), pend = n("pend");
+    const theta = Math.atan(pend / 100) / RAD;
+    const At = luz * sep;
+    const hcumbre = hcol + (luz / 2) * (pend / 100);
+
+    /* ---------- 1 · gravedad ---------- */
+    const f1 = ficha("Cargas de gravedad", "E.020 Art. 4 · 7 · 10 · 11");
+    const L1 = el("div", "lineas"); f1.appendChild(L1);
+    linea(L1, "Pendiente del techo", fmt(theta, 2) + "°", "arctan(" + pend + "/100)");
+    linea(L1, "Altura a la cumbre", fmt(hcumbre, 2) + " m");
+    linea(L1, "Área tributaria de un pórtico", fmt(At, 1) + " m²", "luz × separación");
+
+    let D = null, Lo = null;
+    try {
+      const cob = E020.pesoCobertura(parseFloat($("esp").value));
+      D = cob.peso_kgfm2 + n("dotros");
+      linea(L1, "Peso de la cobertura", fmt(cob.peso_kgfm2, 2) + " kgf/m²", cob.art);
+      linea(L1, "Carga muerta considerada", fmt(D, 2) + " kgf/m²", "cobertura + otras declaradas");
+    } catch (e) { aviso(f1, "La cobertura para el cálculo", e.message); }
+
+    const hayNieve = $("nieve").checked;
+    try {
+      const vt = E020.vivaTecho({ tipo: "liviana", hayNieve: hayNieve });
+      if (vt.Lo_kgfm2 === null) {
+        linea(L1, "Carga viva de techo", "la manda la nieve", vt.art);
+      } else {
+        Lo = vt.Lo_kgfm2;
+        linea(L1, "Carga viva de techo Lo", fmt(Lo, 0) + " kgf/m²", vt.art + " · " + vt.caso);
+        const rd = E020.reduceViva({ Lo_kgfm2: Lo, At_m2: At });
+        linea(L1, "Área de influencia Ai = k·At", fmt(rd.Ai_m2, 1) + " m²", "k = 1 · Tabla 3, tijerales de techos livianos");
+        linea(L1, "Carga viva reducida Lr", fmt(rd.Lr_kgfm2, 2) + " kgf/m²",
+          rd.reducido ? rd.art : rd.motivo);
+        if (rd.reducido) Lo = rd.Lr_kgfm2;
+      }
+    } catch (e) { aviso(f1, "La carga viva de techo", e.message); }
+
+    if (hayNieve) {
+      try {
+        const qt = E020.nieveQt({ Qs_kgfm2: n("qs"), theta_grad: theta });
+        linea(L1, "Nieve sobre el techo Qt", fmt(qt.Qt_kgfm2, 2) + " kgf/m²",
+          qt.art + " · " + qt.caso + " · sobre la " + qt.sobre);
+        const db = E020.nieveDesbalanceada({ Qt_kgfm2: qt.Qt_kgfm2, semiluz_m: luz / 2, theta_grad: theta });
+        if (db.aplica) {
+          linea(L1, "Desbalanceada · faldón cargado", fmt(db.faldonA_kgfm2, 2) + " kgf/m²", db.art + " · " + db.caso);
+          linea(L1, "Desbalanceada · faldón opuesto", fmt(db.faldonB_kgfm2, 2) + " kgf/m²",
+            "puede invertir el signo de las diagonales de la armadura");
+        } else {
+          linea(L1, "Nieve desbalanceada", "no aplica", db.motivo);
+        }
+        if (Lo === null) Lo = qt.Qt_kgfm2;
+      } catch (e) { aviso(f1, "La nieve", e.message); }
+    }
+    out.appendChild(f1);
+
+    /* ---------- 2 · viento ---------- */
+    const f2 = ficha("Viento", "E.020 Cap. 3 · Art. 12");
+    const L2 = el("div", "lineas"); f2.appendChild(L2);
+    const abert = $("abert").value, tipoed = parseInt($("tipoed").value, 10);
+    try {
+      const vel = VIENTO.velocidadDiseno({ V_kmh: n("vmapa"), h_m: hcumbre });
+      linea(L2, "Velocidad de diseño Vh", fmt(vel.Vh_kmh, 2) + " km/h",
+        vel.art + (vel.enMinimo ? " · el piso de 75 km/h manda" : ""));
+      const g = VIENTO.casos({ V_kmh: n("vmapa"), h_m: hcumbre, theta_grad: theta,
+        aberturas: abert, tipo: tipoed });
+      const t = el("table");
+      const hr = el("tr");
+      for (const h of ["Superficie", "Ce", "Ci", "C", "Ph (kgf/m²)"]) hr.appendChild(el("th", null, h));
+      const th = el("thead"); th.appendChild(hr); t.appendChild(th);
+      const tb = el("tbody");
+      for (const s of g.superficies) {
+        for (let i = 0; i < s.casos.length; i++) {
+          const c = s.casos[i], tr = el("tr");
+          tr.appendChild(el("td", null, i === 0 ? s.superficie : ""));
+          tr.appendChild(el("td", "n", fmt(c.Ce, 2)));
+          tr.appendChild(el("td", "n", fmt(c.Ci, 2)));
+          tr.appendChild(el("td", "n", fmt(c.C, 2)));
+          const td = el("td", "n " + (c.Ph_kgfm2 < 0 ? "neg" : "pos"), fmt(c.Ph_kgfm2, 1));
+          tr.appendChild(td); tb.appendChild(tr);
+        }
+      }
+      t.appendChild(tb);
+      const w = el("div", "rueda"); w.appendChild(t); f2.appendChild(w);
+      const p = el("p", "sub", "Verde comprime · naranja levanta. Las presiones y succiones exteriores se consideran SIMULTÁNEAS (Art. 12.1).");
+      p.style.marginTop = "10px"; p.style.textTransform = "none";
+      p.style.letterSpacing = "0"; p.style.fontFamily = "var(--cuerpo)";
+      p.style.fontSize = "12.5px";
+      f2.appendChild(p);
+    } catch (e) { aviso(f2, "El viento", e.message); }
+    out.appendChild(f2);
+
+    /* ---------- 3 · sismo ---------- */
+    const f3 = ficha("Sismo", "E.030-2026 Art. 17 · 18 · 22 · 31 · 34 · 50");
+    const L3 = el("div", "lineas"); f3.appendChild(L3);
+    const sist = $("sist").value;
+    let R = null;
+    try {
+      const vs = $("vs30").value === "" ? undefined : n("vs30");
+      const st = E030.sitio({ zona: $("zona").value, suelo: $("suelo").value, vs30_ms: vs });
+      linea(L3, "Factor de zona Z", fmt(st.Z, 2), "Tabla N° 1");
+      linea(L3, "Factor de suelo S", fmt(st.S, 3),
+        st.sinVs30 ? "sin V̄s30: mayor valor del intervalo · " + st.art : "interpolado · " + st.art);
+      linea(L3, "Períodos TP / TL", fmt(st.TP, 2) + " / " + fmt(st.TL, 2) + " s", "Tabla N° 5");
+      const u = E030.factorU($("cat").value);
+      linea(L3, "Factor de uso U", fmt(u.U, 2), u.art);
+      const per = E030.periodo({ tipo: sist === "pendulo" || sist === "OMF" || sist === "IMF" || sist === "SMF" ? "momento" : "arriostrado", hn_m: hcumbre });
+      linea(L3, "Período estimado T = hn/CT", fmt(per.T_s, 4) + " s", per.artCT + " · CT = " + per.CT +
+        (sist === "pendulo" ? " · OJO: un tijeral sobre columnas en voladizo no tiene unión resistente a momento en la cumbre, así que no encaja limpio en ninguna CT; el Art. 36.2 permite Rayleigh con los desplazamientos del modelo" : ""));
+      const ce = E030.factorCestatico({ T_s: per.T_s, TP: st.TP, TL: st.TL });
+      const cd = E030.factorC({ T_s: per.T_s, TP: st.TP, TL: st.TL });
+      linea(L3, "C del análisis ESTÁTICO", fmt(ce.C, 3), ce.art + " · " + ce.tramo);
+      linea(L3, "C del espectro, para comparar", fmt(cd.C, 3),
+        "Tabla N° 6 · " + cd.tramo + " · usarlo en el estático dejaría la fuerza en el " +
+        fmt(100 * cd.C / ce.C, 0) + " % de la que toca");
+      const r = sist === "pendulo" ? E030.coefR({ pendulo: true }) : E030.coefR({ sistema: sist, pendulo: false });
+      R = r.R;
+      linea(L3, "Coeficiente de reducción R", fmt(r.R, 2), r.art + " · " + r.sistema +
+        (r.exigeAISC341 ? " · exige el detallado del AISC 341" : ""));
+      if (D !== null && Lo !== null) {
+        const ps = E030.pesoSismico({ caso: "techo", D_kgf: D * At, L_kgf: Lo * At });
+        linea(L3, "Peso sísmico del pórtico P", fmt(ps.P_kgf, 0) + " kgf",
+          ps.art + " · D·At + 25 % de la viva de techo");
+        const V = E030.cortanteBasal({ zona: $("zona").value, suelo: $("suelo").value,
+          vs30_ms: vs, categoria: $("cat").value,
+          sistema: sist === "pendulo" ? undefined : sist, pendulo: sist === "pendulo",
+          T_s: per.T_s, P_kgf: ps.P_kgf });
+        linea(L3, "Cortante en la base V", fmt(V.V_kgf, 0) + " kgf",
+          V.art + " · C/R = " + fmt(V.CR_usado, 3) + (V.enMinimoCR ? " (el mínimo 0,11 manda)" : ""));
+      } else {
+        linea(L3, "Cortante en la base V", "—", "falta la carga muerta o la viva de techo");
+      }
+      const dr = E030.limiteDeriva({ material: "acero", industrial: $("indus").checked });
+      linea(L3, "Límite de deriva", fmt(dr.limite, 3), dr.art +
+        (dr.industrial ? " · tope industrial, el doble de la Tabla N° 14" : " · Tabla N° 14"));
+      const am = E030.desplazamientos({ regularidad: $("reg").value, R: R, delta_cm: [1] });
+      linea(L3, "Amplificación de desplazamientos", "× " + fmt(am.multiplicador, 2),
+        am.art + " · olvidarlo dividiría la deriva por " + fmt(am.multiplicador, 2));
+    } catch (e) { aviso(f3, "El sismo", e.message); }
+    out.appendChild(f3);
+
+    /* ---------- 4 · combinaciones ---------- */
+    const f4 = ficha("Combinaciones", "E.090 §1.4.1 para el acero · E.060 §9.2 para la cimentación");
+    const casos = { D: true, Lr: !hayNieve, S: hayNieve, W: true, E: true };
+    try {
+      const ac = COMBINACIONES.paraAcero({ casos: casos });
+      const co = COMBINACIONES.paraConcreto({ casos: casos });
+      const dos = el("div", "dos");
+
+      const ca = el("div"); ca.appendChild(el("h3", null, "Acero · E.090"));
+      const ua = el("ul", "combs");
+      for (const c of ac.combinaciones) {
+        const li = el("li"); li.appendChild(el("span", "id", c.id));
+        li.appendChild(el("span", null, c.texto)); ua.appendChild(li);
+      }
+      for (const c of ac.descartadas) {
+        const li = el("li", "fuera"); li.appendChild(el("span", "id", c.id));
+        li.appendChild(el("span", null, c.texto)); ua.appendChild(li);
+      }
+      ca.appendChild(ua); dos.appendChild(ca);
+
+      const cc = el("div"); cc.appendChild(el("h3", null, "Concreto · E.060"));
+      const uc = el("ul", "combs");
+      for (const c of co.combinaciones) {
+        const li = el("li"); li.appendChild(el("span", "id", c.id));
+        li.appendChild(el("span", null, c.texto)); uc.appendChild(li);
+      }
+      cc.appendChild(uc); dos.appendChild(cc);
+      f4.appendChild(dos);
+
+      const L4 = el("div", "lineas"); L4.style.marginTop = "12px"; f4.appendChild(L4);
+      if (ac.descartadas.length) {
+        linea(L4, "Descartadas por la exención", String(ac.descartadas.length) + " combinaciones",
+          ac.descartadas[0].motivo + " · es permisiva, no prohibitiva");
+      }
+      const tr = Object.keys(co.traduccion).map((k) => k + " ← " + co.traduccion[k].join(", ")).join("  ·  ");
+      linea(L4, "Traducción de casos al lado del concreto", "", tr);
+      if (hayNieve) {
+        linea(L4, "La nieve en el concreto", "es carga viva",
+          "E.060 §9.2.8 · deja de ser un caso propio y se lleva el 1,7 de la Ec. 9-1");
+      }
+    } catch (e) { aviso(f4, "Las combinaciones", e.message); }
+    out.appendChild(f4);
+  }
+
+  sellos();
+  calcula();
+  $("f").addEventListener("input", calcula);
+  $("f").addEventListener("change", calcula);
+})();
+</script>

@@ -34,3 +34,6 @@ desktop.ini
 
 # --- AJUSTES LOCALES DE ESTA MAQUINA ---
 .claude/settings.local.json
+
+# El visor es GENERADO por scripts/gen_visor.py, igual que inventario.html.
+visor/galpon-visor.html
