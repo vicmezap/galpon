@@ -1,6 +1,11 @@
 /* =====================================================================
    probar_acero.js — AISC Capítulo D · tracción
 
+   Las pruebas de acero.js van POR CAPÍTULO, porque el módulo cubre cinco y
+   un archivo con todo dentro deja de leerse:
+       probar_acero.js              · Cap. D · tracción   ← este
+       probar_acero_compresion.js   · Cap. E · compresión
+
    Lo que se comprueba aquí, por orden de importancia:
 
      1) LAS DOS DIVERGENCIAS CON LA E.090, medidas. El factor U y el bloque

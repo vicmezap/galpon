@@ -7,8 +7,8 @@
    decidir qué cambiar de la sección.
 
    ORGANIZADO POR CAPÍTULO, en el orden del AISC:
-       D · tracción            ← esta entrega
-       E · compresión
+       D · tracción
+       E · compresión          ← hasta aquí
        F · flexión
        G · corte
        H · fuerzas combinadas
@@ -46,7 +46,12 @@
     "T.An.agujero", "T.An.zigzag",
     "T.bloque.aisc", "T.bloque.Ubs", "T.bloque.divergencia",
     "T.rotura.corte", "T.rotura.trac",
-    "T.esbeltez", "T.varillas", "T.varillas.Rn", "T.varillas.Ab", "T.varillas.manda"
+    "T.esbeltez", "T.varillas", "T.varillas.Rn", "T.varillas.Ab", "T.varillas.manda",
+    "C.Pn", "C.phi", "C.Fn.a", "C.Fn.b", "C.Fe", "C.Lc", "C.esbeltez",
+    "C.identicas", "C.nomenclatura", "C.estados", "C.Fn.frontera",
+    "C.B4a", "C.B4a.c1", "C.B4a.c2", "C.B4a.c3", "C.B4a.c4", "C.B4a.c5",
+    "C.B4a.c6", "C.B4a.c7", "C.B4a.c8", "C.B4a.c9",
+    "C.E5", "C.E5.cond", "C.E5.a1", "C.E5.a2", "C.E5.b", "C.E5.divergencia"
   ]);
 
   /* ---------- materiales ------------------------------------------------ */
@@ -360,10 +365,321 @@
     return out;
   }
 
+  /* =====================================================================
+     CAPÍTULO E · COMPRESIÓN
+
+     LA DIVERGENCIA MÁS CARA DEL PROYECTO ESTÁ AQUÍ, y es un solo número:
+     φc = 0,90 en el AISC contra 0,85 en la E.090.  Un 5,9 % en la
+     resistencia de diseño de TODA columna, diagonal y montante en
+     compresión.  Es la más fácil de pasar por alto porque no es una fórmula,
+     es una constante (fila C.phi).
+
+     Y UN HALLAZGO QUE AHORRA TRABAJO · las CURVAS son idénticas.  La E.090
+     escribe λc = (Kl/rπ)·√(Fy/E) y da Fcr = (0,658^λc²)·Fy hasta λc = 1,5 y
+     Fcr = (0,877/λc²)·Fy después.  Pero λc² = Fy/Fe exactamente, λc = 1,5
+     equivale a Fy/Fe = 2,25, y (0,877/λc²)·Fy = 0,877·Fe.  Es la MISMA curva
+     con otra notación (fila C.identicas), y la prueba lo comprueba
+     numéricamente en todo el rango en vez de creérselo.
+     ===================================================================== */
+
+  const PHI_C = 0.90;            /* E1 · fila C.phi */
+  const PHI_C_E090 = 0.85;       /* E.090 §5.2.1 · la divergencia */
+  const ESBELTEZ_COMPRESION = 200;   /* E2 User Note · fila C.esbeltez */
+  const FY_FE_LIMITE = 2.25;     /* E3 · la frontera entre las dos ramas */
+
+  /* ---------- Tabla B4.1a · λr en COMPRESIÓN ---------------------------- */
+  /* NO SON LOS λr DE FLEXIÓN, y confundirlos es el error fácil: el ala de una
+     I laminada tiene λr = 0,56·√(E/Fy) aquí y 1,0·√(E/Fy) en flexión, casi el
+     doble.  En compresión no existe «compacta»: solo esbelta o no esbelta,
+     porque no hay redistribución plástica que aprovechar. */
+  const B4A = {
+    1: { coef: 0.56, raiz: true,  art: "C.B4a.c1",
+         que: "alas de I laminada, canales, tes, y lados salientes de 2L en contacto continuo" },
+    2: { coef: 0.64, raiz: true,  art: "C.B4a.c2", conKc: true,
+         que: "alas de I armada y planchas o lados de ángulo que salen de ella" },
+    3: { coef: 0.45, raiz: true,  art: "C.B4a.c3",
+         que: "lados de ángulo simple, de 2L con separadores, y todo lo demás no atiesado" },
+    4: { coef: 0.75, raiz: true,  art: "C.B4a.c4", que: "almas de tes" },
+    5: { coef: 1.49, raiz: true,  art: "C.B4a.c5",
+         que: "almas de I de doble simetría y de canales" },
+    6: { coef: 1.40, raiz: true,  art: "C.B4a.c6", que: "paredes de HSS rectangular" },
+    7: { coef: 1.40, raiz: true,  art: "C.B4a.c7", que: "planchas de cubrejunta" },
+    8: { coef: 1.49, raiz: true,  art: "C.B4a.c8", que: "todos los demás elementos atiesados" },
+    9: { coef: 0.11, raiz: false, art: "C.B4a.c9", que: "HSS redondo" }
+  };
+
+  function lambdaR(d) {
+    const c = B4A[d.caso];
+    if (!c) {
+      throw new Error(
+        "acero: el caso de la Tabla B4.1a es 1 a 9, no «" + d.caso + "».\n" +
+        "  OJO: son los casos de COMPRESIÓN. Los λr de flexión (Tabla B4.1b,\n" +
+        "  filas F.B4.*) son otros números y más altos: usarlos aquí da una\n" +
+        "  sección «no esbelta» que sí lo es.");
+    }
+    const Fy = d.Fy_kgcm2;
+    if (!(Fy > 0)) throw new Error("acero: lambdaR() necesita Fy_kgcm2 > 0");
+    let coef = c.coef;
+    if (c.conKc) {
+      const htw = d.h_tw;
+      if (!(htw > 0)) {
+        throw new Error("acero: el caso 2 necesita h_tw para calcular kc = 4/√(h/tw)");
+      }
+      const kc = Math.min(0.76, Math.max(0.35, 4 / Math.sqrt(htw)));
+      return { lambdaR: coef * Math.sqrt(kc * E_ACERO / Fy), kc: kc,
+        caso: d.caso, que: c.que, art: ART[c.art] };
+    }
+    const v = c.raiz ? coef * Math.sqrt(E_ACERO / Fy) : coef * (E_ACERO / Fy);
+    return { lambdaR: v, caso: d.caso, que: c.que, art: ART[c.art],
+      nota: c.raiz ? undefined : "este caso NO lleva raíz: es E/Fy directo" };
+  }
+
+  /* ¿Tiene la sección algún elemento esbelto?  Se le pasan los elementos con
+     su razón ancho/espesor y su caso de la tabla. */
+  function esbeltezLocal(d) {
+    const Fy = d.Fy_kgcm2;
+    const els = d.elementos || [];
+    if (!els.length) {
+      throw new Error(
+        "acero: esbeltezLocal() necesita los elementos de la sección con su razón\n" +
+        "  ancho/espesor y su caso de la Tabla B4.1a:\n" +
+        "    elementos: [{ nombre: \"ala\", razon: 8.5, caso: 1 }, ...]\n" +
+        "  Sin esto no se puede saber si la sección es esbelta, y una sección\n" +
+        "  esbelta calculada por E3 sale del lado INSEGURO: hay que ir al E7.");
+    }
+    const detalle = els.map((e) => {
+      const lr = lambdaR({ caso: e.caso, Fy_kgcm2: Fy, h_tw: e.h_tw });
+      return { nombre: e.nombre, razon: e.razon, lambdaR: lr.lambdaR,
+        esbelto: e.razon > lr.lambdaR, caso: e.caso, art: lr.art };
+    });
+    const esbeltos = detalle.filter((x) => x.esbelto);
+    return {
+      hayEsbeltos: esbeltos.length > 0,
+      esbeltos: esbeltos.map((x) => x.nombre),
+      detalle: detalle, art: ART["C.B4a"],
+      nota: esbeltos.length
+        ? "hay elementos esbeltos: la resistencia se determina por el E7 (anchos " +
+          "efectivos), no por el E3. Calcularla por E3 sale del lado inseguro."
+        : "ningún elemento esbelto: el E3 aplica tal cual"
+    };
+  }
+
+  /* ---------- E3 · pandeo por flexión ---------------------------------- */
+  function Fe(d) {
+    const lr = d.lr;
+    if (!(lr > 0)) {
+      throw new Error("acero: Fe() necesita lr = Lc/r > 0");
+    }
+    return { Fe_kgcm2: Math.PI * Math.PI * E_ACERO / (lr * lr), lr: lr, art: ART["C.Fe"] };
+  }
+
+  function Fn(d) {
+    const Fy = d.Fy_kgcm2, fe = d.Fe_kgcm2;
+    if (!(Fy > 0)) throw new Error("acero: Fn() necesita Fy_kgcm2 > 0");
+    if (!(fe > 0)) throw new Error("acero: Fn() necesita Fe_kgcm2 > 0");
+    const razon = Fy / fe;
+    if (razon <= FY_FE_LIMITE) {
+      return { Fn_kgcm2: Math.pow(0.658, razon) * Fy, razon: razon,
+        tramo: "inelástico · Fy/Fe ≤ 2,25", art: ART["C.Fn.a"] };
+    }
+    /* El 0,877 castiga la imperfección inicial: ni en el rango elástico se
+       alcanza el Euler teórico. */
+    return { Fn_kgcm2: 0.877 * fe, razon: razon,
+      tramo: "elástico · Fy/Fe > 2,25", art: ART["C.Fn.b"],
+      nota: "el 0,877 castiga la imperfección inicial" };
+  }
+
+  /* La frontera escrita de la otra forma: Lc/r = 4,71·√(E/Fy).  Es la MISMA
+     frontera que Fy/Fe = 2,25, y comprobarlo es una identidad que la prueba
+     verifica en vez de aceptarla. */
+  function lrFrontera(Fy) {
+    return 4.71 * Math.sqrt(E_ACERO / Fy);
+  }
+
+  /* Fn escrito como lo escribe la E.090, con λc.  NO es otra curva: existe
+     solo para demostrar que es la misma (fila C.identicas). */
+  function FnE090(d) {
+    const Fy = d.Fy_kgcm2, lr = d.lr;
+    const lambdaC = (lr / Math.PI) * Math.sqrt(Fy / E_ACERO);
+    const Fcr = (lambdaC <= 1.5)
+      ? Math.pow(0.658, lambdaC * lambdaC) * Fy
+      : (0.877 / (lambdaC * lambdaC)) * Fy;
+    return { Fcr_kgcm2: Fcr, lambdaC: lambdaC, art: ART["C.identicas"],
+      nota: "λc² = Fy/Fe exactamente, y λc = 1,5 ↔ Fy/Fe = 2,25: es la misma curva" };
+  }
+
+  function compresion(d) {
+    const mat = (typeof d.acero === "string") ? material(d.acero)
+      : { Fy: d.Fy_kgcm2, Fu: d.Fu_kgcm2 };
+    const Ag = d.Ag_cm2;
+    if (!(Ag > 0)) throw new Error("acero: compresion() necesita Ag_cm2 > 0");
+    const Lc = d.Lc_cm, r = d.r_cm;
+    if (!(Lc > 0)) throw new Error("acero: compresion() necesita Lc_cm > 0 (la longitud efectiva)");
+    if (!(r > 0)) throw new Error("acero: compresion() necesita r_cm > 0 (el radio de giro que gobierna)");
+
+    /* LA SECCIÓN TIENE QUE DECLARARSE NO ESBELTA, o dar sus elementos para
+       comprobarlo.  Una sección esbelta calculada por E3 sale del lado
+       inseguro, y el descuido no lo delata ningún resultado. */
+    let local = null;
+    if (d.elementos) {
+      local = esbeltezLocal({ Fy_kgcm2: mat.Fy, elementos: d.elementos });
+      if (local.hayEsbeltos) {
+        throw new Error(
+          "acero: la sección tiene elementos esbeltos (" + local.esbeltos.join(", ") + ")\n" +
+          "  y su resistencia se determina por el E7, con anchos efectivos, no por\n" +
+          "  el E3. Calcularla por E3 la sobrestima.\n" +
+          "  Con A36 el límite de un lado de ángulo simple es b/t = 12,8, así que un\n" +
+          "  L 2\"x2\"x1/8\" ya es esbelto: pasa a menudo en armaduras ligeras.");
+      }
+    } else if (d.noEsbelta !== true) {
+      throw new Error(
+        "acero: hay que decir si la sección tiene elementos esbeltos.\n" +
+        "  O se pasan los elementos para comprobarlo:\n" +
+        "    elementos: [{ nombre: \"lado\", razon: 10.7, caso: 3 }]\n" +
+        "  o se declara noEsbelta: true bajo la responsabilidad de quien llama.\n" +
+        "  No es un trámite: una sección esbelta por E3 sale del lado inseguro y\n" +
+        "  el resultado parece perfectamente razonable.");
+    }
+
+    const lr = Lc / r;
+    const fe = Fe({ lr: lr });
+    const fn = Fn({ Fy_kgcm2: mat.Fy, Fe_kgcm2: fe.Fe_kgcm2 });
+    const Pn = fn.Fn_kgcm2 * Ag;
+
+    const out = {
+      Pn_kgf: Pn, phi: PHI_C, Pd_kgf: PHI_C * Pn,
+      Fn_kgcm2: fn.Fn_kgcm2, Fe_kgcm2: fe.Fe_kgcm2, lr: lr,
+      tramo: fn.tramo, razonFyFe: fn.razon,
+      lrFrontera: lrFrontera(mat.Fy),
+      Ag_cm2: Ag, Fy_kgcm2: mat.Fy,
+      esbeltezLocal: local,
+      art: ART["C.Pn"], artFn: fn.art, artFe: ART["C.Fe"],
+      /* LA DIVERGENCIA · fila C.phi.  Un solo número, el más caro. */
+      phi_E090: PHI_C_E090, Pd_E090_kgf: PHI_C_E090 * Pn,
+      artPhi: ART["C.phi"],
+      notaPhi: "φc = 0,90 en el AISC contra 0,85 en la E.090: un 5,9 % en TODA " +
+        "columna y diagonal en compresión. Manda el AISC 360-22.",
+      /* El símbolo cambió de nombre en el 360-22 · fila C.nomenclatura */
+      notaNombre: "el 360-22 llama Fn a lo que el 360-16, la E.090, Zapata y " +
+        "McCormac llaman Fcr. Es solo nombre, pero confunde al comparar."
+    };
+    if (d.Pu_kgf !== undefined) {
+      if (!(d.Pu_kgf >= 0)) throw new Error("acero: Pu_kgf tiene que ser ≥ 0");
+      out.Pu_kgf = d.Pu_kgf;
+      out.ratio = d.Pu_kgf / out.Pd_kgf;
+      out.cumple = out.ratio <= 1 + 1e-12;
+      out.ratio_E090 = d.Pu_kgf / out.Pd_E090_kgf;
+    }
+    return out;
+  }
+
+  /* ---------- esbeltez en compresión · E2 User Note -------------------- */
+  /* CORRECCIÓN A LO QUE DIJE UNA VEZ: afirmé que el 360-22 había eliminado el
+     límite de 200.  No es cierto, está en la User Note de E2, y la E.090 §2.7
+     dice lo mismo.  Las dos son RECOMENDACIONES y coinciden (fila C.esbeltez).
+     Donde SÍ es requisito duro es en el E5, para poder usar su esbeltez
+     efectiva (fila C.E5.cond). */
+  function esbeltezCompresion(d) {
+    const Lc = d.Lc_cm, r = d.r_cm;
+    if (!(Lc > 0) || !(r > 0)) throw new Error("acero: esbeltezCompresion() necesita Lc_cm y r_cm");
+    const lr = Lc / r;
+    return {
+      lr: lr, limite: ESBELTEZ_COMPRESION, pasa: lr <= ESBELTEZ_COMPRESION,
+      esRechazo: false, art: ART["C.esbeltez"],
+      nota: "las dos normas lo dicen como recomendación y coinciden en 200. " +
+            "En el E5 sí es requisito duro."
+    };
+  }
+
+  /* ---------- E5 · el ángulo simple ------------------------------------ */
+  /* EL ARTÍCULO QUE HACE MANEJABLE EL TIJERAL.  Una diagonal de ángulo se
+     conecta por un solo lado, o sea con excentricidad: en rigor es
+     flexo-compresión del Cap. H.  El E5 permite tratarla como cargada
+     axialmente si se usa su esbeltez EFECTIVA y se cumplen cinco
+     condiciones.  La E.090 no legisla el caso: lo delega en el AISC
+     (fila C.E5.divergencia), así que usar E5 es justo lo que manda. */
+  const E5_CONDICIONES = [
+    "carga aplicada por el mismo lado en los dos extremos",
+    "soldado, o con dos pernos como mínimo",
+    "sin cargas transversales intermedias",
+    "Lc/r ≤ 200 (aquí SÍ es requisito duro)",
+    "si los lados son desiguales, bl/bs < 1,7"
+  ];
+
+  function anguloSimpleE5(d) {
+    const L = d.L_cm, ra = d.ra_cm;
+    if (!(L > 0)) throw new Error("acero: anguloSimpleE5() necesita L_cm > 0");
+    if (!(ra > 0)) {
+      throw new Error(
+        "acero: anguloSimpleE5() necesita ra_cm, el radio de giro respecto al eje\n" +
+        "  GEOMÉTRICO paralelo al lado conectado. No es rz ni rmin: es rx o ry.");
+    }
+    /* Las cinco condiciones · fila C.E5.cond.  Si no se cumplen hay que ir al
+       Cap. H como flexo-compresión, y decirlo es mejor que dar un número. */
+    if (d.condiciones !== true) {
+      throw new Error(
+        "acero: el E5 solo vale si se cumplen sus cinco condiciones:\n" +
+        E5_CONDICIONES.map((c, i) => "    (" + (i + 1) + ") " + c).join("\n") + "\n" +
+        "  Pásalas como condiciones: true cuando estén comprobadas. Si alguna\n" +
+        "  falla, la diagonal es un elemento a FLEXO-COMPRESIÓN del Cap. H y no\n" +
+        "  se puede tratar como cargada axialmente.");
+    }
+
+    const espacial = d.espacial === true;
+    const Lra = L / ra;
+    let lr, tramo, art;
+    if (!espacial) {
+      if (Lra <= 80) { lr = 72 + 0.75 * Lra; tramo = "armadura plana · L/ra ≤ 80"; }
+      else { lr = 32 + 1.25 * Lra; tramo = "armadura plana · L/ra > 80"; }
+      art = ART["C.E5.a1"];
+    } else {
+      if (Lra <= 75) { lr = 60 + 0.8 * Lra; tramo = "armadura espacial · L/ra ≤ 75"; }
+      else { lr = 45 + Lra; tramo = "armadura espacial · L/ra > 75"; }
+      art = ART["C.E5.b"];
+    }
+
+    /* Conectado por el LADO CORTO: se suma un término y hay un piso sobre rz. */
+    let porLadoCorto = null;
+    if (d.porLadoCorto === true) {
+      const bl = d.bl_cm, bs = d.bs_cm, rz = d.rz_cm;
+      if (!(bl > 0) || !(bs > 0)) {
+        throw new Error("acero: conectado por el lado corto hacen falta bl_cm y bs_cm");
+      }
+      if (!(rz > 0)) throw new Error("acero: conectado por el lado corto hace falta rz_cm");
+      const razon = bl / bs;
+      if (razon >= 1.7) {
+        throw new Error(
+          "acero: bl/bs = " + razon.toFixed(2) + " ≥ 1,7 y la condición (5) del E5 lo\n" +
+          "  prohíbe. Con lados tan desiguales hay que ir al Cap. H.");
+      }
+      const suma = espacial ? 6 * (razon * razon - 1) : 4 * (razon * razon - 1);
+      const piso = (espacial ? 0.82 : 0.95) * (L / rz);
+      const antes = lr;
+      lr = Math.max(lr + suma, piso);
+      porLadoCorto = { suma: suma, piso: piso, antes: antes,
+        art: espacial ? ART["C.E5.b"] : ART["C.E5.a2"],
+        enPiso: antes + suma < piso };
+    }
+
+    return {
+      lr: lr, Lra: Lra, tramo: tramo, espacial: espacial,
+      porLadoCorto: porLadoCorto,
+      art: art, artCond: ART["C.E5.cond"], artE5: ART["C.E5"],
+      artDivergencia: ART["C.E5.divergencia"],
+      cumpleEsbeltez: lr <= ESBELTEZ_COMPRESION,
+      nota: "esbeltez EFECTIVA: incluye el efecto de la excentricidad, así que la " +
+            "diagonal se trata como cargada axialmente. La E.090 no legisla el caso " +
+            "y remite al AISC: usar E5 es lo que manda."
+    };
+  }
+
   return {
     ART, ACEROS, E_ACERO, PHI, CASOS_U, ESBELTEZ_TRACCION,
     FNT_ROSCADA, PHI_ROSCADA,
+    PHI_C, PHI_C_E090, ESBELTEZ_COMPRESION, FY_FE_LIMITE, B4A, E5_CONDICIONES,
     material, areaNeta, factorU, traccion, bloqueCortante,
-    esbeltezTraccion, varillaRoscada
+    esbeltezTraccion, varillaRoscada,
+    lambdaR, esbeltezLocal, Fe, Fn, FnE090, lrFrontera,
+    compresion, esbeltezCompresion, anguloSimpleE5
   };
 });
