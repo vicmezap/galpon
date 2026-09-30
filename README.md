@@ -21,17 +21,23 @@ No es una buena intención: está en `src/inventario.js` y la comprueba
 `pruebas/probar_inventario.js`. Pedir una magnitud que no existe **lanza**, no
 devuelve `undefined`. Un conflicto sin decisión escrita rompe la prueba.
 
-El inventario son **293 filas en `inventario/*.json`**, una por cada número,
+El inventario son **301 filas en `inventario/*.json`**, una por cada número,
 fórmula, límite y criterio que el complemento calcula, con su artículo de norma
 o su página de libro:
 
 ```
-254 verificado   ·   10 adoptado   ·   27 conflicto   ·   0 criterio propio   ·   2 pendiente
+261 verificado   ·   10 adoptado   ·   29 conflicto   ·   0 criterio propio   ·   1 pendiente
 ```
 
 *Verificado* = leído en el texto original. *Adoptado* = fuente reconocida pero
 no normativa, citada. *Conflicto* = dos normas discrepan y la decisión está
 escrita. *Pendiente* = falta el documento.
+
+El único pendiente es **`J.anclaje.concreto`**: las ecuaciones del lado del
+concreto del perno de anclaje viven en el ACI 318 Cap. 17, que es una norma de
+pago y no está en la carpeta. No se transcribe de segunda mano. La lista de
+pendientes está **fijada por nombre en la prueba**: cerrar uno es una línea
+menos ahí, y abrir uno nuevo sale en rojo.
 
 ---
 
@@ -85,7 +91,7 @@ src/
   proyecto.js      guardar y abrir el proyecto .json
   bundle.js        alDiaOMuere() · ¿estoy probando lo que acabo de escribir?
 inventario/
-  *.json           las 293 filas, diez secciones
+  *.json           las 301 filas, diez secciones
 pruebas/
   correr.js        el runner
   _comun.js        comp · cerca · cierto · lanza · fin

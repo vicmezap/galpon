@@ -61,6 +61,35 @@ for (const id of INV.ids()) {
 }
 comp("todo conflicto tiene su decisión escrita", sinDecision, 0);
 
+/* ---------- LOS HUECOS CONOCIDOS, FIJADOS POR NOMBRE -------------------
+   Un «pendiente» es un agujero declarado: falta el documento y por eso el
+   número no entra. Se fija la lista, como se fijan las cinco filas de
+   espesor malo del AISC, porque las dos formas de que esto se pudra son
+   silenciosas: que aparezca un pendiente nuevo y nadie lo note, o que
+   alguien cierre uno rellenando el hueco de segunda mano.
+
+   Cerrar uno de estos es una LINEA MENOS aquí, y tiene que ser deliberado.
+
+   J.anclaje.concreto · ACI 318 Cap. 17 es una norma de pago y no está en la
+   carpeta. Faltan SOLO las ecuaciones del lado del concreto: el requisito
+   (E.060 15.8.3.3) y el refuerzo (E.060 7.10.5.6) sí están leídos. */
+const PENDIENTES_CONOCIDOS = ["J.anclaje.concreto"];
+const pendientes = INV.ids().filter((id) => INV.fila(id).estado === "pendiente").sort();
+comp("los pendientes son exactamente los conocidos", pendientes,
+  PENDIENTES_CONOCIDOS.slice().sort());
+
+/* Un pendiente sin nota no sirve de nada: hay que saber qué falta y qué
+   bloquea, o dentro de un mes nadie se acuerda de por qué está ahí. */
+for (const id of pendientes) {
+  cierto("el pendiente " + id + " dice qué falta y qué bloquea",
+    /falta|FALTA/.test(INV.fila(id).nota || "") &&
+    /BLOQUEA|bloquea/.test(INV.fila(id).nota || ""));
+}
+
+/* «sin_fuente» es peor que pendiente: es un número SIN procedencia. Cero. */
+comp("ninguna fila sin fuente",
+  INV.ids().filter((id) => INV.fila(id).estado === "sin_fuente").length, 0);
+
 /* ---------- las filas que el resto del proyecto va a necesitar -------- */
 /* Si alguna de estas desaparece del inventario, esta prueba avisa antes de
    que el módulo que la use falle en mitad de un cálculo. */
