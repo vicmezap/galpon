@@ -120,7 +120,7 @@
       "id": "CAT.aisc",
       "grupo": "Catálogos",
       "magnitud": "AISC Shapes Database v13",
-      "valor": "7 hojas · ~1250 perfiles",
+      "valor": "7 hojas · 1575 perfiles",
       "unidad": "—",
       "estado": "verificado",
       "editable": false,
@@ -132,12 +132,13 @@
       "id": "CAT.precor",
       "grupo": "Catálogos",
       "magnitud": "Precor · perfiles conformados en frío",
-      "valor": "8 familias",
+      "valor": "442 perfiles · 8 familias · 114 grupos",
       "unidad": "—",
       "estado": "verificado",
       "editable": false,
       "fuente": "TablaPrecorSections.pdf, 15 páginas (PREDIMENSIONAMIENTO/)",
-      "nota": "L · U · C · Z · TC · IC · TU · IU. Métrico. Espesores 2,0 / 2,5 / 3,0 / 4,5 mm: TODAS conformadas en frío → requieren AISI S100. Se digitalizan ya y entran marcadas «en espera» hasta la fase 2."
+      "nota": "DIGITALIZADO Y VERIFICADO, todo en estado «espera». L 29 · U 63 · C 63 · Z 63 · TC 56 · IC 56 · TU 56 · IU 56. Métrico, ya en el sistema canónico. Espesores 2,0 / 2,5 / 3,0 / 4,5 mm; de los 114 grupos, 10 no traen los cuatro y es del catálogo, no de la extracción: los ángulos grandes no vienen en 2,0-2,5 y las secciones chicas no vienen en 4,5 (114x4 = 456, menos 14 = 442). SEIS FORMATOS DE COLUMNA distintos, uno por tipo: el ángulo trae rz y alfa, la zeta trae Ixy, el canal trae el centro de corte eo, los compuestos ninguno de los tres. Un solo molde habria metido valores en la columna equivocada sin que nada avisara. LA DESIGNACION SE ARRASTRA -la tabla la escribe una vez por grupo y luego lista una fila por espesor- Y AHI FALLO DOS VECES: la cabecera de las paginas de C/TC/IC/TU/IU trae len(cols)+1 campos, asi que «Designacion» paso por designacion y 52 perfiles se llamaron asi; y la designacion viene en su propia linea uno o dos pt encima de los datos en unas paginas y en linea con ellos en otras, asi que nueve grupos de IU heredaron el nombre del grupo de al lado. CORREGIDO anclando la fila por la derecha -los datos son siempre los ultimos len(cols) campos y siempre numeros- y aceptando la designacion suelta. GUARDA: el importador PARA sin escribir si una designacion se repite, porque aqui el nombre SI es clave unica (designacion mas espesor), al contrario que en la serie soldada. Se comprueban rx = raiz(Ix/A), ry = raiz(Iy/A) y peso = A*gamma en las 442; las de doble simetria no aplican porque un conformado no la tiene. TODAS conformadas en frio -las gobierna la AISI S100, fase 2-, asi que entran al catalogo, se ven y se consultan, y paraCalcular() PARA con ellas.",
+      "clave": true
     },
     {
       "id": "CAT.soldados",
@@ -288,7 +289,19 @@
       "editable": false,
       "clave": true,
       "fuente": "ABNT NBR 5884 · verificado en el catálogo FAM",
-      "nota": "SALIO DE UNA PRUEBA EN ROJO. La NBR 5884 designa por peralte y peso -VS400x32 son 400 mm y unos 32 kg/m- y dos geometrias distintas pueden redondear al mismo peso: una con ala de 8 mm x 140 y otra de 6,3 x 180. El catalogo lista las dos y tiene razon: son dos perfiles. CONSECUENCIA: cada perfil lleva un `id` propio y busca() NO elige por su cuenta cuando hay colision: lanza con las dos opciones y sus dimensiones. Devolver una de dos secciones distintas en silencio es de las peores cosas que puede hacer un catalogo."
+      "nota": "SALIO DE UNA PRUEBA EN ROJO. La NBR 5884 designa por peralte y peso -VS400x32 son 400 mm y unos 32 kg/m- y dos geometrias distintas pueden redondear al mismo peso: una con ala de 8 mm x 140 y otra de 6,3 x 180. El catalogo lista las dos y tiene razon: son dos perfiles. CONSECUENCIA: cada perfil lleva un `id` propio y busca() NO elige por su cuenta cuando hay colision: lanza con las dos opciones y sus dimensiones. Devolver una de dos secciones distintas en silencio es de las peores cosas que puede hacer un catalogo. EL DISCRIMINADOR NO ES UN CAMPO FIJO: era bf_cm, que no existe en un angulo ni en un canal Precor -las ocho familias conformadas habrian colapsado todas a «bf0», o sea a ningun id-. Ahora se busca cual es la dimension que de verdad los separa y se nombra en el id: VS400x32.bf140 y VS400x32.bf180. Si dos filas coinciden en toda la geometria no son dos perfiles sino una fila repetida del catalogo de origen, y sale en avisos."
+    },
+    {
+      "id": "CAT.familia.conflicto",
+      "grupo": "Catálogos",
+      "magnitud": "La letra de familia no es única entre catálogos",
+      "valor": "C y L designan dos secciones cada una",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "medido sobre los tres catálogos cargados",
+      "nota": "«C» son 70 canales laminados del AISC y 63 canales de alas atiesadas de Precor, que es otra seccion y otra especificacion; «L» son 127 angulos laminados y 29 conformados. Misma letra, distinta pieza. NO SE RENOMBRAN: la designacion es la del catalogo, no la nuestra. Cada perfil lleva `grupo` = fabricacion + familia -laminado:C frente a frio:C- y es lo que la interfaz lista, porque «C» sola no identifica una seccion. catalogo() acepta las dos: la letra devuelve las dos fabricaciones mezcladas a proposito, el grupo devuelve una. Las dos letras en conflicto estan fijadas en la prueba: si entra un catalogo que choca en una tercera, sale en rojo en vez de mezclarse en silencio."
     }
   ]
 }

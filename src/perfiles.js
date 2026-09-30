@@ -54,6 +54,7 @@
 
   const ART = INV.declara("perfiles.js", [
     "CAT.aisc", "CAT.precor", "CAT.soldados", "CAT.soldados.cols",
+    "CAT.nombre.noUnico", "CAT.familia.conflicto", "CAT.hss.espesor",
     "PROP.fabricacion", "PROP.unidad", "MAT.admitidos"
   ]);
 
@@ -62,7 +63,7 @@
     AISI: "requiere el motor AISI S100 · fase 2 (conformado en frío)"
   };
 
-  const porNombre = new Map();   /* designación -> el primero con ese nombre */
+  const homonimos = new Map();   /* designación -> TODOS los que la llevan */
   const porId = new Map();       /* id único -> perfil */
   const ambiguos = new Map();    /* designación -> los que la comparten */
   const todos = [];
@@ -80,6 +81,15 @@
       p.fabricacion = crudo.fabricacion;
       p.espec = crudo.espec;
       p.catalogo = cat.catalogo;
+      /* LA FAMILIA NO ES ÚNICA ENTRE CATÁLOGOS, y entra en conflicto en dos:
+         «C» son 70 canales laminados del AISC y 63 canales de alas atiesadas
+         de Precor, que son otra sección; «L» son 127 ángulos laminados y 29
+         conformados.  Misma letra, distinta pieza y distinta especificación.
+
+         No se renombran —la designación es la del catálogo, no la nuestra—:
+         se agrupan por fabricación, que es lo que de verdad los separa.  La
+         interfaz lista `grupos()`, no `familias()`. */
+      p.grupo = p.fabricacion + ":" + p.familia;
       p.estado = crudo.espec === "AISI" ? "espera" : "activo";
       if (p.estado === "espera") p.motivo = MOTIVO_ESPERA.AISI;
 
@@ -106,29 +116,69 @@
          una con ala de 8 mm × 140 y otra de 6,3 × 180. El catálogo lista las
          dos, y tiene razón: son dos perfiles.
 
-         Así que cada perfil lleva su `id`, y `nombre` sigue siendo la
-         designación del catálogo. Cuando hay colisión, busca() NO elige por
-         su cuenta: lanza con las dos opciones y sus dimensiones. Devolver una
-         de dos secciones distintas en silencio es de las peores cosas que
-         puede hacer un catálogo. */
-      p.id = p.nombre;
-      if (porNombre.has(p.nombre)) {
-        const previo = porNombre.get(p.nombre);
-        p.id = p.nombre + "·bf" + Math.round((p.bf_cm || 0) * 10);
-        if (previo.id === previo.nombre) {
-          previo.id = previo.nombre + "·bf" + Math.round((previo.bf_cm || 0) * 10);
-          porId.set(previo.id, previo);
-          porId.delete(previo.nombre);
-        }
-        if (!ambiguos.has(p.nombre)) ambiguos.set(p.nombre, [previo]);
-        ambiguos.get(p.nombre).push(p);
-      } else {
-        porNombre.set(p.nombre, p);
-      }
-      porId.set(p.id, p);
+         El `id` se asigna DESPUÉS de cargarlo todo, no aquí: para saber qué
+         distingue dos secciones homónimas hay que tener delante las dos. */
+      homonimos.has(p.nombre) || homonimos.set(p.nombre, []);
+      homonimos.get(p.nombre).push(p);
       todos.push(p);
     }
   }
+
+  /* ---------- el id ----------------------------------------------------- */
+
+  /* EL DISCRIMINADOR NO PUEDE SER UN CAMPO FIJO.  Era `bf_cm`, que valen los
+     perfiles I y no existe en un ángulo ni en un canal Precor: las ocho
+     familias conformadas habrían colapsado todas a «·bf0», que es un id
+     repetido, o sea ninguno.
+
+     Así que se busca cuál es la dimensión que de verdad los separa, y se
+     nombra en el id.  `VS400x32·bf14` y `VS400x32·bf18` dicen en qué se
+     diferencian; «·bf0» no decía nada. */
+  const CLAVES_GEO = ["d_cm", "D_cm", "bf_cm", "B_cm", "tf_cm", "tw_cm",
+                      "t_cm", "labio_cm", "h_cm", "A_cm2", "Ix_cm4", "Iy_cm4"];
+
+  function firma(p, claves) {
+    return claves.map((k) => k.replace(/_cm\d?$/, "") + Math.round(p[k] * 10)).join("·");
+  }
+
+  /* Las claves mínimas que dan una firma distinta a cada uno de la lista.
+     Una clave solo entra si SEPARA MÁS que las que ya están: dos VS400x32
+     comparten el peralte, así que `d` no va en el id —no distinguía nada— y
+     sí va `bf`, que es lo único en que difieren. */
+  function clavesQueSeparan(lista) {
+    const usadas = [];
+    let distintas = 1;
+    for (const k of CLAVES_GEO) {
+      if (lista.some((p) => typeof p[k] !== "number")) continue;
+      const n = new Set(lista.map((p) => firma(p, usadas.concat(k)))).size;
+      if (n <= distintas) continue;
+      usadas.push(k);
+      distintas = n;
+      if (distintas === lista.length) return usadas;
+    }
+    return usadas;   /* no separan del todo: se avisa abajo */
+  }
+
+  homonimos.forEach((lista, nombre) => {
+    if (lista.length === 1) {
+      lista[0].id = nombre;
+      porId.set(nombre, lista[0]);
+      return;
+    }
+    const claves = clavesQueSeparan(lista);
+    for (const p of lista) p.id = nombre + "·" + firma(p, claves);
+
+    /* Dos filas idénticas en toda la geometría no son dos perfiles: es el
+       catálogo de origen repitiendo una.  No se elige una en silencio. */
+    if (new Set(lista.map((p) => p.id)).size !== lista.length) {
+      avisos.push({ perfil: nombre, catalogo: lista[0].catalogo,
+        idNoUnico: true, cuantos: lista.length,
+        nota: "filas con la misma designación y la misma geometría" });
+      lista.forEach((p, i) => { p.id = nombre + "·" + (i + 1); });
+    }
+    for (const p of lista) porId.set(p.id, p);
+    ambiguos.set(nombre, lista);
+  });
 
   /* ---------- consultas ------------------------------------------------ */
 
@@ -137,25 +187,28 @@
        ya desambiguó. */
     if (porId.has(clave)) return porId.get(clave);
 
+    /* Cuando hay colisión NO se elige por cuenta propia: se lanza con las
+       opciones y su geometría.  Devolver una de dos secciones distintas en
+       silencio es de las peores cosas que puede hacer un catálogo.
+
+       El detalle se imprime con los campos QUE EXISTAN: un ángulo Precor no
+       tiene bf ni tw, y la versión anterior de este mensaje reventaba con un
+       TypeError justo cuando hacía falta que se leyera. */
     if (ambiguos.has(clave)) {
       const lista = ambiguos.get(clave);
       throw new Error(
         "perfiles: «" + clave + "» designa " + lista.length + " secciones distintas.\n" +
-        lista.map((x) =>
-          "    " + x.id + "   d=" + x.d_cm.toFixed(1) + " cm · alma " +
-          x.tw_cm.toFixed(2) + " · ala " + x.tf_cm.toFixed(2) + "×" + x.bf_cm.toFixed(1) +
-          " · A=" + x.A_cm2.toFixed(1) + " cm²").join("\n") + "\n" +
-        "  La NBR 5884 designa por peralte y peso, y dos geometrías pueden dar\n" +
-        "  el mismo peso. Elige por su id.");
+        lista.map((x) => "    " + x.id + "   " + CLAVES_GEO
+          .filter((k) => typeof x[k] === "number")
+          .map((k) => k.replace(/_cm\d?$/, "") + "=" + x[k].toFixed(2))
+          .join(" · ")).join("\n") + "\n" +
+        "  Dos geometrías distintas pueden compartir designación —la NBR 5884\n" +
+        "  designa por peralte y peso—. Elige por su id.");
     }
-    const p = porNombre.get(clave);
-    if (!p) {
-      throw new Error(
-        "perfiles: «" + clave + "» no está en el catálogo.\n" +
-        "  Hay " + todos.length + " perfiles cargados. Comprueba el nombre, o\n" +
-        "  defínelo con propiedades.Iarmada() si es una sección a medida.");
-    }
-    return p;
+    throw new Error(
+      "perfiles: «" + clave + "» no está en el catálogo.\n" +
+      "  Hay " + todos.length + " perfiles cargados. Comprueba el nombre, o\n" +
+      "  defínelo con propiedades.Iarmada() si es una sección a medida.");
   }
 
   /* Las designaciones compartidas por más de una sección. La interfaz las
@@ -166,21 +219,51 @@
     return out;
   }
 
+  /* Acepta familia («C», y entonces salen las dos fabricaciones) o grupo
+     («laminado:C», y sale solo esa).  Pedir «C» y recibir las dos mezcladas
+     es correcto solo si quien pregunta sabe que están mezcladas; pedir el
+     grupo es la forma de no tener que saberlo. */
+  function coincide(p, clave) {
+    return !clave || p.grupo === clave || p.familia === clave;
+  }
+
   /* Solo los que se pueden usar hoy.  Es lo que ve la interfaz por defecto. */
-  function activos(familia) {
-    return todos.filter((p) => p.estado === "activo" && (!familia || p.familia === familia));
+  function activos(clave) {
+    return todos.filter((p) => p.estado === "activo" && coincide(p, clave));
   }
 
   /* Todos, incluidos los que esperan a la fase 2.  La interfaz los muestra
      deshabilitados con su motivo: que se vean es parte de la decisión. */
-  function catalogo(familia) {
-    return familia ? todos.filter((p) => p.familia === familia) : todos.slice();
+  function catalogo(clave) {
+    return clave ? todos.filter((p) => coincide(p, clave)) : todos.slice();
   }
 
   function familias() {
     const s = new Set();
     for (const p of todos) s.add(p.familia);
     return Array.from(s).sort();
+  }
+
+  /* Las familias sin ambigüedad: fabricación + letra.  Es lo que la interfaz
+     tiene que listar, porque «C» sola no identifica una sección. */
+  function grupos() {
+    const s = new Set();
+    for (const p of todos) s.add(p.grupo);
+    return Array.from(s).sort();
+  }
+
+  /* Las letras que significan dos secciones distintas según el catálogo. */
+  function familiasEnConflicto() {
+    const m = new Map();
+    for (const p of todos) {
+      m.has(p.familia) || m.set(p.familia, new Set());
+      m.get(p.familia).add(p.fabricacion);
+    }
+    const out = [];
+    m.forEach((fabs, fam) => {
+      if (fabs.size > 1) out.push({ familia: fam, fabricaciones: Array.from(fabs).sort() });
+    });
+    return out.sort((a, b) => (a.familia < b.familia ? -1 : 1));
   }
 
   /* Un perfil en espera se puede CONSULTAR pero no usar en un cálculo: la
@@ -207,6 +290,6 @@
     return r;
   }
 
-  return { ART, busca, paraCalcular, activos, catalogo, familias, resumen,
-           ambiguas, avisos, todos };
+  return { ART, busca, paraCalcular, activos, catalogo, familias, grupos,
+           familiasEnConflicto, resumen, ambiguas, avisos, todos };
 });

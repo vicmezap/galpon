@@ -22,11 +22,54 @@ const PR = require("../src/propiedades.js");
 const r = P.resumen();
 
 /* ---------- el catálogo cargó ----------------------------------------- */
-cierto("hay más de 1500 perfiles", r.total > 1500);
-comp("las diez familias: siete del AISC y tres soldadas", P.familias(),
-  ["2L", "C", "CS", "CVS", "HSS_rect", "HSS_red", "I", "L", "T", "VS"]);
-comp("los dos catálogos", Object.keys(P.resumen().porCatalogo).sort(),
-  ["AISC Shapes Database v13", "FAM Perfis Soldados (ABNT NBR 5884)"]);
+cierto("hay más de 2400 perfiles", r.total > 2400);
+comp("las dieciseis familias: siete del AISC, tres soldadas y ocho Precor",
+  P.familias(),
+  ["2L", "C", "CS", "CVS", "HSS_rect", "HSS_red", "I", "IC", "IU", "L",
+   "T", "TC", "TU", "U", "VS", "Z"]);
+comp("los tres catalogos", Object.keys(P.resumen().porCatalogo).sort(),
+  ["AISC Shapes Database v13", "FAM Perfis Soldados (ABNT NBR 5884)",
+   "Precor · perfiles conformados en frio"]);
+
+/* LA LETRA DE FAMILIA CHOCA ENTRE CATALOGOS · «C» es un canal laminado del
+   AISC y tambien un canal de alas atiesadas de Precor, que es otra seccion;
+   «L» son angulos laminados y conformados.  Se fija la lista: si manana
+   entra un catalogo que choca en una tercera letra, esta prueba lo dice. */
+comp("las dos letras en conflicto, y solo esas",
+  P.familiasEnConflicto().map((x) => x.familia + ":" + x.fabricaciones.join("+")),
+  ["C:frio+laminado", "L:frio+laminado"]);
+cierto("y el grupo si es univoco",
+  P.grupos().length === new Set(P.grupos()).size &&
+  P.grupos().indexOf("laminado:C") >= 0 && P.grupos().indexOf("frio:C") >= 0);
+comp("pedir el grupo no mezcla fabricaciones",
+  new Set(P.catalogo("frio:C").map((x) => x.fabricacion)).size, 1);
+cierto("y pedir la letra sola si las mezcla, a proposito",
+  P.catalogo("C").length === P.catalogo("frio:C").length + P.catalogo("laminado:C").length);
+
+/* ---------- los 442 conformados en frio, en espera --------------------- */
+/* Entran HOY al catalogo y NO se pueden calcular: los gobierna la AISI S100,
+   que es la fase 2.  Que se vean es la decision; que no se calculen es la
+   guarda.  Las dos se prueban. */
+comp("442 perfiles Precor, todos en espera", r.espera, 442);
+comp("y ningun otro lo esta", P.catalogo().filter((x) => x.estado === "espera").length, 442);
+comp("todos gobernados por la AISI",
+  new Set(P.catalogo().filter((x) => x.estado === "espera").map((x) => x.espec)).size, 1);
+lanza("calcular con uno PARA en vez de dar un numero sin norma",
+  () => P.paraCalcular('L 4"x3" x4.5'), "está en espera");
+cierto("pero consultarlo se puede", P.busca('L 4"x3" x4.5').Ix_cm4 > 0);
+/* Contraste directo contra la tabla de Precor, dos filas leidas a mano. */
+cerca("Precor L 4\"x3\" x4.5 - A", P.busca('L 4"x3" x4.5').A_cm2, 7.67, 1e-3);
+cerca("Precor L 4\"x3\" x4.5 - Ix", P.busca('L 4"x3" x4.5').Ix_cm4, 82.8, 1e-3);
+cerca("Precor U 12\"x3\" x4.5 - Ix", P.busca('U 12"x3" x4.5').Ix_cm4, 2457, 1e-3);
+cerca("Precor IU 12\"x4\" x4.5 - peso", P.busca('IU 12"x4" x4.5').peso_kgfm, 27.67, 1e-3);
+/* El nombre de un conformado SI es clave unica: designacion mas espesor.
+   Que se repitiera fue el fallo que tuvo la importacion, y lo vigila tanto
+   el importador como esto. */
+const frios = P.catalogo().filter((x) => x.fabricacion === "frio");
+comp("ninguna designacion Precor repetida",
+  frios.length - new Set(frios.map((x) => x.nombre)).size, 0);
+cierto("ninguna se llama como la cabecera de la tabla",
+  !frios.some((x) => /Designaci/.test(x.nombre)));
 
 /* ---------- ninguna columna se perdió en silencio ---------------------- */
 const perdidas = P.avisos.filter((a) => a.columnas);
@@ -84,7 +127,7 @@ for (const p of P.catalogo()) {
   if (f.length) fallan.push(p.nombre + " · " + f.join(" | "));
 }
 
-cierto("se revisaron más de 1500 perfiles", revisados > 1500);
+cierto("se revisaron más de 2400 perfiles", revisados > 2400);
 
 /* El informe completo si algo falla: sin él, saber que «falló uno» no
    sirve de nada sobre mil quinientas filas. */
