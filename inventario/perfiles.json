@@ -265,6 +265,18 @@
       "clave": true,
       "fuente": "geometría de secciones",
       "nota": "Wx=2Ix/d · rx=√(Ix/A) · Wy=2Iy/bf · ry=√(Iy/A) · h/tw · b/2tf · Cw=Iy·ho²/4. Cada fila del catálogo se comprueba sola: si las siete cuadran, el parseo está bien Y la tabla está bien transcrita. Es la prueba de oro del proyecto, y ya se probó que funciona."
+    },
+    {
+      "id": "CAT.hss.espesor",
+      "grupo": "Catálogos",
+      "magnitud": "Espesor de diseño de los HSS",
+      "valor": "t_diseño = 0,93 · t_nominal",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC 360-22 §B4.2",
+      "nota": "SALIÓ DE UNA PRUEBA QUE FALLABA. Las 367 filas de HSS rectangular no pasaban la relación peso = A·γ, siempre por un 6,2-6,9 % en el mismo sentido. La causa es normativa, no un error de transcripción: el AISC tabula el ÁREA con el espesor de DISEÑO (0,93 del nominal, por la tolerancia de fabricación de la soldadura) pero el PESO con el espesor NOMINAL. La relación tnom/tdes sale 1,0753 = 1/0,93 exacto en todo el catálogo. Consecuencia para el código: al comparar peso contra área hay que escalar por tnom/tdes; y al CALCULAR resistencia se usa el de diseño, que es el que la norma manda. Excepción: los HSS a ASTM A1065 y A1085 usan el nominal."
     }
   ]
 }
