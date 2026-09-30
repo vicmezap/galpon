@@ -8,7 +8,8 @@
 
    ORGANIZADO POR CAPÍTULO, en el orden del AISC:
        D · tracción
-       E · compresión          ← hasta aquí
+       E · compresión
+       F · flexión             ← hasta aquí
        F · flexión
        G · corte
        H · fuerzas combinadas
@@ -57,7 +58,14 @@
     "C.E4.canal", "C.E4.Cw", "C.E4.divergencia",
     "C.E6.m1", "C.E6.m2", "C.E6.Ki", "C.E6.ri", "C.E6.a", "C.E6.extremo",
     "C.E6.espaciado", "C.E6.divergencia",
-    "C.E7", "C.E7.tabla", "C.E7.Fel", "C.E7.be", "C.E7.redondo", "C.E7.divergencia"
+    "C.E7", "C.E7.tabla", "C.E7.Fel", "C.E7.be", "C.E7.redondo", "C.E7.divergencia",
+    "F.phi", "F.seleccion", "F.Cb", "F.Cb.tipicos", "F.Cb.voladizo", "F.hipotesis",
+    "F.F2.fluencia", "F.Mp.tope", "F.F2.zonas", "F.F2.inelastico", "F.F2.elastico",
+    "F.Lp", "F.Lr", "F.Mr", "F.rts", "F.c", "F.F3.kc",
+    "F.F6.fluencia", "F.F6.sinLTB", "F.F6.b", "F.F6.Fcr",
+    "F.F10.ejes", "F.F10.H2", "F.F10.estados", "F.F10.divergencia",
+    "F.B4.c10", "F.B4.c11", "F.B4.c12", "F.B4.c13", "F.B4.c14", "F.B4.c15",
+    "F.B4.hss", "F.FL", "F.Lr.coef", "F.F2.manual"
   ]);
 
   /* ---------- materiales ------------------------------------------------ */
@@ -960,6 +968,381 @@
       limiteBajo: bajo, limiteAlto: alto, art: ART["C.E7.redondo"] };
   }
 
+  /* =====================================================================
+     CAPÍTULO F · FLEXIÓN
+
+     φb = 0,90 Y AQUÍ SÍ COINCIDEN LAS DOS NORMAS.  Contrasta con compresión,
+     donde el AISC da 0,90 y la E.090 da 0,85.  Que coincidan en flexión y no
+     en compresión es justo lo que no se recuerda (fila F.phi).
+
+     LA HIPÓTESIS DE FONDO DEL CAPÍTULO, y no es un detalle: F1(b) supone que
+     los apoyos están restringidos contra la rotación alrededor del eje
+     longitudinal.  Si la correa se posa sobre el tijeral sin nada que le
+     impida girar sobre su eje, TODO el capítulo deja de aplicar tal cual.  Es
+     la razón técnica de que la correa se fije con clip y no solo se pose
+     (fila F.hipotesis).
+
+     DOS DIVERGENCIAS, las dos decididas a favor del AISC:
+
+       · EL TOPE DE Mp · la E.090 topa Mp en 1,5·My para toda sección; el AISC
+         NO topa en F2 y solo pone 1,6·Fy·Sy en eje MENOR (F6-1).  En eje mayor
+         el factor de forma Zx/Sx anda por 1,1-1,2 y el tope rara vez actúa;
+         en eje menor Zy/Sy llega a 1,5-1,6 y ahí sí decide (fila F.Mp.tope).
+
+       · FL · el AISC lo define como 0,7·Fy; la E.090 como Fyf − Fr con
+         Fr = 70 MPa laminado y 115 MPa soldado.  MISMO SÍMBOLO, DEFINICIÓN
+         DISTINTA.  Con A36 el laminado queda al 2,6 % —despreciable— pero el
+         SOLDADO queda un 23,4 % por debajo, o sea que el AISC es un 30,5 %
+         mayor.  Y como Mr = FL·Sx, ésa es directamente la diferencia en Mr, y
+         Lr crece al bajar FL.  Justo la serie VS/CVS que usa Zapata
+         (filas F.Lr, F.Mr y F.FL).
+     ===================================================================== */
+
+  const PHI_B = 0.90;                 /* F1(a) · fila F.phi */
+  const TOPE_MP_E090 = 1.5;           /* E.090 6.1-1 · la divergencia */
+  const TOPE_F6 = 1.6;                /* F6-1 · fila F.F6.fluencia */
+  const MPA_KGCM2 = 1 / 0.0980665;    /* para el Fr de la E.090, que va en MPa */
+  const FR_E090 = { laminado: 70 * MPA_KGCM2, soldado: 115 * MPA_KGCM2 };
+
+  /* ---------- Tabla B4.1b · compacidad en FLEXIÓN ----------------------- */
+  /* OTRA TABLA, OTROS NÚMEROS.  En flexión hay TRES clases —compacta, no
+     compacta, esbelta— porque sí hay redistribución plástica que aprovechar;
+     en compresión solo dos.  Y los λr son más altos: el ala de una I laminada
+     tiene 1,0·√(E/Fy) aquí y 0,56·√(E/Fy) en compresión (fila C.B4a). */
+  const B4B = {
+    10: { p: 0.38, r: 1.00, art: "F.B4.c10", que: "alas de I laminada, canales y tes" },
+    11: { p: 0.38, r: null, art: "F.B4.c11", conKcFL: true,
+          que: "alas de I armada (soldada)" },
+    12: { p: 0.54, r: 0.91, art: "F.B4.c12", que: "lados de ángulos simples" },
+    13: { p: 0.38, r: 1.00, art: "F.B4.c13", que: "alas de I y canales en flexión de eje menor" },
+    14: { p: 0.84, r: 1.52, art: "F.B4.c14", que: "almas de tes" },
+    15: { p: 3.76, r: 5.70, art: "F.B4.c15", que: "almas de I de doble simetría y canales" }
+  };
+
+  /* FL del AISC · Tabla B4.1b nota [b].  NO es Fy − Fr: eso es la E.090. */
+  function FL(d) {
+    const Fy = d.Fy_kgcm2;
+    if (!(Fy > 0)) throw new Error("acero: FL() necesita Fy_kgcm2 > 0");
+    const Sxt = d.Sxt_cm3, Sxc = d.Sxc_cm3;
+    /* Por omisión, sección simétrica: Sxt/Sxc = 1 ≥ 0,7 → FL = 0,7·Fy */
+    if (Sxt === undefined || Sxc === undefined) {
+      return { FL_kgcm2: 0.7 * Fy, rama: "0,7·Fy (sección simétrica)", art: ART["F.FL"] };
+    }
+    if (!(Sxt > 0) || !(Sxc > 0)) throw new Error("acero: FL() necesita Sxt_cm3 y Sxc_cm3 > 0");
+    const razon = Sxt / Sxc;
+    if (razon >= 0.7) {
+      return { FL_kgcm2: 0.7 * Fy, razon: razon, rama: "Sxt/Sxc ≥ 0,7", art: ART["F.FL"] };
+    }
+    return { FL_kgcm2: Math.max(0.5 * Fy, Fy * razon), razon: razon,
+      rama: "Sxt/Sxc < 0,7, con piso en 0,5·Fy", art: ART["F.FL"] };
+  }
+
+  /* El FL de la E.090, para poder MEDIR la divergencia en vez de describirla. */
+  function FL_E090(d) {
+    const Fy = d.Fy_kgcm2, fab = d.fabricacion;
+    const Fr = FR_E090[fab];
+    if (Fr === undefined) {
+      throw new Error(
+        "acero: la fabricación es «laminado» o «soldado» (E.090 usa Fr = 70 ó 115 MPa),\n" +
+        "  no «" + fab + "». En el AISC no hace falta porque FL = 0,7·Fy sin más, pero\n" +
+        "  aquí hace falta para poder medir la divergencia.");
+    }
+    return { FL_kgcm2: Fy - Fr, Fr_kgcm2: Fr, fabricacion: fab, art: ART["F.FL"],
+      nota: "MISMO SÍMBOLO, DEFINICIÓN DISTINTA: el AISC usa 0,7·Fy y la E.090 Fyf − Fr" };
+  }
+
+  function clasificaFlexion(d) {
+    const c = B4B[d.caso];
+    if (!c) {
+      throw new Error(
+        "acero: el caso de la Tabla B4.1b es " + Object.keys(B4B).join(" · ") +
+        ", no «" + d.caso + "».\n" +
+        "  OJO: son los casos de FLEXIÓN. Los de compresión (Tabla B4.1a, filas\n" +
+        "  C.B4a.*) son otros números y más bajos, y en compresión no existe\n" +
+        "  «compacta»: solo esbelta o no esbelta.");
+    }
+    const Fy = d.Fy_kgcm2, razon = d.razon;
+    if (!(Fy > 0)) throw new Error("acero: clasificaFlexion() necesita Fy_kgcm2 > 0");
+    if (!(razon > 0)) throw new Error("acero: clasificaFlexion() necesita razon > 0");
+    const raiz = Math.sqrt(E_ACERO / Fy);
+    const lp = c.p * raiz;
+    let lr;
+    if (c.conKcFL) {
+      /* Caso 11 · ala de I ARMADA: λr = 0,95·√(kc·E/FL) */
+      const htw = d.h_tw;
+      if (!(htw > 0)) throw new Error("acero: el caso 11 necesita h_tw para el kc");
+      const kc = Math.min(0.76, Math.max(0.35, 4 / Math.sqrt(htw)));
+      const fl = FL({ Fy_kgcm2: Fy, Sxt_cm3: d.Sxt_cm3, Sxc_cm3: d.Sxc_cm3 }).FL_kgcm2;
+      lr = 0.95 * Math.sqrt(kc * E_ACERO / fl);
+      return clase(razon, lp, lr, c, { kc: kc, FL_kgcm2: fl });
+    }
+    lr = c.r * raiz;
+    return clase(razon, lp, lr, c, {});
+  }
+
+  function clase(razon, lp, lr, c, extra) {
+    let cl;
+    if (razon <= lp) cl = "compacta";
+    else if (razon <= lr) cl = "no compacta";
+    else cl = "esbelta";
+    return Object.assign({ clase: cl, razon: razon, lambdaP: lp, lambdaR: lr,
+      que: c.que, art: ART[c.art] }, extra);
+  }
+
+  /* ---------- Cb · F1-1 ------------------------------------------------- */
+  /* IDÉNTICA en las dos normas.  MA, MB y MC son los momentos ABSOLUTOS a
+     1/4, 1/2 y 3/4 del tramo no arriostrado. */
+  function Cb(d) {
+    if (d.voladizo === true) {
+      /* F1(c) · y la E.090 dice lo mismo (fila F.Cb.voladizo) */
+      return { Cb: 1.0, origen: "voladizo con el extremo libre sin arriostrar",
+        art: ART["F.Cb.voladizo"] };
+    }
+    const M = [d.Mmax_kgfcm, d.MA_kgfcm, d.MB_kgfcm, d.MC_kgfcm];
+    if (M.some((x) => typeof x !== "number")) {
+      throw new Error(
+        "acero: Cb() necesita Mmax y los momentos a 1/4, 1/2 y 3/4 del tramo NO\n" +
+        "  ARRIOSTRADO, en valor absoluto: Mmax_kgfcm, MA_kgfcm, MB_kgfcm, MC_kgfcm.\n" +
+        "  O bien voladizo: true. Tomar Cb = 1,0 siempre es conservador y está\n" +
+        "  permitido: pasa Mmax = MA = MB = MC.");
+    }
+    const a = M.map(Math.abs);
+    const den = 2.5 * a[0] + 3 * a[1] + 4 * a[2] + 3 * a[3];
+    if (!(den > 0)) {
+      return { Cb: 1.0, origen: "tramo sin momento", art: ART["F.Cb"] };
+    }
+    /* El AISC no topa Cb en F1-1; el tope efectivo lo pone el propio Mn ≤ Mp. */
+    return { Cb: 12.5 * a[0] / den, art: ART["F.Cb"], artTipicos: ART["F.Cb.tipicos"] };
+  }
+
+  /* ---------- F2 · I compacta, eje mayor -------------------------------- */
+  function Lp(d) {
+    const ry = d.ry_cm, Fy = d.Fy_kgcm2;
+    if (!(ry > 0)) throw new Error("acero: Lp() necesita ry_cm > 0");
+    if (!(Fy > 0)) throw new Error("acero: Lp() necesita Fy_kgcm2 > 0");
+    /* COINCIDE con la E.090, que lo escribe como 788·ry/√Fyf con Fy en MPa:
+       es la misma expresión con E ya sustituido. */
+    return { Lp_cm: 1.76 * ry * Math.sqrt(E_ACERO / Fy), art: ART["F.Lp"],
+      nota: "coincide con la E.090: 1,76·√(E/Fy) es 787,1/√Fy con Fy en MPa" };
+  }
+
+  /* rts² = √(Iy·Cw)/Sx · F2-7 */
+  function rts(d) {
+    const Iy = d.Iy_cm4, Cw = d.Cw_cm6, Sx = d.Sx_cm3;
+    if (!(Iy > 0) || !(Cw > 0) || !(Sx > 0)) {
+      throw new Error("acero: rts() necesita Iy_cm4, Cw_cm6 y Sx_cm3 positivos");
+    }
+    return { rts_cm: Math.sqrt(Math.sqrt(Iy * Cw) / Sx), art: ART["F.rts"] };
+  }
+
+  /* c · F2-8a y F2-8b.  El 360-22 metió los CANALES dentro de F2; en
+     ediciones viejas iban aparte, y muchas correas son canal (fila F.c). */
+  function coefC(d) {
+    if (d.tipo === "I") return { c: 1, art: ART["F.c"] };
+    if (d.tipo === "canal") {
+      const ho = d.ho_cm, Iy = d.Iy_cm4, Cw = d.Cw_cm6;
+      if (!(ho > 0) || !(Iy > 0) || !(Cw > 0)) {
+        throw new Error("acero: coefC() de un canal necesita ho_cm, Iy_cm4 y Cw_cm6");
+      }
+      return { c: (ho / 2) * Math.sqrt(Iy / Cw), art: ART["F.c"],
+        nota: "el 360-22 metió los canales dentro de F2; antes iban aparte" };
+    }
+    throw new Error("acero: coefC() acepta tipo «I» o «canal», no «" + d.tipo + "»");
+  }
+
+  /* Lr · F2-6.  El FL que entra aquí es el del AISC, 0,7·Fy. */
+  function Lr(d) {
+    const rt = d.rts_cm, Fy = d.Fy_kgcm2, J = d.J_cm4, c = d.c, Sx = d.Sx_cm3, ho = d.ho_cm;
+    for (const [k, v] of [["rts_cm", rt], ["Fy_kgcm2", Fy], ["J_cm4", J],
+                          ["Sx_cm3", Sx], ["ho_cm", ho]]) {
+      if (!(v > 0)) throw new Error("acero: Lr() necesita " + k + " > 0");
+    }
+    if (!(c > 0)) throw new Error("acero: Lr() necesita c > 0 (de coefC())");
+    /* Se permite un FL distinto del 0,7·Fy para poder medir la divergencia. */
+    const fl = (d.FL_kgcm2 === undefined) ? 0.7 * Fy : d.FL_kgcm2;
+    const t = J * c / (Sx * ho);
+    const dentro = t + Math.sqrt(t * t + 6.76 * Math.pow(fl / E_ACERO, 2));
+    return { Lr_cm: 1.95 * rt * (E_ACERO / fl) * Math.sqrt(dentro),
+      FL_kgcm2: fl, termino: t, art: ART["F.Lr"],
+      nota: "Lr CRECE al bajar FL: con el FL de la E.090 para soldados sale " +
+            "bastante mayor que con el 0,7·Fy del AISC" };
+  }
+
+  /* La verificación completa de F2, con las tres zonas y cuál gobierna. */
+  function flexionF2(d) {
+    const mat = (typeof d.acero === "string") ? material(d.acero)
+      : { Fy: d.Fy_kgcm2 };
+    const Fy = mat.Fy;
+    const Zx = d.Zx_cm3, Sx = d.Sx_cm3;
+    if (!(Zx > 0)) throw new Error("acero: flexionF2() necesita Zx_cm3 > 0");
+    if (!(Sx > 0)) throw new Error("acero: flexionF2() necesita Sx_cm3 > 0");
+
+    const Mp = Fy * Zx;                           /* F2-1 */
+    const My = Fy * Sx;
+    const Lb = d.Lb_cm;
+    if (!(Lb >= 0)) throw new Error("acero: flexionF2() necesita Lb_cm ≥ 0 (longitud no arriostrada)");
+    const lp = d.Lp_cm, lr = d.Lr_cm;
+    if (!(lp > 0) || !(lr > 0)) {
+      throw new Error("acero: flexionF2() necesita Lp_cm y Lr_cm (de Lp() y Lr())");
+    }
+    const cb = (d.Cb === undefined) ? 1.0 : d.Cb;
+    if (!(cb > 0)) throw new Error("acero: Cb tiene que ser > 0");
+
+    let Mn, zona, art;
+    if (Lb <= lp) {
+      Mn = Mp; zona = "Lb ≤ Lp · fluencia, sin pandeo lateral"; art = ART["F.F2.fluencia"];
+    } else if (Lb <= lr) {
+      /* Recta entre Mp en Lp y 0,7·Fy·Sx en Lr, amplificada por Cb y acotada
+         por Mp · F2-2 */
+      const Mr = 0.7 * Fy * Sx;
+      Mn = Math.min(Mp, cb * (Mp - (Mp - Mr) * ((Lb - lp) / (lr - lp))));
+      zona = "Lp < Lb ≤ Lr · pandeo lateral-torsional inelástico";
+      art = ART["F.F2.inelastico"];
+    } else {
+      /* F2-3 y F2-4 */
+      const rt = d.rts_cm, J = d.J_cm4, c = d.c, ho = d.ho_cm;
+      if (!(rt > 0) || !(J > 0) || !(c > 0) || !(ho > 0)) {
+        throw new Error(
+          "acero: en la zona elástica (Lb > Lr) hacen falta rts_cm, J_cm4, c y ho_cm\n" +
+          "  para el Fcr de la F2-4. Se puede tomar el término de la raíz igual a 1,0\n" +
+          "  conservadoramente (User Note): pasa raizUno: true.");
+      }
+      const lb_rts = Lb / rt;
+      const termino = d.raizUno === true
+        ? 1
+        : Math.sqrt(1 + 0.078 * (J * c / (Sx * ho)) * lb_rts * lb_rts);
+      const Fcr = cb * Math.PI * Math.PI * E_ACERO / (lb_rts * lb_rts) * termino;
+      Mn = Math.min(Mp, Fcr * Sx);
+      zona = "Lb > Lr · pandeo lateral-torsional elástico";
+      art = ART["F.F2.elastico"];
+    }
+
+    const out = {
+      Mn_kgfcm: Mn, phi: PHI_B, Md_kgfcm: PHI_B * Mn,
+      Mp_kgfcm: Mp, My_kgfcm: My, Cb: cb, Lb_cm: Lb, Lp_cm: lp, Lr_cm: lr,
+      zona: zona, art: art, artZonas: ART["F.F2.zonas"], artPhi: ART["F.phi"],
+      factorForma: Zx / Sx,
+      /* LA DIVERGENCIA DEL TOPE · fila F.Mp.tope.  La E.090 topa Mp en 1,5·My
+         y el AISC no topa en F2. En eje mayor Zx/Sx anda por 1,1-1,2, así que
+         rara vez actúa; se calcula para que se vea cuándo actuaría. */
+      Mp_tope_E090_kgfcm: TOPE_MP_E090 * My,
+      topeE090Actua: Mp > TOPE_MP_E090 * My,
+      artTope: ART["F.Mp.tope"],
+      notaTope: "la E.090 topa Mp en 1,5·My; el AISC no topa en F2 y solo pone " +
+        "1,6·Fy·Sy en eje menor. Manda el AISC.",
+      /* Y la hipótesis que sostiene todo el capítulo. */
+      artHipotesis: ART["F.hipotesis"],
+      notaHipotesis: "F1(b) supone los apoyos restringidos contra la rotación " +
+        "alrededor del eje longitudinal: la correa se fija con clip, no se posa"
+    };
+    if (d.Mu_kgfcm !== undefined) {
+      out.Mu_kgfcm = d.Mu_kgfcm;
+      out.ratio = Math.abs(d.Mu_kgfcm) / out.Md_kgfcm;
+      out.cumple = out.ratio <= 1 + 1e-12;
+    }
+    return out;
+  }
+
+  /* ---------- F6 · eje menor · EL EJE DÉBIL DE LA CORREA --------------- */
+  /* NO HAY PANDEO LATERAL-TORSIONAL AQUÍ, y la razón es física: no puede
+     pandear lateralmente hacia el eje que ya es el débil.  Solo fluencia y
+     pandeo local del ala (fila F.F6.sinLTB).  Por eso la componente paralela
+     al faldón no necesita arriostre lateral — pero sí acorta su luz con los
+     tensores.
+
+     Y AQUÍ EL TOPE SÍ ACTÚA: 1,6·Fy·Sy, el único tope al momento plástico de
+     todo el 360-22, porque en perfiles I el factor Zy/Sy llega a 1,5-1,6. */
+  function flexionF6(d) {
+    const mat = (typeof d.acero === "string") ? material(d.acero) : { Fy: d.Fy_kgcm2 };
+    const Fy = mat.Fy;
+    const Zy = d.Zy_cm3, Sy = d.Sy_cm3;
+    if (!(Zy > 0)) throw new Error("acero: flexionF6() necesita Zy_cm3 > 0");
+    if (!(Sy > 0)) throw new Error("acero: flexionF6() necesita Sy_cm3 > 0");
+
+    const Mp = Fy * Zy;
+    const tope = TOPE_F6 * Fy * Sy;                      /* F6-1 */
+    let Mn = Math.min(Mp, tope);
+    let estado = (Mp <= tope) ? "fluencia · Mp = Fy·Zy" : "fluencia topada en 1,6·Fy·Sy";
+    let art = ART["F.F6.fluencia"];
+
+    /* Pandeo local del ala, si se dan los datos.  OJO A QUÉ ES b: en una I es
+       la MITAD del ala y en un canal el ala COMPLETA (fila F.F6.b).
+       Confundirlos cambia λ por un factor de 2. */
+    let local = null;
+    if (d.b_cm !== undefined && d.tf_cm !== undefined) {
+      const lambda = d.b_cm / d.tf_cm;
+      const cl = clasificaFlexion({ caso: 13, razon: lambda, Fy_kgcm2: Fy });
+      local = { lambda: lambda, clase: cl.clase, lambdaP: cl.lambdaP, lambdaR: cl.lambdaR,
+        artB: ART["F.F6.b"] };
+      if (cl.clase === "no compacta") {
+        const Mr = 0.7 * Fy * Sy;
+        const MnLocal = Mn - (Mn - Mr) * ((lambda - cl.lambdaP) / (cl.lambdaR - cl.lambdaP));
+        if (MnLocal < Mn) { Mn = MnLocal; estado = "pandeo local del ala · no compacta"; }
+      } else if (cl.clase === "esbelta") {
+        const Fcr = 0.70 * E_ACERO / (lambda * lambda);   /* F6-4 */
+        const MnLocal = Fcr * Sy;
+        local.Fcr_kgcm2 = Fcr;
+        art = ART["F.F6.Fcr"];
+        if (MnLocal < Mn) { Mn = MnLocal; estado = "pandeo local del ala · esbelta"; }
+      }
+    }
+
+    const out = {
+      Mn_kgfcm: Mn, phi: PHI_B, Md_kgfcm: PHI_B * Mn,
+      Mp_kgfcm: Mp, tope_kgfcm: tope, topeActua: Mp > tope,
+      factorForma: Zy / Sy, estado: estado, local: local,
+      art: art, artSinLTB: ART["F.F6.sinLTB"],
+      notaSinLTB: "en el eje menor no hay pandeo lateral-torsional: no puede pandear " +
+        "hacia el eje que ya es el débil. Solo fluencia y pandeo local del ala."
+    };
+    if (d.Mu_kgfcm !== undefined) {
+      out.Mu_kgfcm = d.Mu_kgfcm;
+      out.ratio = Math.abs(d.Mu_kgfcm) / out.Md_kgfcm;
+      out.cumple = out.ratio <= 1 + 1e-12;
+    }
+    return out;
+  }
+
+  /* ---------- F10 · el ángulo simple ----------------------------------- */
+  /* QUÉ EJES SE USAN, y es lo primero: un ángulo suelto flexiona respecto a
+     sus ejes PRINCIPALES, que están inclinados respecto a los lados.  Solo si
+     algo lo sujeta CONTINUAMENTE se puede trabajar con los ejes geométricos
+     (fila F.F10.ejes).  Y si el momento tiene componentes en los dos ejes
+     principales, o hay un eje principal más carga axial, hay que ir a H2
+     (fila F.F10.H2): es el caso de una brida de tijeral de ángulo con carga
+     fuera de nudo. */
+  function ejesAnguloF10(d) {
+    if (typeof d.restriccionLateralContinua !== "boolean") {
+      throw new Error(
+        "acero: hay que decir si el ángulo tiene restricción lateral CONTINUA.\n" +
+        "  ejesAnguloF10({ restriccionLateralContinua: true | false })\n" +
+        "  Sin ella, un ángulo flexiona respecto a sus ejes PRINCIPALES, que están\n" +
+        "  inclinados respecto a los lados; con ella se permiten los geométricos.\n" +
+        "  Usar los geométricos sin tener la restricción es el error clásico.");
+    }
+    return {
+      ejes: d.restriccionLateralContinua ? "geométricos (x, y)" : "principales",
+      art: ART["F.F10.ejes"], artEstados: ART["F.F10.estados"],
+      artDivergencia: ART["F.F10.divergencia"],
+      notaDivergencia: "la E.090 tampoco legisla el ángulo simple: remite a la " +
+        "Specification for LRFD of Single Angle Members del AISC. Usar F10 es lo que manda."
+    };
+  }
+
+  /* ¿Hay que ir a H2? */
+  function requiereH2(d) {
+    const dosEjes = d.momentoEnDosEjesPrincipales === true;
+    const conAxial = d.conCargaAxial === true;
+    return {
+      requiere: dosEjes || conAxial,
+      art: ART["F.F10.H2"],
+      motivo: dosEjes ? "momento con componentes en los dos ejes principales"
+        : (conAxial ? "un eje principal más carga axial" : "ninguno de los dos casos"),
+      nota: "textual: «the combined stress ratio shall be determined using the " +
+            "provisions of Section H2»"
+    };
+  }
+
   return {
     ART, ACEROS, E_ACERO, G_ACERO, PHI, CASOS_U, ESBELTEZ_TRACCION,
     FNT_ROSCADA, PHI_ROSCADA,
@@ -972,6 +1355,9 @@
     compresion, esbeltezCompresion, anguloSimpleE5,
     exigeFTB, FeFlexion, roH, Fez, FeDobleSimetria, FeSimpleSimetria,
     esbeltezModificada, separacionConectores,
-    c2DeC1, factoresE7, anchoEfectivo, areaEfectivaE7, areaEfectivaRedondo
+    c2DeC1, factoresE7, anchoEfectivo, areaEfectivaE7, areaEfectivaRedondo,
+    PHI_B, TOPE_MP_E090, TOPE_F6, FR_E090, B4B,
+    FL, FL_E090, clasificaFlexion, Cb, Lp, rts, coefC, Lr,
+    flexionF2, flexionF6, ejesAnguloF10, requiereH2
   };
 });

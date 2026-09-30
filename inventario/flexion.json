@@ -1,7 +1,10 @@
 {
   "seccion": "flexion",
   "titulo": "Elementos en flexión",
-  "modulos": ["acero.js · Cap. F", "clasificacion.js · Tabla B4.1b"],
+  "modulos": [
+    "acero.js · Cap. F",
+    "clasificacion.js · Tabla B4.1b"
+  ],
   "version": 1,
   "fecha": "2026-09-30",
   "regla": "Ningún número entra al código sin fila aquí. Sin fuente primaria leída, no entra.",
@@ -13,175 +16,405 @@
     "pendiente": "falta el documento o falta leerlo"
   },
   "magnitudes": [
-
-    { "id": "F.phi", "grupo": "Generales", "magnitud": "Factor de resistencia en flexión",
-      "valor": "φb = 0,90", "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+    {
+      "id": "F.phi",
+      "grupo": "Generales",
+      "magnitud": "Factor de resistencia en flexión",
+      "valor": "φb = 0,90",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC F1(a) · E.090 §6.1.1.1 y §6.1.1.2",
-      "nota": "AQUÍ SÍ COINCIDEN. Contrasta con compresión, donde el AISC da 0,90 y la E.090 da 0,85. Que coincidan en flexión y no en compresión es justo el tipo de cosa que no se recuerda y hay que tener escrita." },
-
-    { "id": "F.seleccion", "grupo": "Generales", "magnitud": "Qué artículo aplica a cada sección",
-      "valor": "Tabla User Note F1.1", "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "nota": "AQUÍ SÍ COINCIDEN. Contrasta con compresión, donde el AISC da 0,90 y la E.090 da 0,85. Que coincidan en flexión y no en compresión es justo el tipo de cosa que no se recuerda y hay que tener escrita."
+    },
+    {
+      "id": "F.seleccion",
+      "grupo": "Generales",
+      "magnitud": "Qué artículo aplica a cada sección",
+      "valor": "Tabla User Note F1.1",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC Tabla User Note F1.1",
-      "nota": "Cruza esbeltez del ala (C/NC/S) con esbeltez del alma (C/NC/S) y devuelve el artículo (F2 a F12) y los estados límite (Y, LTB, FLB, WLB, CFY, TFY, LLB). Se hornea como tabla de decisión: es lo que impide aplicar F2 a una sección que en realidad cae en F4." },
-
-    { "id": "F.Cb", "grupo": "Generales", "magnitud": "Factor de modificación por momento no uniforme",
-      "valor": "Cb = 12,5·Mmax / (2,5·Mmax + 3·MA + 4·MB + 3·MC)", "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "nota": "Cruza esbeltez del ala (C/NC/S) con esbeltez del alma (C/NC/S) y devuelve el artículo (F2 a F12) y los estados límite (Y, LTB, FLB, WLB, CFY, TFY, LLB). Se hornea como tabla de decisión: es lo que impide aplicar F2 a una sección que en realidad cae en F4."
+    },
+    {
+      "id": "F.Cb",
+      "grupo": "Generales",
+      "magnitud": "Factor de modificación por momento no uniforme",
+      "valor": "Cb = 12,5·Mmax / (2,5·Mmax + 3·MA + 4·MB + 3·MC)",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC F1-1 · E.090 6.1-3",
-      "nota": "IDÉNTICA en las dos normas. MA, MB, MC son los momentos absolutos a 1/4, 1/2 y 3/4 del tramo no arriostrado." },
-
-    { "id": "F.Cb.tipicos", "grupo": "Generales", "magnitud": "Valores típicos de Cb",
+      "nota": "IDÉNTICA en las dos normas. MA, MB, MC son los momentos absolutos a 1/4, 1/2 y 3/4 del tramo no arriostrado."
+    },
+    {
+      "id": "F.Cb.tipicos",
+      "grupo": "Generales",
+      "magnitud": "Valores típicos de Cb",
       "valor": "1,00 momento uniforme · 2,27 curvatura inversa con extremos iguales · 1,67 con un extremo en cero",
-      "unidad": "—", "estado": "verificado", "editable": false,
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
       "fuente": "AISC F1 (User Note)",
-      "nota": "Para elementos de doble simetría sin carga transversal entre arriostres. Tomar Cb = 1,0 siempre es conservador y está permitido." },
-
-    { "id": "F.Cb.voladizo", "grupo": "Generales", "magnitud": "Voladizos",
-      "valor": "Cb = 1,0", "unidad": "—", "estado": "verificado", "editable": false,
+      "nota": "Para elementos de doble simetría sin carga transversal entre arriostres. Tomar Cb = 1,0 siempre es conservador y está permitido."
+    },
+    {
+      "id": "F.Cb.voladizo",
+      "grupo": "Generales",
+      "magnitud": "Voladizos",
+      "valor": "Cb = 1,0",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
       "fuente": "AISC F1(c) · E.090 §6.1.1.2",
-      "nota": "AISC: «For cantilevers where warping is prevented at the support and where the free end is unbraced». E.090: «Para voladizos y elementos sobresalidos donde el extremo libre no está arriostrado»." },
-
-    { "id": "F.hipotesis", "grupo": "Generales", "magnitud": "Hipótesis de fondo del capítulo",
+      "nota": "AISC: «For cantilevers where warping is prevented at the support and where the free end is unbraced». E.090: «Para voladizos y elementos sobresalidos donde el extremo libre no está arriostrado»."
+    },
+    {
+      "id": "F.hipotesis",
+      "grupo": "Generales",
+      "magnitud": "Hipótesis de fondo del capítulo",
       "valor": "los apoyos están restringidos contra la rotación alrededor del eje longitudinal",
-      "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC F1(b)",
-      "nota": "No es un detalle: si la correa se apoya en el tijeral sin nada que le impida girar sobre su eje, TODO el capítulo F deja de aplicar tal cual. Es la razón técnica de que la correa se fije con clip y no solo se pose." },
-
-    { "id": "F.F2.fluencia", "grupo": "F2 · I compacta, eje mayor", "magnitud": "Fluencia · momento plástico",
-      "valor": "Mn = Mp = Fy·Zx", "unidad": "kgf·cm", "estado": "verificado", "editable": false, "clave": true,
-      "fuente": "AISC F2-1" },
-
-    { "id": "F.Mp.tope", "grupo": "F2 · I compacta, eje mayor", "magnitud": "Tope del momento plástico",
-      "valor": "AISC: sin tope en F2 · E.090: Mp ≤ 1,5·My", "unidad": "—", "estado": "conflicto", "editable": false, "clave": true,
+      "nota": "No es un detalle: si la correa se apoya en el tijeral sin nada que le impida girar sobre su eje, TODO el capítulo F deja de aplicar tal cual. Es la razón técnica de que la correa se fije con clip y no solo se pose."
+    },
+    {
+      "id": "F.F2.fluencia",
+      "grupo": "F2 · I compacta, eje mayor",
+      "magnitud": "Fluencia · momento plástico",
+      "valor": "Mn = Mp = Fy·Zx",
+      "unidad": "kgf·cm",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC F2-1"
+    },
+    {
+      "id": "F.Mp.tope",
+      "grupo": "F2 · I compacta, eje mayor",
+      "magnitud": "Tope del momento plástico",
+      "valor": "AISC: sin tope en F2 · E.090: Mp ≤ 1,5·My",
+      "unidad": "—",
+      "estado": "conflicto",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC F2-1 · E.090 6.1-1",
-      "nota": "DIVERGENCIA. La E.090 topa Mp en 1,5·My para toda sección homogénea; el AISC 360-22 NO topa en F2, y solo pone un límite de 1,6·Fy·Sy en flexión de EJE MENOR (F6-1). En perfiles I el factor de forma Zx/Sx anda por 1,1-1,2, así que el tope rara vez actúa en eje mayor — pero en eje menor Zy/Sy llega a 1,5-1,6 y ahí sí decide. DECISIÓN: manda el AISC." },
-
-    { "id": "F.F2.zonas", "grupo": "F2 · I compacta, eje mayor", "magnitud": "Las tres zonas del pandeo lateral-torsional",
+      "nota": "DIVERGENCIA. La E.090 topa Mp en 1,5·My para toda sección homogénea; el AISC 360-22 NO topa en F2, y solo pone un límite de 1,6·Fy·Sy en flexión de EJE MENOR (F6-1). En perfiles I el factor de forma Zx/Sx anda por 1,1-1,2, así que el tope rara vez actúa en eje mayor — pero en eje menor Zy/Sy llega a 1,5-1,6 y ahí sí decide. DECISIÓN: manda el AISC."
+    },
+    {
+      "id": "F.F2.zonas",
+      "grupo": "F2 · I compacta, eje mayor",
+      "magnitud": "Las tres zonas del pandeo lateral-torsional",
       "valor": "Lb ≤ Lp: no aplica · Lp < Lb ≤ Lr: inelástico · Lb > Lr: elástico",
-      "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
-      "fuente": "AISC F2.2 (a), (b), (c)" },
-
-    { "id": "F.F2.inelastico", "grupo": "F2 · I compacta, eje mayor", "magnitud": "Zona inelástica",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC F2.2 (a), (b), (c)"
+    },
+    {
+      "id": "F.F2.inelastico",
+      "grupo": "F2 · I compacta, eje mayor",
+      "magnitud": "Zona inelástica",
       "valor": "Mn = Cb·[Mp − (Mp − 0,7·Fy·Sx)·((Lb−Lp)/(Lr−Lp))] ≤ Mp",
-      "unidad": "kgf·cm", "estado": "verificado", "editable": false, "clave": true,
+      "unidad": "kgf·cm",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC F2-2",
-      "nota": "Recta entre Mp en Lp y 0,7·Fy·Sx en Lr, amplificada por Cb y acotada por Mp." },
-
-    { "id": "F.F2.elastico", "grupo": "F2 · I compacta, eje mayor", "magnitud": "Zona elástica",
+      "nota": "Recta entre Mp en Lp y 0,7·Fy·Sx en Lr, amplificada por Cb y acotada por Mp."
+    },
+    {
+      "id": "F.F2.elastico",
+      "grupo": "F2 · I compacta, eje mayor",
+      "magnitud": "Zona elástica",
       "valor": "Mn = Fcr·Sx ≤ Mp,  con Fcr = Cb·π²E/(Lb/rts)² · √(1 + 0,078·(J·c/(Sx·ho))·(Lb/rts)²)",
-      "unidad": "kgf·cm", "estado": "verificado", "editable": false, "clave": true,
+      "unidad": "kgf·cm",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC F2-3 y F2-4",
-      "nota": "El término de la raíz puede tomarse conservadoramente igual a 1,0 (User Note): eso deja el pandeo lateral puro sin el aporte de torsión." },
-
-    { "id": "F.Lp", "grupo": "F2 · I compacta, eje mayor", "magnitud": "Longitud límite para alcanzar Mp",
-      "valor": "Lp = 1,76·ry·√(E/Fy)", "unidad": "cm", "estado": "verificado", "editable": false, "clave": true,
+      "nota": "El término de la raíz puede tomarse conservadoramente igual a 1,0 (User Note): eso deja el pandeo lateral puro sin el aporte de torsión."
+    },
+    {
+      "id": "F.Lp",
+      "grupo": "F2 · I compacta, eje mayor",
+      "magnitud": "Longitud límite para alcanzar Mp",
+      "valor": "Lp = 1,76·ry·√(E/Fy)",
+      "unidad": "cm",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC F2-5 · E.090 6.1-4",
-      "nota": "COINCIDEN. La E.090 lo escribe como Lp = 788·ry/√Fyf con Fy en MPa: 1,76·√(200000/Fy) = 787,1/√Fy. Es la misma expresión con E ya sustituido." },
-
-    { "id": "F.Lr", "grupo": "F2 · I compacta, eje mayor", "magnitud": "Longitud límite del pandeo inelástico",
+      "nota": "COINCIDEN. La E.090 lo escribe como Lp = 788·ry/√Fyf con Fy en MPa: 1,76·√(200000/Fy) = 787,1/√Fy. Es la misma expresión con E ya sustituido."
+    },
+    {
+      "id": "F.Lr",
+      "grupo": "F2 · I compacta, eje mayor",
+      "magnitud": "Longitud límite del pandeo inelástico",
       "valor": "Lr = 1,95·rts·(E/0,7Fy)·√[ Jc/(Sx·ho) + √( (Jc/(Sx·ho))² + 6,76·(0,7Fy/E)² ) ]",
-      "unidad": "cm", "estado": "conflicto", "editable": false, "clave": true,
+      "unidad": "cm",
+      "estado": "conflicto",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC F2-6 · E.090 6.1-6",
-      "nota": "DIVERGENCIA CON CONSECUENCIA MEDIBLE. El AISC usa 0,7·Fy; la E.090 usa FL = (Fyf − Fr) con Fr = 70 MPa laminados y 115 MPa soldados, y otra forma de fórmula (con X1 y X2). Para A36 (248 MPa): AISC 0,7·Fy = 173,6 · E.090 laminado = 178 (2,5 % de diferencia, despreciable) · E.090 SOLDADO = 133 (30 % de diferencia). Y como Lr crece al bajar FL, la E.090 da un Lr bastante mayor en perfiles soldados. Justo la serie VS/CVS que usa Zapata. DECISIÓN: manda el AISC; queda escrito qué esperar al contrastar." },
-
-    { "id": "F.Mr", "grupo": "F2 · I compacta, eje mayor", "magnitud": "Momento en el límite Lr",
-      "valor": "AISC: 0,7·Fy·Sx · E.090: Mr = FL·Sx", "unidad": "kgf·cm", "estado": "conflicto", "editable": false,
-      "fuente": "AISC F2-2 · E.090 6.1-7", "nota": "Misma divergencia que Lr, por la misma causa." },
-
-    { "id": "F.rts", "grupo": "F2 · I compacta, eje mayor", "magnitud": "Radio de giro efectivo",
-      "valor": "rts² = √(Iy·Cw)/Sx", "unidad": "cm", "estado": "verificado", "editable": false,
+      "nota": "DIVERGENCIA CON CONSECUENCIA MEDIBLE. El AISC usa 0,7·Fy; la E.090 usa FL = (Fyf − Fr) con Fr = 70 MPa laminados y 115 MPa soldados, y otra forma de fórmula (con X1 y X2). Para A36 (248 MPa): AISC 0,7·Fy = 173,6 · E.090 laminado = 178 (2,5 % de diferencia, despreciable) · E.090 SOLDADO = 133 (30 % de diferencia). Y como Lr crece al bajar FL, la E.090 da un Lr bastante mayor en perfiles soldados. Justo la serie VS/CVS que usa Zapata. DECISIÓN: manda el AISC; queda escrito qué esperar al contrastar."
+    },
+    {
+      "id": "F.Mr",
+      "grupo": "F2 · I compacta, eje mayor",
+      "magnitud": "Momento en el límite Lr",
+      "valor": "AISC: 0,7·Fy·Sx · E.090: Mr = FL·Sx",
+      "unidad": "kgf·cm",
+      "estado": "conflicto",
+      "editable": false,
+      "fuente": "AISC F2-2 · E.090 6.1-7",
+      "nota": "Misma divergencia que Lr, por la misma causa."
+    },
+    {
+      "id": "F.rts",
+      "grupo": "F2 · I compacta, eje mayor",
+      "magnitud": "Radio de giro efectivo",
+      "valor": "rts² = √(Iy·Cw)/Sx",
+      "unidad": "cm",
+      "estado": "verificado",
+      "editable": false,
       "fuente": "AISC F2-7",
-      "nota": "Para I de doble simetría con alas rectangulares, Cw = Iy·ho²/4 y entonces rts² = Iy·ho/(2·Sx). Aproximación conservadora admitida: rts ≈ bf/√(12·(1 + h·tw/(6·bf·tf)))." },
-
-    { "id": "F.c", "grupo": "F2 · I compacta, eje mayor", "magnitud": "Coeficiente c",
-      "valor": "I de doble simetría: c = 1 · canales: c = (ho/2)·√(Iy/Cw)", "unidad": "—", "estado": "verificado", "editable": false,
+      "nota": "Para I de doble simetría con alas rectangulares, Cw = Iy·ho²/4 y entonces rts² = Iy·ho/(2·Sx). Aproximación conservadora admitida: rts ≈ bf/√(12·(1 + h·tw/(6·bf·tf)))."
+    },
+    {
+      "id": "F.c",
+      "grupo": "F2 · I compacta, eje mayor",
+      "magnitud": "Coeficiente c",
+      "valor": "I de doble simetría: c = 1 · canales: c = (ho/2)·√(Iy/Cw)",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
       "fuente": "AISC F2-8a y F2-8b",
-      "nota": "El 360-22 metió los canales dentro de F2; en ediciones viejas iban aparte. Importa porque muchas correas son canal." },
-
-    { "id": "F.F3.kc", "grupo": "F3 · alas no compactas", "magnitud": "Coeficiente kc para pandeo local del ala",
-      "valor": "kc = 4/√(h/tw),  con 0,35 ≤ kc ≤ 0,76", "unidad": "—", "estado": "verificado", "editable": false,
+      "nota": "El 360-22 metió los canales dentro de F2; en ediciones viejas iban aparte. Importa porque muchas correas son canal."
+    },
+    {
+      "id": "F.F3.kc",
+      "grupo": "F3 · alas no compactas",
+      "magnitud": "Coeficiente kc para pandeo local del ala",
+      "valor": "kc = 4/√(h/tw),  con 0,35 ≤ kc ≤ 0,76",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
       "fuente": "AISC F3-2",
-      "nota": "Ala esbelta: Mn = 0,9·E·kc·Sx/λ². Ala no compacta: interpolación lineal entre Mp y 0,7·Fy·Sx (F3-1)." },
-
-    { "id": "F.F6.fluencia", "grupo": "F6 · eje menor", "magnitud": "Flexión alrededor del eje menor",
-      "valor": "Mn = Mp = Fy·Zy ≤ 1,6·Fy·Sy", "unidad": "kgf·cm", "estado": "verificado", "editable": false, "clave": true,
+      "nota": "Ala esbelta: Mn = 0,9·E·kc·Sx/λ². Ala no compacta: interpolación lineal entre Mp y 0,7·Fy·Sx (F3-1)."
+    },
+    {
+      "id": "F.F6.fluencia",
+      "grupo": "F6 · eje menor",
+      "magnitud": "Flexión alrededor del eje menor",
+      "valor": "Mn = Mp = Fy·Zy ≤ 1,6·Fy·Sy",
+      "unidad": "kgf·cm",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC F6-1",
-      "nota": "EL EJE DÉBIL DE LA CORREA. El tope de 1,6·Fy·Sy sí actúa aquí: en perfiles I el factor Zy/Sy llega a 1,5-1,6. Es el único sitio del 360-22 donde aparece un tope al momento plástico." },
-
-    { "id": "F.F6.sinLTB", "grupo": "F6 · eje menor", "magnitud": "No hay pandeo lateral-torsional en el eje menor",
-      "valor": "solo fluencia y pandeo local del ala", "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "nota": "EL EJE DÉBIL DE LA CORREA. El tope de 1,6·Fy·Sy SÍ actúa aquí, y MEDIDO SOBRE EL CATÁLOGO: de los 331 perfiles I activos, 46 tienen Zy/Sy > 1,6 —un 14 %— y el máximo llega a 1,860, no a 1,6 como escribí al principio. Son los perfiles de ala ancha y gruesa, tipo W40. Es el único sitio del 360-22 donde aparece un tope al momento plástico."
+    },
+    {
+      "id": "F.F6.sinLTB",
+      "grupo": "F6 · eje menor",
+      "magnitud": "No hay pandeo lateral-torsional en el eje menor",
+      "valor": "solo fluencia y pandeo local del ala",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC F6 y Tabla User Note F1.1 (estados Y, FLB)",
-      "nota": "Físicamente: no puede pandear lateralmente hacia el eje que ya es el débil. Por eso la componente paralela al faldón, que flexiona la correa en su eje menor, no necesita arriostre lateral — pero sí acorta su luz con los tensores." },
-
-    { "id": "F.F6.b", "grupo": "F6 · eje menor", "magnitud": "Qué es b en el eje menor",
-      "valor": "I: la MITAD del ala (bf/2) · canales: el ala COMPLETA", "unidad": "—", "estado": "verificado", "editable": false,
+      "nota": "Físicamente: no puede pandear lateralmente hacia el eje que ya es el débil. Por eso la componente paralela al faldón, que flexiona la correa en su eje menor, no necesita arriostre lateral — pero sí acorta su luz con los tensores."
+    },
+    {
+      "id": "F.F6.b",
+      "grupo": "F6 · eje menor",
+      "magnitud": "Qué es b en el eje menor",
+      "valor": "I: la MITAD del ala (bf/2) · canales: el ala COMPLETA",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
       "fuente": "AISC F6-4, definición de b",
-      "nota": "Confundirlos cambia λ por un factor de 2 y con eso la clasificación de la sección." },
-
-    { "id": "F.F6.Fcr", "grupo": "F6 · eje menor", "magnitud": "Ala esbelta en eje menor",
-      "valor": "Fcr = 0,70·E/(b/tf)²", "unidad": "kg/cm²", "estado": "verificado", "editable": false,
-      "fuente": "AISC F6-4" },
-
-    { "id": "F.F10.ejes", "grupo": "F10 · ángulo simple", "magnitud": "Qué ejes se usan",
+      "nota": "Confundirlos cambia λ por un factor de 2 y con eso la clasificación de la sección."
+    },
+    {
+      "id": "F.F6.Fcr",
+      "grupo": "F6 · eje menor",
+      "magnitud": "Ala esbelta en eje menor",
+      "valor": "Fcr = 0,70·E/(b/tf)²",
+      "unidad": "kg/cm²",
+      "estado": "verificado",
+      "editable": false,
+      "fuente": "AISC F6-4"
+    },
+    {
+      "id": "F.F10.ejes",
+      "grupo": "F10 · ángulo simple",
+      "magnitud": "Qué ejes se usan",
       "valor": "con restricción lateral continua → ejes geométricos (x,y) · sin ella → ejes principales",
-      "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC F10",
-      "nota": "Un ángulo suelto flexiona respecto a sus ejes PRINCIPALES, que están inclinados respecto a los lados. Solo si algo lo sujeta continuamente se puede trabajar con los ejes paralelos a los lados." },
-
-    { "id": "F.F10.H2", "grupo": "F10 · ángulo simple", "magnitud": "Cuándo hay que ir a H2",
+      "nota": "Un ángulo suelto flexiona respecto a sus ejes PRINCIPALES, que están inclinados respecto a los lados. Solo si algo lo sujeta continuamente se puede trabajar con los ejes paralelos a los lados."
+    },
+    {
+      "id": "F.F10.H2",
+      "grupo": "F10 · ángulo simple",
+      "magnitud": "Cuándo hay que ir a H2",
       "valor": "momento con componentes en los dos ejes principales, o un eje principal más carga axial",
-      "unidad": "—", "estado": "verificado", "editable": false,
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
       "fuente": "AISC F10",
-      "nota": "«the combined stress ratio shall be determined using the provisions of Section H2». Es el caso de una brida de tijeral hecha de ángulo con carga fuera de nudo." },
-
-    { "id": "F.F10.estados", "grupo": "F10 · ángulo simple", "magnitud": "Estados límite del ángulo en flexión",
-      "valor": "fluencia · pandeo lateral-torsional · pandeo local del lado (LLB)", "unidad": "—", "estado": "verificado", "editable": false,
+      "nota": "«the combined stress ratio shall be determined using the provisions of Section H2». Es el caso de una brida de tijeral hecha de ángulo con carga fuera de nudo."
+    },
+    {
+      "id": "F.F10.estados",
+      "grupo": "F10 · ángulo simple",
+      "magnitud": "Estados límite del ángulo en flexión",
+      "valor": "fluencia · pandeo lateral-torsional · pandeo local del lado (LLB)",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
       "fuente": "AISC F10",
-      "nota": "Para flexión alrededor del eje principal MENOR solo aplican fluencia y pandeo local del lado." },
-
-    { "id": "F.F10.divergencia", "grupo": "F10 · ángulo simple", "magnitud": "La norma peruana tampoco lo trae",
-      "valor": "E.090 remite al documento AISC de ángulos simples", "unidad": "—", "estado": "conflicto", "editable": false,
+      "nota": "Para flexión alrededor del eje principal MENOR solo aplican fluencia y pandeo local del lado."
+    },
+    {
+      "id": "F.F10.divergencia",
+      "grupo": "F10 · ángulo simple",
+      "magnitud": "La norma peruana tampoco lo trae",
+      "valor": "E.090 remite al documento AISC de ángulos simples",
+      "unidad": "—",
+      "estado": "conflicto",
+      "editable": false,
       "fuente": "E.090 Cap. 6, encabezado",
-      "nota": "Igual que en compresión: «Para elementos de un solo ángulo véase la Specification for Load and Resistance Factor Design of Single Angle Members del AISC». Usar F10 del 360-22 es lo que la propia E.090 manda." },
-
-    { "id": "F.B4.c10", "grupo": "Compacidad · Tabla B4.1b", "magnitud": "Alas de I laminada, canales y tes",
-      "valor": "λp = 0,38·√(E/Fy) · λr = 1,0·√(E/Fy)", "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "nota": "Igual que en compresión: «Para elementos de un solo ángulo véase la Specification for Load and Resistance Factor Design of Single Angle Members del AISC». Usar F10 del 360-22 es lo que la propia E.090 manda."
+    },
+    {
+      "id": "F.B4.c10",
+      "grupo": "Compacidad · Tabla B4.1b",
+      "magnitud": "Alas de I laminada, canales y tes",
+      "valor": "λp = 0,38·√(E/Fy) · λr = 1,0·√(E/Fy)",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC Tabla B4.1b, caso 10",
-      "nota": "Con A36: λp = 10,8 · λr = 28,4. Relación medida: b/t con b = bf/2." },
-
-    { "id": "F.B4.c11", "grupo": "Compacidad · Tabla B4.1b", "magnitud": "Alas de I armada (soldada)",
-      "valor": "λp = 0,38·√(E/Fy) · λr = 0,95·√(kc·E/FL)", "unidad": "—", "estado": "verificado", "editable": false,
+      "nota": "Con A36: λp = 10,8 · λr = 28,4. Relación medida: b/t con b = bf/2."
+    },
+    {
+      "id": "F.B4.c11",
+      "grupo": "Compacidad · Tabla B4.1b",
+      "magnitud": "Alas de I armada (soldada)",
+      "valor": "λp = 0,38·√(E/Fy) · λr = 0,95·√(kc·E/FL)",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
       "fuente": "AISC Tabla B4.1b, caso 11",
-      "nota": "Las armadas tienen su propio λr, con kc y FL. Importa para la serie VS/CVS." },
-
-    { "id": "F.B4.c12", "grupo": "Compacidad · Tabla B4.1b", "magnitud": "Lados de ángulos simples",
-      "valor": "λp = 0,54·√(E/Fy) · λr = 0,91·√(E/Fy)", "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "nota": "Las armadas tienen su propio λr, con kc y FL. Importa para la serie VS/CVS."
+    },
+    {
+      "id": "F.B4.c12",
+      "grupo": "Compacidad · Tabla B4.1b",
+      "magnitud": "Lados de ángulos simples",
+      "valor": "λp = 0,54·√(E/Fy) · λr = 0,91·√(E/Fy)",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC Tabla B4.1b, caso 12",
-      "nota": "Con A36: λp = 15,3 · λr = 25,8. OJO: en COMPRESIÓN el umbral para revisar flexo-torsión es b/t > 0,71·√(E/Fy) = 20,2 — otro número, otra tabla, otro propósito. No confundirlos." },
-
-    { "id": "F.B4.c13", "grupo": "Compacidad · Tabla B4.1b", "magnitud": "Alas de I y canales en flexión de eje menor",
-      "valor": "λp = 0,38·√(E/Fy) · λr = 1,0·√(E/Fy)", "unidad": "—", "estado": "verificado", "editable": false,
-      "fuente": "AISC Tabla B4.1b, caso 13" },
-
-    { "id": "F.B4.c14", "grupo": "Compacidad · Tabla B4.1b", "magnitud": "Almas de tes",
-      "valor": "λp = 0,84·√(E/Fy) · λr = 1,52·√(E/Fy)", "unidad": "—", "estado": "verificado", "editable": false,
-      "fuente": "AISC Tabla B4.1b, caso 14" },
-
-    { "id": "F.B4.c15", "grupo": "Compacidad · Tabla B4.1b", "magnitud": "Almas de I de doble simetría y canales",
-      "valor": "λp = 3,76·√(E/Fy) · λr = 5,70·√(E/Fy)", "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "nota": "Con A36: λp = 15,3 · λr = 25,8. OJO: en COMPRESIÓN el umbral para revisar flexo-torsión es b/t > 0,71·√(E/Fy) = 20,2 — otro número, otra tabla, otro propósito. No confundirlos."
+    },
+    {
+      "id": "F.B4.c13",
+      "grupo": "Compacidad · Tabla B4.1b",
+      "magnitud": "Alas de I y canales en flexión de eje menor",
+      "valor": "λp = 0,38·√(E/Fy) · λr = 1,0·√(E/Fy)",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "fuente": "AISC Tabla B4.1b, caso 13"
+    },
+    {
+      "id": "F.B4.c14",
+      "grupo": "Compacidad · Tabla B4.1b",
+      "magnitud": "Almas de tes",
+      "valor": "λp = 0,84·√(E/Fy) · λr = 1,52·√(E/Fy)",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "fuente": "AISC Tabla B4.1b, caso 14"
+    },
+    {
+      "id": "F.B4.c15",
+      "grupo": "Compacidad · Tabla B4.1b",
+      "magnitud": "Almas de I de doble simetría y canales",
+      "valor": "λp = 3,76·√(E/Fy) · λr = 5,70·√(E/Fy)",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC Tabla B4.1b, caso 15",
-      "nota": "Con A36: λp = 106,7 · λr = 161,8. Relación medida: h/tw." },
-
-    { "id": "F.B4.hss", "grupo": "Compacidad · Tabla B4.1b", "magnitud": "Secciones tubulares en flexión",
+      "nota": "Con A36: λp = 106,7 · λr = 161,8. Relación medida: h/tw."
+    },
+    {
+      "id": "F.B4.hss",
+      "grupo": "Compacidad · Tabla B4.1b",
+      "magnitud": "Secciones tubulares en flexión",
       "valor": "alas HSS rect 1,12 / 1,40 · almas HSS rect 2,42 / 5,70 · HSS redondo 0,07·E/Fy / 0,31·E/Fy · alas de cajón 1,12 / 1,49",
-      "unidad": "—", "estado": "verificado", "editable": false,
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
       "fuente": "AISC Tabla B4.1b, casos 17, 19, 20 y 21",
-      "nota": "Los coeficientes de HSS redondo NO llevan raíz: son E/Fy directo." },
-
-    { "id": "F.FL", "grupo": "Compacidad · Tabla B4.1b", "magnitud": "Definición de FL en el AISC",
+      "nota": "Los coeficientes de HSS redondo NO llevan raíz: son E/Fy directo."
+    },
+    {
+      "id": "F.FL",
+      "grupo": "Compacidad · Tabla B4.1b",
+      "magnitud": "Definición de FL en el AISC",
       "valor": "FL = 0,7·Fy   (si Sxt/Sxc ≥ 0,7) · FL = Fy·Sxt/Sxc ≥ 0,5·Fy   (si Sxt/Sxc < 0,7)",
-      "unidad": "kg/cm²", "estado": "verificado", "editable": false, "clave": true,
+      "unidad": "kg/cm²",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC Tabla B4.1b, nota [b]",
-      "nota": "IMPORTANTE PARA ENTENDER LA DIVERGENCIA DE Lr: el AISC sí usa un FL, pero lo define como 0,7·Fy, NO como Fy − Fr. La E.090 lo define como Fyf − Fr con Fr = 70 ó 115 MPa. Mismo símbolo, definición distinta." }
-
+      "nota": "IMPORTANTE PARA ENTENDER LA DIVERGENCIA DE Lr: el AISC sí usa un FL, pero lo define como 0,7·Fy, NO como Fy − Fr. La E.090 lo define como Fyf − Fr con Fr = 70 ó 115 MPa. Mismo símbolo, definición distinta."
+    },
+    {
+      "id": "F.Lr.coef",
+      "grupo": "F2 · I compacta, eje mayor",
+      "magnitud": "El 1,95 y el 6,76 de la F2-6 son valores REDONDEADOS",
+      "valor": "exactos: 1,949091 = √(π⁴·0,078/2) · 6,7495 = 4/(π⁴·0,078²)",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC F2-6 · derivado invirtiendo la F2-4 en Fcr = 0,7·Fy, y medido",
+      "nota": "Lr se DEFINE como la longitud donde el Fcr de la F2-4 vale 0,7·Fy, así que las dos ramas del pandeo lateral-torsional tienen que COINCIDIR en Lb = Lr. Y no coinciden del todo: con los coeficientes tabulados la diferencia es del 0,13 %. LA CAUSA, derivada: invirtiendo la F2-4 sale Lr = √(π⁴·0,078/2)·rts·(E/0,7Fy)·√[B + √(B² + 4/(π⁴·0,078²)·(0,7Fy/E)²)], con B = J·c/(Sx·ho). Los coeficientes exactos son 1,949091 y 6,7495, y la norma imprime 1,95 y 6,76: 0,047 % y 0,156 % de redondeo. MEDIDO en cinco perfiles W: con los tabulados la continuidad falla en 1,3e-3 y con los exactos cuadra en 1,3e-16, o sea precisión de máquina. DECISIÓN: el código usa los TABULADOS, porque son los que imprime la norma y los que va a usar cualquier ejemplo resuelto o revisor. Lo que importa es saber que ese 0,13 % de salto en Lr es redondeo de la norma y NO un error del código: sin esta fila, el día que alguien mida la discontinuidad la va a buscar donde no está."
+    },
+    {
+      "id": "F.F2.manual",
+      "grupo": "F2 · I compacta, eje mayor",
+      "magnitud": "Contraste externo contra el Manual del AISC",
+      "valor": "W12X26 con Fy = 50 ksi: Lp = 5,33 ft · Lr = 14,90 ft · rts = 1,75 in",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC Steel Construction Manual, Tabla 3-2 · calculado con F2-5, F2-6 y F2-7",
+      "nota": "NO ES AUTOCONSISTENCIA, es contraste con un tercero: los tres valores salen exactos al comparar con la tabla del Manual. Es la verificación más fuerte que tiene el capítulo, porque valida de una vez rts (F2-7), Lp (F2-5) y Lr (F2-6) con sus coeficientes, la conversión de unidades y las propiedades del catálogo. OJO AL Fy: el Manual tabula con Fy = 50 ksi y nuestro caso base es A36; hay que comparar con 50 ksi o los números no cuadran y parece un error."
+    }
   ]
 }
