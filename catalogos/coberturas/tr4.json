@@ -1,0 +1,202 @@
+{
+ "catalogo": "PRECOR TR-4 Tecnotecho · tabla de cargas",
+ "archivo": "PRECOR TR-4 Tecnotecho - ficha 2021 (con pendiente recomendable).pdf, página 2",
+ "inventario": "D.cobertura.tabla",
+ "unidades": "L en m · P en kgf/m² · peso del panel en kgf/m² · espesor en mm",
+ "procedencia": "TRANSCRITA DE UNA IMAGEN, no extraída como texto: en el PDF la tabla es un mapa de bits y la extracción de texto solo devuelve 27 de los 120 números. Se rasterizó la página a 400 dpi y se leyó. VERIFICADA MECÁNICAMENTE, y por eso se puede confiar en ella: decrece con la luz en las 12 filas, crece con el espesor en las 30 columnas, y más tramos nunca dan menos capacidad. Además cuadra con los dos valores que ya estaban en el inventario antes de digitalizarla (150 y 188 kgf/m² para 0,45-0,50 a 1,50 m con 1 y 3 tramos) y con los cuatro pesos de panel de la fila D.cobertura.peso.",
+ "carga_es_neta": true,
+ "nota_neta": "TEXTUAL de la ficha: «Las cargas vivas son netas. El peso propio del panel ha sido incluido en la verificación de resistencia y deflexión.» NO se vuelve a sumar el peso del panel al comparar: sería contarlo dos veces.",
+ "deflexion": "L/200",
+ "nota_deflexion": "La tabla está construida con ese criterio. Si se cambia el límite de deflexión, la tabla deja de valer y hay que calcular el panel aparte.",
+ "anomalia": "1 Y 2 TRAMOS DAN LO MISMO HASTA 2,50 m en las cuatro chapas, y solo difieren de 2,75 m en adelante. Es así en la ficha; no se sabe por qué y no se inventa una razón. Lo que importa es la consecuencia: la tabla NO es una familia mecánica suave, así que no se interpola entre número de tramos ni se extrapola fuera del rango 1,00-3,25 m.",
+ "luces_m": [
+  1.0,
+  1.25,
+  1.5,
+  1.75,
+  2.0,
+  2.25,
+  2.5,
+  2.75,
+  3.0,
+  3.25
+ ],
+ "chapas": [
+  {
+   "espesor": "0,35-0,40",
+   "min_mm": 0.35,
+   "max_mm": 0.4,
+   "peso_kgfm2": 3.35
+  },
+  {
+   "espesor": "0,45-0,50",
+   "min_mm": 0.45,
+   "max_mm": 0.5,
+   "peso_kgfm2": 4.3
+  },
+  {
+   "espesor": "0,55-0,60",
+   "min_mm": 0.55,
+   "max_mm": 0.6,
+   "peso_kgfm2": 5.26
+  },
+  {
+   "espesor": "0,75-0,80",
+   "min_mm": 0.75,
+   "max_mm": 0.8,
+   "peso_kgfm2": 7.17
+  }
+ ],
+ "tramos": {
+  "1": [
+   [
+    266,
+    169,
+    117,
+    85,
+    64,
+    50,
+    40,
+    31,
+    null,
+    null
+   ],
+   [
+    342,
+    218,
+    150,
+    109,
+    82,
+    64,
+    51,
+    40,
+    null,
+    null
+   ],
+   [
+    419,
+    266,
+    183,
+    133,
+    101,
+    78,
+    63,
+    49,
+    36,
+    null
+   ],
+   [
+    571,
+    363,
+    250,
+    182,
+    137,
+    107,
+    85,
+    67,
+    50,
+    38
+   ]
+  ],
+  "2": [
+   [
+    266,
+    169,
+    117,
+    85,
+    64,
+    50,
+    40,
+    32,
+    null,
+    null
+   ],
+   [
+    342,
+    218,
+    150,
+    109,
+    82,
+    64,
+    51,
+    42,
+    34,
+    null
+   ],
+   [
+    419,
+    266,
+    183,
+    133,
+    101,
+    78,
+    63,
+    51,
+    42,
+    35
+   ],
+   [
+    571,
+    363,
+    250,
+    182,
+    137,
+    107,
+    85,
+    69,
+    57,
+    48
+   ]
+  ],
+  "3": [
+   [
+    334,
+    212,
+    146,
+    107,
+    81,
+    63,
+    51,
+    41,
+    34,
+    null
+   ],
+   [
+    429,
+    273,
+    188,
+    137,
+    104,
+    81,
+    65,
+    53,
+    44,
+    37
+   ],
+   [
+    525,
+    334,
+    230,
+    168,
+    127,
+    99,
+    80,
+    65,
+    54,
+    45
+   ],
+   [
+    715,
+    455,
+    314,
+    229,
+    173,
+    136,
+    108,
+    88,
+    73,
+    61
+   ]
+  ]
+ }
+}

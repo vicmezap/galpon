@@ -21,12 +21,12 @@ No es una buena intención: está en `src/inventario.js` y la comprueba
 `pruebas/probar_inventario.js`. Pedir una magnitud que no existe **lanza**, no
 devuelve `undefined`. Un conflicto sin decisión escrita rompe la prueba.
 
-El inventario son **338 filas en `inventario/*.json`**, una por cada número,
+El inventario son **340 filas en `inventario/*.json`**, una por cada número,
 fórmula, límite y criterio que el complemento calcula, con su artículo de norma
 o su página de libro:
 
 ```
-298 verificado   ·   10 adoptado   ·   29 conflicto   ·   0 criterio propio   ·   1 pendiente
+299 verificado   ·   11 adoptado   ·   29 conflicto   ·   0 criterio propio   ·   1 pendiente
 ```
 
 *Verificado* = leído en el texto original. *Adoptado* = fuente reconocida pero
@@ -91,15 +91,17 @@ src/
   proyecto.js      guardar y abrir el proyecto .json
   bundle.js        alDiaOMuere() · ¿estoy probando lo que acabo de escribir?
 inventario/
-  *.json           las 338 filas, diez secciones
+  *.json           las 340 filas, diez secciones
 pruebas/
   correr.js        el runner
   _comun.js        comp · cerca · cierto · lanza · fin
-  probar_*.js      una por módulo · 1163 comprobaciones
+  probar_*.js      una por módulo · 1231 comprobaciones
 catalogos/
   aisc.json        1575 perfiles laminados    · AISC Shapes Database v13
   fam.json          391 perfiles soldados     · serie VS/CS/CVS, ABNT NBR 5884
   precor.json       442 conformados en frio   · L U C Z TC IC TU IU, en espera
+  coberturas/
+    tr4.json        tabla de cargas del panel · transcrita de una IMAGEN, verificada
                    2408 en total · 1966 calculables hoy · 442 esperan la AISI S100
 scripts/
   gen_inventario.py    inventario/*.json  ->  inventario/inventario.html

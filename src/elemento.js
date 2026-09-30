@@ -181,16 +181,58 @@
       }
     }
 
-    /* ---- Cap. G · cortante ---- */
+    /* ---- Cap. G · cortante ----
+       EL ARTÍCULO SE REPARTE POR FORMA, y no es decorativo: cada uno usa otra
+       geometría y otro kv.  Aplicar el G2 a un ángulo no da un resultado algo
+       distinto, da uno sin sentido, porque un ángulo no tiene alma.
+
+       Lo tuve mal: mandaba TODO al G2, y no se notó porque hasta la primera
+       correa de canal solo había pasado por aquí perfiles W — que son justo
+       los que sí van por G2.  El fallo estaba tapado por la muestra
+       (fila V.articulo). */
     if (Vu !== 0) {
-      if (!(p.d_cm > 0) || !(p.tw_cm > 0) || !(p.h_tw > 0)) {
-        throw new Error("elemento: «" + id + "» con cortante necesita d_cm, tw_cm y h_tw");
+      const fam = d.familia || p.familia;
+      if (!fam) {
+        throw new Error("elemento: «" + id + "» con cortante necesita la familia del " +
+          "perfil, para saber qué artículo del Cap. G aplica");
       }
-      const fab = d.fabricacion || p.fabricacion;
-      const v = AC.corteAlma({ acero: acero, d_cm: p.d_cm, tw_cm: p.tw_cm,
-        h_tw: p.h_tw, fabricacion: fab, Vu_kgf: Vu });
-      ratios.push({ estado: "cortante · " + (v.enG21a ? "fluencia del alma, φv = 1,00" : v.tramo),
-        valor: v.ratio, capacidad_kgf: v.Vd_kgf, art: v.art, cap: "G" });
+      const art = AC.articuloCorte(fam).articulo;
+      let v;
+      if (art === "G2") {
+        if (!(p.d_cm > 0) || !(p.tw_cm > 0)) {
+          throw new Error("elemento: «" + id + "» con cortante por G2 necesita d_cm y tw_cm");
+        }
+        const h = AC.hSobreTw(p);
+        v = AC.corteAlma({ acero: acero, d_cm: p.d_cm, tw_cm: p.tw_cm,
+          h_tw: h.h_tw, fabricacion: d.fabricacion || p.fabricacion, Vu_kgf: Vu });
+        v.estado = "cortante G2 · " + (v.enG21a ? "fluencia del alma, φv = 1,00" : v.tramo);
+        if (h.origen !== "tabulado") {
+          omitidos.push({ que: "h/tw tabulado", motivo: "el catálogo no lo trae para esta " +
+            "familia y se derivó como d − 2k: " + h.nota, esencial: false, art: h.art });
+        }
+      } else if (art === "G3") {
+        const b = d.bCorte_cm, t = d.tCorte_cm;
+        if (!(b > 0) || !(t > 0)) {
+          throw new Error(
+            "elemento: «" + id + "» es de la familia " + fam + ", así que su cortante va\n" +
+            "  por el G3, no por el G2. Necesita bCorte_cm y tCorte_cm: el ancho del lado\n" +
+            "  que resiste el corte (o el peralte del alma de la te) y su espesor.\n" +
+            "  Un ángulo no tiene alma, así que d y tw no sirven aquí.");
+        }
+        v = AC.corteAngulo({ acero: acero, b_cm: b, t_cm: t, Vu_kgf: Vu });
+        v.estado = "cortante G3 · " + v.tramo;
+      } else if (art === "G4") {
+        v = AC.corteHSS({ acero: acero, h_cm: d.hCorte_cm,
+          dimExterior_cm: d.dimExterior_cm || p.d_cm, t_cm: d.tCorte_cm || p.tdes_cm,
+          Vu_kgf: Vu });
+        v.estado = "cortante G4 · dos almas · " + v.tramo;
+      } else {
+        v = AC.corteRedondo({ acero: acero, D_t: d.D_t, Lv_cm: d.Lv_cm,
+          D_cm: d.D_cm || p.d_cm, Ag_cm2: p.A_cm2, Vu_kgf: Vu });
+        v.estado = "cortante G5 · " + (v.mandaFluencia ? "fluencia" : "pandeo");
+      }
+      ratios.push({ estado: v.estado, valor: v.ratio, capacidad_kgf: v.Vd_kgf,
+        art: v.art, cap: art });
     }
 
     /* ---- Cap. H · fuerzas combinadas ----

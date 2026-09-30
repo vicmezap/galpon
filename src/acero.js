@@ -70,7 +70,7 @@
     "F.B4.hss", "F.FL", "F.Lr.coef", "F.F2.manual",
     "V.phi", "V.phi1", "V.Vn", "V.Aw", "V.Cv1", "V.Cv2", "V.kv", "V.h",
     "V.lim260", "V.Cv2.coef", "V.G2.rig", "V.G2.lista", "V.G3", "V.G4", "V.G5",
-    "V.G6", "V.G6.lista",
+    "V.G6", "V.G6.lista", "V.h.canales", "V.articulo",
     "H.1a", "H.1b", "H.phi", "H.Pr", "H.traccion", "H.Cb.bono",
     "H.1_3", "H.1_3.eq", "H.1_3.div", "H.2", "H.2.opcion"
   ]);
@@ -1528,6 +1528,50 @@
     };
   }
 
+  /* h/tw CON PROCEDENCIA.  El catálogo AISC solo lo tabula para W, M, S y HP:
+     la hoja de canales no tiene esa columna ni k(des), solo k (fila
+     V.h.canales).  Donde está tabulado se usa el tabulado; donde no, se
+     deriva de la definición del propio G2 —h = d − 2k— Y SE DICE, porque
+     derivarlo en silencio esconde un 0,7 % de error medio y hasta un 17,5 %
+     en perfiles muy pesados.  T NO sirve: es la dimensión de detallado. */
+  function hSobreTw(p) {
+    if (p.h_tw > 0) {
+      return { h_tw: p.h_tw, origen: "tabulado", art: ART["V.h"] };
+    }
+    const k = (p.kdes_cm > 0) ? p.kdes_cm : p.k_cm;
+    if (!(p.d_cm > 0) || !(p.tw_cm > 0) || !(k > 0)) {
+      throw new Error(
+        "acero: no se puede obtener h/tw de «" + (p.nombre || "el perfil") + "».\n" +
+        "  El catálogo no lo tabula y faltan d, tw o k para derivarlo como d − 2k.\n" +
+        "  Sin h/tw no hay Capítulo G para un alma: no es un dato opcional.");
+    }
+    return { h_tw: (p.d_cm - 2 * k) / p.tw_cm, origen: "derivado de d − 2k",
+      art: ART["V.h.canales"],
+      nota: "el catálogo no tabula h/tw para esta familia; derivado de la definición " +
+            "del G2. Error medio medido 0,71 %, máximo 17,5 %" };
+  }
+
+  /* QUÉ ARTÍCULO DE CORTE APLICA A CADA FORMA · fila V.articulo.  No es
+     decorativo: cada uno usa otra geometría y otro kv, y aplicar el G2 a un
+     ángulo no da un resultado algo distinto, da uno sin sentido. */
+  const ARTICULO_CORTE = {
+    I: "G2", C: "G2", CS: "G2", CVS: "G2", VS: "G2",
+    L: "G3", T: "G3", "2L": "G3",
+    HSS_rect: "G4", HSS_red: "G5"
+  };
+
+  function articuloCorte(familia) {
+    const a = ARTICULO_CORTE[familia];
+    if (!a) {
+      throw new Error(
+        "acero: no sé qué artículo de corte aplica a la familia «" + familia + "».\n" +
+        "  El Capítulo G reparte por forma: I y canales al G2, ángulos y tes al G3,\n" +
+        "  HSS rectangular al G4, HSS redondo al G5. Una familia que no esté en ese\n" +
+        "  reparto necesita su fila antes de calcularse.");
+    }
+    return { articulo: a, familia: familia, art: ART["V.articulo"] };
+  }
+
   /* ---------- G3 · ángulos simples y almas de tes ---------------------- */
   const KV_G3 = 1.2, KV_G4 = 5, KV_G6 = 1.2;
 
@@ -1868,6 +1912,7 @@
     PHI_V, PHI_V_ALMA, PHI_V_E090, COEF_PHI_V1, COEF_SIN_RIGID,
     KV_SIN_RIGID, KV_E090, LIM_H_TW_E090, KV_G3, KV_G4, KV_G6,
     kv, Cv1, Cv2, corteAlma, requiereRigidizadores,
+    hSobreTw, articuloCorte, ARTICULO_CORTE,
     corteAngulo, corteHSS, corteRedondo, corteEjeMenor,
     H1_UMBRAL, H1_COEF, H1_3_MRY_MAX,
     exigeSegundoOrden, interaccionH1, bonoCbTraccion,

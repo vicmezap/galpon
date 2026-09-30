@@ -47,6 +47,7 @@ function fuentes() {
     path.join(RAIZ, "src"),
     path.join(RAIZ, "inventario"),
     path.join(RAIZ, "catalogos"),
+    path.join(RAIZ, "catalogos", "coberturas"),
     path.join(RAIZ, "scripts")
   ];
   const out = [];

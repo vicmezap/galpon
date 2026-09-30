@@ -332,6 +332,30 @@
       "editable": false,
       "fuente": "AISC G5-1, G5-2a y G5-2b",
       "nota": "El Ag/2 es porque solo la mitad de la sección resiste el corte de forma efectiva. Lv = distancia del cortante máximo al cortante nulo. La User Note avisa de que el pandeo por corte solo gobierna con D/t por encima de 100, aceros de alta resistencia o luces largas; en secciones corrientes manda la fluencia y Fcr = 0,6·Fy. Faltaba esta fila: G3, G4 y G6 estaban y G5 no."
+    },
+    {
+      "id": "V.h.canales",
+      "grupo": "Corte · almas",
+      "magnitud": "El catálogo AISC NO da h/tw para canales · se deriva de d − 2k",
+      "valor": "h = d − 2k · error medio 0,71 % y máximo 17,5 % contra el h/tw tabulado",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC G2.1(a), definición de h · medido contra los 331 perfiles que sí traen h/tw",
+      "nota": "HUECO DE LA FUENTE, NO DEL IMPORTADOR: la hoja de canales de la AISC Shapes Database v13 no tiene columna h/tw ni k(des), solo k. Comprobado leyendo las columnas crudas del catálogo. De los 1966 perfiles activos, 1244 no traen h/tw. EL AISC DEFINE h como la luz libre entre alas menos el filete de cada una, o sea d − 2k, así que se deriva. MEDIDO contra los 331 perfiles que SÍ traen el h/tw tabulado, usando su k(des): error medio 0,71 % y máximo 17,5 % (W18x234, un perfil muy pesado con filetes grandes). DECISIÓN: donde el catálogo da h/tw se usa el TABULADO, que es el bueno; donde no lo da se deriva y se marca como derivado, para que el resultado lo diga. No se deriva en silencio. OJO: T no vale para esto. T es la dimensión de DETALLADO, con k(det), y da 44,0 donde el tabulado da 47,2 en un W12X26 —hasta un 20 % de error—."
+    },
+    {
+      "id": "V.articulo",
+      "grupo": "Corte · generales",
+      "magnitud": "Qué artículo de corte aplica a cada forma",
+      "valor": "I y canales → G2 · ángulos y tes → G3 · HSS rect. y cajones → G4 · HSS redondo → G5 · eje menor → G6",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC Capítulo G, encabezado y artículos G2 a G6",
+      "nota": "NO ES DECORATIVO: cada artículo usa OTRA geometría y OTRO kv. El G2 va con Aw = d·tw y kv = 5,34; el G3 con b·t y kv = 1,2; el G4 con 2·h·t y kv = 5; el G5 con Ag/2 y dos expresiones de Fcr. Aplicar el G2 a un ángulo no da un resultado algo distinto: da uno sin sentido, porque un ángulo no tiene alma. LO ENCONTRÉ AL PROBAR LA PRIMERA CORREA DE CANAL: elemento.js mandaba TODO al G2, y hasta entonces solo se había probado con perfiles W, que son justo los que sí van por G2. El fallo estaba tapado por la muestra."
     }
   ]
 }
