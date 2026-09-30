@@ -169,7 +169,7 @@
       "fuente": "E.020 Art. 10 limitaciones b) y g)"
     },
     {
-      "id": "S.Qs.min",
+      "id": "N.Qs.min",
       "grupo": "Nieve",
       "magnitud": "Carga básica de nieve sobre el suelo, mínima",
       "valor": "40",
@@ -177,10 +177,10 @@
       "estado": "verificado",
       "editable": true,
       "fuente": "E.020 Art. 11.2",
-      "nota": "Equivale a 0,40 m de nieve fresca (100 kgf/m³) o 0,20 m compactada (200 kgf/m³). Retorno 50 años."
+      "nota": "Equivale a 0,40 m de nieve fresca (100 kgf/m³) o 0,20 m compactada (200 kgf/m³). Retorno 50 años. EL PREFIJO ES N, DE NIEVE, PERO EL CASO DE CARGA SE LLAMA S. La norma nombra el caso con la S de snow —así aparece en las combinaciones U.2 y U.3, «0,5 (Lr ó S ó R)»— y proyecto.js lo guarda como «S». Las filas del inventario, en cambio, van con N porque el prefijo S. es SISMO, que tiene 24 filas empezando por S.V y S.C. Tenerlos los dos como S. era una mina puesta justo en el módulo que calcula las dos cosas: escribir S.C pensando en la pendiente de nieve devuelve la amplificación sísmica, y el número sale, y es otro."
     },
     {
-      "id": "S.Qt.a",
+      "id": "N.Qt.a",
       "grupo": "Nieve",
       "magnitud": "Techo θ ≤ 15° (pendiente ≤ 27 %)",
       "valor": "Qt = Qs",
@@ -191,7 +191,7 @@
       "nota": "Sobre la proyección horizontal."
     },
     {
-      "id": "S.Qt.b",
+      "id": "N.Qt.b",
       "grupo": "Nieve",
       "magnitud": "Techo 15° < θ ≤ 30°",
       "valor": "Qt = 0,80 · Qs",
@@ -201,7 +201,7 @@
       "fuente": "E.020 Art. 11.3 b)"
     },
     {
-      "id": "S.Qt.c",
+      "id": "N.Qt.c",
       "grupo": "Nieve",
       "magnitud": "Techo θ > 30°",
       "valor": "Qt = Cs · (0,80·Qs),  Cs = 1 − 0,025·(θ − 30)",
@@ -211,7 +211,7 @@
       "fuente": "E.020 Art. 11.3 c)"
     },
     {
-      "id": "S.desbal.corto",
+      "id": "N.desbal.corto",
       "grupo": "Nieve",
       "magnitud": "Desbalanceada, ℓ/2 ≤ 6 m",
       "valor": "1,3·Qt en un solo faldón",
@@ -223,7 +223,7 @@
       "nota": "Obligatoria para θ > 15°. En una armadura puede INVERTIR el signo de las diagonales."
     },
     {
-      "id": "S.desbal.largo",
+      "id": "N.desbal.largo",
       "grupo": "Nieve",
       "magnitud": "Desbalanceada, ℓ/2 > 6 m",
       "valor": "0,3·Qt en un faldón y 1,5·Qt en el otro",
@@ -234,7 +234,7 @@
       "fuente": "E.020 Art. 11.3 d) (figura, pág. 19)"
     },
     {
-      "id": "S.es.viva",
+      "id": "N.es.viva",
       "grupo": "Nieve",
       "magnitud": "Naturaleza de la carga de nieve",
       "valor": "se considera carga viva",
@@ -244,7 +244,7 @@
       "fuente": "E.020 Art. 11.1"
     },
     {
-      "id": "S.no.viento",
+      "id": "N.no.viento",
       "grupo": "Nieve",
       "magnitud": "Simultaneidad con viento",
       "valor": "NO simultáneos",
