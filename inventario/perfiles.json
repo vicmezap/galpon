@@ -143,13 +143,13 @@
       "id": "CAT.soldados",
       "grupo": "Catálogos",
       "magnitud": "Perfiles soldados · serie VS · CS · CVS",
-      "valor": "NBR 5884 · 47 perfiles por página",
+      "valor": "NBR 5884 · 391 perfiles · CS 138 · CVS 123 · VS 130",
       "unidad": "—",
       "estado": "verificado",
       "editable": false,
       "clave": true,
       "fuente": "FAM Perfis Soldados (CATALOGOS Y FICHAS/PERFILES/), norma ABNT NBR 5884",
-      "nota": "DOCUMENTO CONSEGUIDO Y EXTRACCIÓN RESUELTA. Serie que Zapata usa en todos sus ejemplos (VS600x99, CS400x204, CVS650x217) y la que recomienda para pórticos de un piso. El catálogo define su «Nível 2» de calidad como el de «galpões industriais». La extracción va por posición de texto: los caracteres salen sueltos y se agrupan por hueco en x — 2,5 pt dentro de un número, ≥10 pt entre columnas; umbral 6. Da 47 filas de 25 campos, todas consistentes."
+      "nota": "DIGITALIZADO Y VERIFICADO. Extraccion por posicion de texto: los caracteres salen sueltos del PDF y se reagrupan por el hueco en x, que es bimodal (2,5 pt dentro de un numero, >=10 pt entre columnas; umbral 6). Las siete relaciones cuadran en los 391. SE QUEDARON FUERA, documentadas por nombre en scripts/importa_fam.py: la serie VSM (29 columnas sin verificar, y monosimetrica) y cinco filas con el dato mal en el PDF de origen -CS300x76, CVS300x113, CVS600x339, CVS1000x464 y CVS1000x486-. OJO CON ZAPATA: el catalogo de FAM es la oferta de un fabricante de HOY bajo la misma NBR 5884, y NO contiene los perfiles de sus ejemplos. Hay VS600x81, x95, x111... pero no el VS600x99; hay CS400x201 y CS400x209 pero no el CS400x204. Para contrastar contra sus ejemplos hay que tomar las propiedades que el propio libro tabula en el texto, no buscarlas en este catalogo."
     },
     {
       "id": "CAT.soldados.cols",
@@ -277,6 +277,18 @@
       "clave": true,
       "fuente": "AISC 360-22 §B4.2",
       "nota": "SALIÓ DE UNA PRUEBA QUE FALLABA. Las 367 filas de HSS rectangular no pasaban la relación peso = A·γ, siempre por un 6,2-6,9 % en el mismo sentido. La causa es normativa, no un error de transcripción: el AISC tabula el ÁREA con el espesor de DISEÑO (0,93 del nominal, por la tolerancia de fabricación de la soldadura) pero el PESO con el espesor NOMINAL. La relación tnom/tdes sale 1,0753 = 1/0,93 exacto en todo el catálogo. Consecuencia para el código: al comparar peso contra área hay que escalar por tnom/tdes; y al CALCULAR resistencia se usa el de diseño, que es el que la norma manda. Excepción: los HSS a ASTM A1065 y A1085 usan el nominal."
+    },
+    {
+      "id": "CAT.nombre.noUnico",
+      "grupo": "Catálogos",
+      "magnitud": "La designación de un perfil no es clave única",
+      "valor": "VS400x32 designa dos secciones distintas",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "ABNT NBR 5884 · verificado en el catálogo FAM",
+      "nota": "SALIO DE UNA PRUEBA EN ROJO. La NBR 5884 designa por peralte y peso -VS400x32 son 400 mm y unos 32 kg/m- y dos geometrias distintas pueden redondear al mismo peso: una con ala de 8 mm x 140 y otra de 6,3 x 180. El catalogo lista las dos y tiene razon: son dos perfiles. CONSECUENCIA: cada perfil lleva un `id` propio y busca() NO elige por su cuenta cuando hay colision: lanza con las dos opciones y sus dimensiones. Devolver una de dos secciones distintas en silencio es de las peores cosas que puede hacer un catalogo."
     }
   ]
 }

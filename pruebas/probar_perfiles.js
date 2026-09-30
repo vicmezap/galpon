@@ -23,8 +23,10 @@ const r = P.resumen();
 
 /* ---------- el catálogo cargó ----------------------------------------- */
 cierto("hay más de 1500 perfiles", r.total > 1500);
-comp("las siete familias del AISC", P.familias(),
-  ["2L", "C", "HSS_rect", "HSS_red", "I", "L", "T"]);
+comp("las diez familias: siete del AISC y tres soldadas", P.familias(),
+  ["2L", "C", "CS", "CVS", "HSS_rect", "HSS_red", "I", "L", "T", "VS"]);
+comp("los dos catálogos", Object.keys(P.resumen().porCatalogo).sort(),
+  ["AISC Shapes Database v13", "FAM Perfis Soldados (ABNT NBR 5884)"]);
 
 /* ---------- ninguna columna se perdió en silencio ---------------------- */
 const perdidas = P.avisos.filter((a) => a.columnas);
@@ -36,7 +38,16 @@ if (perdidas.length) {
 } else {
   comp("ninguna columna del catálogo quedó sin mapear", [], []);
 }
-comp("ningún perfil repetido", P.avisos.filter((a) => a.repetido).map((a) => a.perfil), []);
+/* LA DESIGNACIÓN NO ES CLAVE ÚNICA · fila CAT.nombre.noUnico.
+   VS400x32 nombra dos secciones distintas: 400 mm y ~32 kg/m se consiguen
+   con ala de 8×140 y también con 6,3×180. Se fija por nombre: si aparece
+   otra colisión, esta prueba lo dice. */
+comp("una sola designación ambigua, la conocida",
+  P.ambiguas().map((a) => a.nombre), ["VS400x32"]);
+lanza("y buscarla por designación PARA en vez de elegir por su cuenta",
+  () => P.busca("VS400x32"), "designa 2 secciones distintas");
+cierto("por id sí se resuelve, y son distintas",
+  P.busca("VS400x32·bf140").bf_cm !== P.busca("VS400x32·bf180").bf_cm);
 
 /* ---------- integridad del catálogo de origen -------------------------
    AISC §B4.2: el espesor de diseño de un HSS es 0,93 del nominal, luego

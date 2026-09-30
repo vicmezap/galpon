@@ -62,7 +62,9 @@
     AISI: "requiere el motor AISI S100 · fase 2 (conformado en frío)"
   };
 
-  const porNombre = new Map();
+  const porNombre = new Map();   /* designación -> el primero con ese nombre */
+  const porId = new Map();       /* id único -> perfil */
+  const ambiguos = new Map();    /* designación -> los que la comparten */
   const todos = [];
   const avisos = [];
 
@@ -98,26 +100,70 @@
       if (p._desconocidas) {
         avisos.push({ perfil: p.nombre, catalogo: cat.catalogo, columnas: p._desconocidas });
       }
+      /* EL NOMBRE NO ES CLAVE ÚNICA, y descubrirlo costó una prueba en rojo.
+         La NBR 5884 designa por peralte × peso —VS400x32 son 400 mm y unos
+         32 kg/m— y dos geometrías distintas pueden redondear al mismo peso:
+         una con ala de 8 mm × 140 y otra de 6,3 × 180. El catálogo lista las
+         dos, y tiene razón: son dos perfiles.
+
+         Así que cada perfil lleva su `id`, y `nombre` sigue siendo la
+         designación del catálogo. Cuando hay colisión, busca() NO elige por
+         su cuenta: lanza con las dos opciones y sus dimensiones. Devolver una
+         de dos secciones distintas en silencio es de las peores cosas que
+         puede hacer un catálogo. */
+      p.id = p.nombre;
       if (porNombre.has(p.nombre)) {
-        avisos.push({ perfil: p.nombre, catalogo: cat.catalogo, repetido: true });
+        const previo = porNombre.get(p.nombre);
+        p.id = p.nombre + "·bf" + Math.round((p.bf_cm || 0) * 10);
+        if (previo.id === previo.nombre) {
+          previo.id = previo.nombre + "·bf" + Math.round((previo.bf_cm || 0) * 10);
+          porId.set(previo.id, previo);
+          porId.delete(previo.nombre);
+        }
+        if (!ambiguos.has(p.nombre)) ambiguos.set(p.nombre, [previo]);
+        ambiguos.get(p.nombre).push(p);
       } else {
         porNombre.set(p.nombre, p);
-        todos.push(p);
       }
+      porId.set(p.id, p);
+      todos.push(p);
     }
   }
 
   /* ---------- consultas ------------------------------------------------ */
 
-  function busca(nombre) {
-    const p = porNombre.get(nombre);
+  function busca(clave) {
+    /* Por id único primero: es lo que devuelve la interfaz cuando el usuario
+       ya desambiguó. */
+    if (porId.has(clave)) return porId.get(clave);
+
+    if (ambiguos.has(clave)) {
+      const lista = ambiguos.get(clave);
+      throw new Error(
+        "perfiles: «" + clave + "» designa " + lista.length + " secciones distintas.\n" +
+        lista.map((x) =>
+          "    " + x.id + "   d=" + x.d_cm.toFixed(1) + " cm · alma " +
+          x.tw_cm.toFixed(2) + " · ala " + x.tf_cm.toFixed(2) + "×" + x.bf_cm.toFixed(1) +
+          " · A=" + x.A_cm2.toFixed(1) + " cm²").join("\n") + "\n" +
+        "  La NBR 5884 designa por peralte y peso, y dos geometrías pueden dar\n" +
+        "  el mismo peso. Elige por su id.");
+    }
+    const p = porNombre.get(clave);
     if (!p) {
       throw new Error(
-        "perfiles: «" + nombre + "» no está en el catálogo.\n" +
+        "perfiles: «" + clave + "» no está en el catálogo.\n" +
         "  Hay " + todos.length + " perfiles cargados. Comprueba el nombre, o\n" +
         "  defínelo con propiedades.Iarmada() si es una sección a medida.");
     }
     return p;
+  }
+
+  /* Las designaciones compartidas por más de una sección. La interfaz las
+     necesita para presentar la elección en vez de esconderla. */
+  function ambiguas() {
+    const out = [];
+    ambiguos.forEach((lista, nombre) => out.push({ nombre, ids: lista.map((x) => x.id) }));
+    return out;
   }
 
   /* Solo los que se pueden usar hoy.  Es lo que ve la interfaz por defecto. */
@@ -161,5 +207,6 @@
     return r;
   }
 
-  return { ART, busca, paraCalcular, activos, catalogo, familias, resumen, avisos, todos };
+  return { ART, busca, paraCalcular, activos, catalogo, familias, resumen,
+           ambiguas, avisos, todos };
 });
