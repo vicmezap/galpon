@@ -1,0 +1,135 @@
+{
+  "seccion": "geometria",
+  "titulo": "Geometría de la armadura",
+  "modulos": ["generador.js"],
+  "version": 1,
+  "fecha": "2026-09-30",
+  "regla": "Ningún número entra al código sin fila aquí. Sin fuente primaria leída, no entra.",
+  "estados": {
+    "verificado": "leído en el texto original de la fuente",
+    "adoptado": "criterio de fuente reconocida, no normativa; se cita y se declara",
+    "conflicto": "dos fuentes válidas dan valores distintos; hay decisión tomada",
+    "sin_fuente": "criterio propio del proyectista; se adopta y se declara",
+    "pendiente": "falta el documento o falta leerlo"
+  },
+  "magnitudes": [
+    {
+      "id": "G.armadura.def",
+      "grupo": "Qué es una armadura",
+      "magnitud": "Las dos condiciones que hacen armadura a una armadura",
+      "valor": "nudos libres de rotar  ·  cargas transversales SOLO en los nudos",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "Zapata 1.6, p. 1-19",
+      "nota": "«Las armaduras trasmiten sólo acciones axiales a través de sus miembros y se cuida, entonces, que sus nudos sean libres de rotar y por lo tanto incapaces de trasmitir momentos y que las cargas transversales reposen en los nudos solamente.» Son DOS condiciones y las dos son del proyectista, no del programa: la primera la cumple el modelo liberando giros (fila E.armadura), la segunda la tiene que cumplir la geometría, y es la que este módulo existe para poder cumplir."
+    },
+    {
+      "id": "G.maxwell",
+      "grupo": "Estabilidad de la geometría",
+      "magnitud": "Conteo de barras, nudos y reacciones",
+      "valor": "grado = b + r − 2j",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "estática elemental · conteo de Maxwell",
+      "nota": "No está en ninguna de las normas ni en los dos libros del proyecto: es estática de primer curso, y se declara como adoptada en vez de colarla como evidente. b barras, j nudos, r componentes de reacción. grado < 0 es un MECANISMO y no se puede analizar; grado = 0 es isostática; grado > 0 es hiperestática. LA CONDICIÓN ES NECESARIA Y NO SUFICIENTE: ver G.rango."
+    },
+    {
+      "id": "G.rango",
+      "grupo": "Estabilidad de la geometría",
+      "magnitud": "Por qué el conteo no basta y qué se hace en su lugar",
+      "valor": "se verifica por RANGO: se arma K y se resuelve",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "decisión de arquitectura del complemento",
+      "nota": "b + r = 2j puede cumplirse y la estructura ser un mecanismo: basta una barra de más en un paño y una de menos en otro, y el conteo no se entera porque solo sabe sumar. Lo único que lo sabe es el rango de la matriz de rigidez. Por eso generador.js NO devuelve una geometría por haberla contado bien: la arma, la resuelve con una carga de prueba y deja que la guarda de pivote de solver.js decida. El conteo se sigue calculando, pero para informar, no para autorizar."
+    },
+    {
+      "id": "G.hiperestatica",
+      "grupo": "Estabilidad de la geometría",
+      "magnitud": "Lo que cuesta una armadura hiperestática",
+      "valor": "las fuerzas dependen de las secciones",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "decisión de arquitectura del complemento",
+      "nota": "En una armadura isostática las fuerzas de barra salen del equilibrio y NO cambian al cambiar las secciones: el bucle de E5 solo itera por el peso propio. En una hiperestática las fuerzas se redistribuyen con la rigidez, así que cambiar una sección cambia la fuerza que esa sección tiene que resistir y el bucle se acopla de verdad. No es un defecto —una cruz en el paño extremo es hiperestática y es lo correcto—, pero hay que saberlo antes de contar pasadas."
+    },
+    {
+      "id": "G.correa.nudo",
+      "grupo": "Correas y nudos",
+      "magnitud": "Correa fuera del nudo · las dos salidas legítimas",
+      "valor": "correa en el nudo  ·  o brida superior al Capítulo H",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "McCormac & Csernak 10.6, p. 327",
+      "nota": "«Para evitar la flexión en las cuerdas superiores de las armaduras de techo, es teóricamente conveniente colocar los largueros sólo en los nudos. Sin embargo, EN ARMADURAS GRANDES ES MÁS ECONÓMICO ESPACIARLOS A INTERVALOS CORTOS. Si no se hace así, el tamaño de los largueros resultará demasiado grande y se volverán imprácticos. Cuando se usan largueros intermedios, las cuerdas superiores de las armaduras deben diseñarse por flexión y carga axial como se describe en el Capítulo 11.» Esto CORRIGE a tijeral.js, que se negaba en redondo: la correa entre nudos no es un error, es la solución económica en luces grandes, y lo que no se puede hacer es tenerla y seguir llamando armadura a la brida superior. Las dos salidas son legítimas y el generador ofrece las dos; lo que no ofrece es la tercera, que es repartir la carga a los nudos vecinos y callarse."
+    },
+    {
+      "id": "G.correa.sep",
+      "grupo": "Correas y nudos",
+      "magnitud": "Separación habitual entre correas",
+      "valor": "2 a 6 pies  (0,61 a 1,83 m)",
+      "unidad": "m",
+      "estado": "adoptado",
+      "editable": true,
+      "fuente": "McCormac & Csernak 10.6, p. 327",
+      "nota": "«Los largueros se espacian por lo general de 2 a 6 pies entre sí, dependiendo de las condiciones de la carga.» Es práctica reportada, no un límite: el límite lo pone la tabla de la cobertura (TR-4), que para nuestro panel llega más lejos que 1,83 m. Sirve de contraste, no de tope: si el generador propone un paño de 3 m con una correa por nudo, esta fila dice que eso está fuera de lo habitual aunque el panel aguante."
+    },
+    {
+      "id": "G.correa.inclinada",
+      "grupo": "Correas y nudos",
+      "magnitud": "La luz del panel se mide sobre la pendiente, no en planta",
+      "valor": "sep_pendiente = sep_horizontal · √(1 + s²)",
+      "unidad": "m",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "PRECOR TR-4 · la luz tabulada es la del panel",
+      "nota": "La tabla no lo dice con estas palabras, y es la única lectura que tiene sentido físico: el panel descansa sobre la pendiente y su luz es la distancia entre correas MEDIDA SOBRE LA PENDIENTE. El paso del paño, en cambio, se define en proyección horizontal, que es como se dibuja la armadura. Con s = 0,20 son un 2 % —poco— pero es un 2 % que va siempre en contra: la luz real es siempre mayor que la de planta, nunca menor. Comparar la tabla contra el paso horizontal es pasarse de largo sistemáticamente."
+    },
+    {
+      "id": "G.peralte",
+      "grupo": "Predimensionamiento",
+      "magnitud": "Relación peralte / luz recomendada para armaduras de techo",
+      "valor": "(falta la fuente)",
+      "unidad": "—",
+      "estado": "pendiente",
+      "editable": true,
+      "clave": true,
+      "fuente": "no está en McCormac, ni en Zapata, ni en Neufert, ni en la E.090",
+      "nota": "BUSCADA Y NO ENCONTRADA, y queda escrito para no volver a buscarla. Lo que McCormac 10.6 p. 327 llama «la relación más conveniente de peralte a claro es aproximadamente de 1/24» está EN EL PÁRRAFO DE LARGUEROS y se refiere al peralte del larguero, no al del tijeral: tomarla para la armadura sería una cita mal apropiada, y estuve a punto. El 1/25 de la AASHTO (p. 312) es de puentes y el 1/20 de la p. 315 es contra vibración de entrepisos. Neufert da 1:15-1:20 para una viga de alma ondulada, que tampoco es una armadura. MIENTRAS NO HAYA FUENTE, EL PERALTE ES DATO DE ENTRADA OBLIGATORIO: generador.js no lo inventa ni pone un valor por omisión. Lo que falta es una fuente primaria que dé la relación para una armadura de techo de acero; ninguna de las cuatro que tiene el proyecto la trae. BLOQUEA el predimensionamiento automático del peralte del tijeral, no el diseño: con el peralte dado, todo lo demás corre."
+    },
+    {
+      "id": "G.alma",
+      "grupo": "Tipologías",
+      "magnitud": "Las cuatro formas de armar el alma",
+      "valor": "diagonales bajando · subiendo · alternadas · alternadas con montantes",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "fuente": "Neufert 4.ª ed., p. 87 (p. 100 del PDF) · «Timber truss forms and bracing»",
+      "nota": "«(a) Falling diagonals with vertical posts · (b) Rising diagonals with vertical posts · (c) Rising and falling diagonals · (d) Rising and falling diagonals with vertical posts.» Es una lámina de armaduras de MADERA y aun así es la taxonomía completa, porque la taxonomía es geométrica y no depende del material: (a) es Pratt, (b) es Howe, (c) es Warren, (d) es Warren con montantes. Se cita para no inventar nombres. NO se implementa la Fink: su alma la define una figura (McCormac Fig. 19.4) que solo se lee esquemática, y ponerle a una geometría adivinada el nombre de una armadura con nombre propio es peor que no tenerla."
+    },
+    {
+      "id": "G.tipologia.signo",
+      "grupo": "Tipologías",
+      "magnitud": "Con qué criterio se elige el alma",
+      "valor": "por el SIGNO de la diagonal larga, y el signo se mide",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "decisión de arquitectura del complemento",
+      "nota": "La regla de los libros es que conviene el alma que deja las diagonales largas en TRACCIÓN, porque una barra traccionada se dimensiona por área neta y una comprimida por pandeo. La regla nace de techos que gobierna la gravedad. EN UN GALPÓN GOBIERNA 0,9D − 1,3W (fila U.6) y el levantamiento invierte todos los signos: la diagonal que la gravedad tracciona, el viento la comprime, y hay que dimensionar para la envolvente de las dos. Así que el criterio se conserva pero rinde mucho menos de lo que el libro promete, y cuánto menos se mide, no se supone."
+    }
+  ]
+}

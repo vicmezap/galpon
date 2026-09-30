@@ -39,7 +39,7 @@
   "use strict";
 
   const ART = INV.declara("tijeral.js", [
-    "E.armadura", "E.C2.k080", "E.C3.arriostre",
+    "E.armadura", "E.C2.k080", "E.C3.arriostre", "G.correa.nudo",
     "C.E5", "C.E5.cond", "C.E6.m2", "C.E6.a", "T.armados.esb",
     "T.U.c8", "U.6", "N.desbal.corto", "F.F10.H2", "Lr.red.k"
   ]);
@@ -101,6 +101,23 @@
 
   /* ---------- el modelo, con los giros liberados · fila E.armadura ---- */
   function arma(g, d) {
+    /* UNA BRIDA SUPERIOR SUBDIVIDIDA NO ES UNA ARMADURA · fila G.correa.nudo.
+       generador.subdivideBridaSuperior() parte los paños para colgar correas
+       intermedias, y entonces los tramos tienen que ir CONTINUOS y pasar por el
+       Capítulo H.  Si llegan aquí, arma() les liberaría los giros y el momento
+       local que se quería capturar desaparecería sin dejar rastro: el modelo
+       resolvería igual de bien y daría axiales razonables, que es exactamente la
+       forma de fallar que este módulo existe para impedir. */
+    if (g.requiereCapituloH) {
+      throw new Error(
+        "tijeral: esta geometría tiene la brida superior SUBDIVIDIDA y arma() la\n" +
+        "  trataría como armadura, liberando los giros. Eso borra el momento local\n" +
+        "  que la subdivisión existe para capturar.\n" +
+        "  " + (g.nota || "") + "\n" +
+        "  Todavía no está escrito el montaje con la brida continua: hasta que lo\n" +
+        "  esté, o se usa una geometría con la correa EN EL NUDO\n" +
+        "  —generador.panelesParaCorreas()—, o se modela la brida superior aparte.");
+    }
     const m = M.nuevo({ nivel: d.nivel || "LRFD", nombre: d.nombre || "tijeral",
       combinacion: d.combinacion });
     for (const n of g.nudos) M.nudo(m, { id: n.id, x_m: n.x_m, y_m: n.y_m });
@@ -165,9 +182,17 @@
         "  ser una VIGA-COLUMNA del Capítulo H: el momento local puede doblar el ratio.\n" +
         "  Y el modelo resolvería igual de bien, dando axiales razonables, así que el\n" +
         "  error no se vería.\n" +
-        "  Qué hacer: casar el número de paños con el de correas —" +
-        "paso del paño = " + g.paso_m.toFixed(3) + " m—, o modelar la brida superior\n" +
-        "  como viga continua con sus nudos intermedios y verificarla por el Cap. H.");
+        "  DOS SALIDAS, LAS DOS LEGÍTIMAS · " + ART["G.correa.nudo"] + ":\n" +
+        "   1) casar el número de paños con el de correas —paso del paño = " +
+             g.paso_m.toFixed(3) + " m—;\n" +
+        "      generador.panelesParaCorreas() lo resuelve al revés: elige los paños\n" +
+        "      DESPUÉS de saber cada cuánto va la correa, que es el orden correcto.\n" +
+        "   2) dejar las correas intermedias y verificar la brida superior por FLEXIÓN\n" +
+        "      Y CARGA AXIAL, Capítulo H: generador.subdivideBridaSuperior(). McCormac\n" +
+        "      10.6 p. 327 llama a ESTA la económica en luces grandes, así que no es\n" +
+        "      un apaño: con 40 m de luz y correa cada 0,70 m son 17 nudos de paño en\n" +
+        "      vez de 59.\n" +
+        "  Lo que no hay es una tercera: repartir la carga a los nudos vecinos y callarse.");
     }
     return { correas: xs.length, PporCorrea_kgf: P, total_kgf: P * xs.length,
       art: ART["F.F10.H2"] };

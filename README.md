@@ -21,23 +21,34 @@ No es una buena intención: está en `src/inventario.js` y la comprueba
 `pruebas/probar_inventario.js`. Pedir una magnitud que no existe **lanza**, no
 devuelve `undefined`. Un conflicto sin decisión escrita rompe la prueba.
 
-El inventario son **349 filas en `inventario/*.json`**, una por cada número,
+El inventario son **359 filas en `inventario/*.json`**, una por cada número,
 fórmula, límite y criterio que el complemento calcula, con su artículo de norma
 o su página de libro:
 
 ```
-308 verificado   ·   11 adoptado   ·   29 conflicto   ·   0 criterio propio   ·   1 pendiente
+310 verificado   ·   18 adoptado   ·   29 conflicto   ·   0 criterio propio   ·   2 pendientes
 ```
 
 *Verificado* = leído en el texto original. *Adoptado* = fuente reconocida pero
 no normativa, citada. *Conflicto* = dos normas discrepan y la decisión está
 escrita. *Pendiente* = falta el documento.
 
-El único pendiente es **`J.anclaje.concreto`**: las ecuaciones del lado del
-concreto del perno de anclaje viven en el ACI 318 Cap. 17, que es una norma de
-pago y no está en la carpeta. No se transcribe de segunda mano. La lista de
-pendientes está **fijada por nombre en la prueba**: cerrar uno es una línea
-menos ahí, y abrir uno nuevo sale en rojo.
+Hay **dos pendientes**, y los dos son documentos que faltan, no cálculos sin
+hacer:
+
+**`J.anclaje.concreto`** — las ecuaciones del lado del concreto del perno de
+anclaje viven en el ACI 318 Cap. 17, que es una norma de pago y no está en la
+carpeta. No se transcribe de segunda mano.
+
+**`G.peralte`** — no hay en toda la biblioteca del proyecto una relación
+peralte/luz recomendada para armaduras de techo. Se buscó. Lo que McCormac
+llama «la relación más conveniente de peralte a claro ≈ 1/24» está en el
+párrafo de **largueros** y es del larguero; el 1/25 de la AASHTO es de puentes
+y el 1/20 es contra vibración de entrepisos. Así que el peralte del tijeral es
+dato de entrada obligatorio y `generador.js` se niega a inventarlo.
+
+La lista de pendientes está **fijada por nombre en la prueba**: cerrar uno es
+una línea menos ahí, y abrir uno nuevo sale en rojo.
 
 ---
 
@@ -90,12 +101,13 @@ src/
   unidades.js      la frontera del sistema de unidades
   proyecto.js      guardar y abrir el proyecto .json
   bundle.js        alDiaOMuere() · ¿estoy probando lo que acabo de escribir?
+  generador.js     el tijeral paramétrico · 4 cuerdas × 4 almas · Maxwell y rango
 inventario/
-  *.json           las 349 filas, diez secciones
+  *.json           las 359 filas, once secciones
 pruebas/
   correr.js        el runner
   _comun.js        comp · cerca · cierto · lanza · fin
-  probar_*.js      una por módulo · 1410 comprobaciones
+  probar_*.js      una por módulo · 1557 comprobaciones
 catalogos/
   aisc.json        1575 perfiles laminados    · AISC Shapes Database v13
   fam.json          391 perfiles soldados     · serie VS/CS/CVS, ABNT NBR 5884
@@ -134,8 +146,20 @@ delata, y por eso `agregaCarga()` lo rechaza.
 
 ## Estado
 
-**Etapa E0** — esqueleto, runner, CI, guarda de bundle y proyecto `.json`.
+**E0 a E5 cerradas.** El complemento calcula un galpón completo de punta a
+punta —geometría, cargas, análisis, diseño— **sin una sola pantalla**, todo
+verificable en Node y en CI. Es la rebanada vertical, el primer hito real.
 
-Siguientes: E1 catálogos y propiedades de sección · E2 cargas · E3 solucionador ·
-E4 diseño AISC · E5 elementos. Con E0–E5 el complemento calcula un galpón
-completo **sin una sola pantalla**, verificable en CI.
+| | | |
+|---|---|---|
+| **E0** esqueleto | runner · CI · `alDiaOMuere` · proyecto `.json` | ✅ |
+| **E1** catálogos | 2408 perfiles · propiedades de sección | ✅ |
+| **E2** cargas | E.020 · viento · E.030 · combinaciones | ✅ |
+| **E3** motor | modelo · solver · estabilidad · solo-tracción | ✅ |
+| **E4** AISC | caps. D, E, F, G y H con doble referencia | ✅ |
+| **E5** piezas | elemento · bucle · correas · tijeral · columnas · arriostres | ✅ |
+| **E6** interfaz | **generador** · vistas · vista3d · tablero | 🔸 en curso |
+| **E7** conexiones | placa base · Cap. J | ⬜ |
+| **E8** cimentación | pedestal · zapatas | ⬜ |
+| **E9** salida | hojas · metrado · planos | ⬜ |
+| **E10** control | puente a SAP2000 | ⬜ |
