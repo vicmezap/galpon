@@ -10,7 +10,8 @@
        D · tracción
        E · compresión
        F · flexión
-       G · corte               ← hasta aquí
+       G · corte
+       H · fuerzas combinadas ← completo
        F · flexión
        G · corte
        H · fuerzas combinadas
@@ -68,7 +69,10 @@
     "F.B4.c10", "F.B4.c11", "F.B4.c12", "F.B4.c13", "F.B4.c14", "F.B4.c15",
     "F.B4.hss", "F.FL", "F.Lr.coef", "F.F2.manual",
     "V.phi", "V.phi1", "V.Vn", "V.Aw", "V.Cv1", "V.Cv2", "V.kv", "V.h",
-    "V.lim260", "V.Cv2.coef", "V.G2.rig", "V.G2.lista", "V.G3", "V.G4", "V.G5", "V.G6", "V.G6.lista"
+    "V.lim260", "V.Cv2.coef", "V.G2.rig", "V.G2.lista", "V.G3", "V.G4", "V.G5",
+    "V.G6", "V.G6.lista",
+    "H.1a", "H.1b", "H.phi", "H.Pr", "H.traccion", "H.Cb.bono",
+    "H.1_3", "H.1_3.eq", "H.1_3.div", "H.2", "H.2.opcion"
   ]);
 
   /* ---------- materiales ------------------------------------------------ */
@@ -1629,6 +1633,222 @@
     return out;
   }
 
+  /* =====================================================================
+     CAPÍTULO H · FUERZAS COMBINADAS
+
+     AQUÍ SE JUNTA TODO, y aquí está el error silencioso más fácil de cometer
+     en el diseño de un pórtico: Pr y Mr NO SON LAS FUERZAS DEL ANÁLISIS DE
+     PRIMER ORDEN.  La definición del propio H1.1 dice «determined in
+     accordance with Chapter C», o sea CON el segundo orden ya dentro — B1 y
+     B2, o un análisis riguroso.  Meter fuerzas de primer orden en la H1-1a da
+     un ratio menor, el elemento pasa, y nada lo delata (fila H.Pr).  Por eso
+     este módulo EXIGE que se declare de dónde vienen.
+
+     LAS ECUACIONES SON IDÉNTICAS EN LAS DOS NORMAS, término por término.  Lo
+     que divergo es lo de dentro: la E.090 §8.1.1.2 dice textualmente
+     «φ = φc = factor de resistencia a la compresión = 0,85», así que la
+     divergencia de un solo número del Capítulo 5 se propaga a TODA columna en
+     flexo-compresión — que en un galpón son todas (fila H.phi).
+
+     Y UN DETALLE DE ESTILO DE LA NORMA QUE CONVIENE VER: el 8/9 de la H1-1a
+     es una fracción EXACTA, no un decimal redondeado, y por eso la envolvente
+     empalma perfecta en Pr/Pc = 0,2 —las dos ecuaciones dan la misma M = 0,9
+     sobre la línea de unidad—.  Contrasta con el 4,71, el 1,95 y el 1,51 de
+     los capítulos E, F y G, que sí están redondeados y por eso dejan saltos
+     (fila V.Cv2.coef).  Cuando la continuidad importa, el AISC conserva la
+     fracción.
+     ===================================================================== */
+
+  const H1_UMBRAL = 0.2;          /* H1-1a vs H1-1b */
+  const H1_COEF = 8 / 9;          /* H1-1a · fracción exacta, no 0,889 */
+  const H1_3_MRY_MAX = 0.05;      /* H1.3 · Mry/Mcy < 0,05 para poder separar */
+
+  /* De dónde vienen Pr y Mr · fila H.Pr.  No es burocracia: es la diferencia
+     entre un diseño correcto y uno que pasa por no haber amplificado. */
+  function exigeSegundoOrden(d) {
+    const o = d.origen;
+    if (o !== "segundo-orden" && o !== "primer-orden") {
+      throw new Error(
+        "acero: hay que declarar de dónde vienen Pr y Mr:\n" +
+        "    origen: \"segundo-orden\"   (del Cap. C · B1/B2 o análisis riguroso)\n" +
+        "    origen: \"primer-orden\"    (y entonces esto PARA)\n" +
+        "  El H1.1 define Pr y Mr «in accordance with Chapter C», o sea CON los\n" +
+        "  efectos de segundo orden dentro. Meter fuerzas de primer orden da un\n" +
+        "  ratio menor, el elemento pasa, y no lo delata ningún resultado. Es el\n" +
+        "  error silencioso más fácil de cometer en todo el diseño de un pórtico.");
+    }
+    if (o === "primer-orden") {
+      throw new Error(
+        "acero: estas fuerzas son de PRIMER ORDEN y el Capítulo H pide las del\n" +
+        "  Capítulo C.\n" +
+        "  Amplifícalas antes: estabilidad.segundoOrden() con B1 y B2, o un\n" +
+        "  análisis de segundo orden. Con un pórtico de galpón la diferencia no es\n" +
+        "  pequeña: B2 suele andar entre 1,1 y 1,5.");
+    }
+    return true;
+  }
+
+  /* ---------- H1.1 · la interacción · H1-1a y H1-1b -------------------- */
+  /* TODOS LOS TÉRMINOS SE TOMAN POSITIVOS (User Note).  Es lo contrario que
+     en H2, donde el signo importa y los términos se suman o se restan. */
+  function interaccionH1(d) {
+    exigeSegundoOrden(d);
+    const Pr = Math.abs(d.Pr_kgf), Pc = d.Pc_kgf;
+    if (!(Pc > 0)) throw new Error("acero: interaccionH1() necesita Pc_kgf > 0");
+    if (!(Pr >= 0)) throw new Error("acero: interaccionH1() necesita Pr_kgf");
+    const Mrx = Math.abs(d.Mrx_kgfcm || 0), Mry = Math.abs(d.Mry_kgfcm || 0);
+    const Mcx = d.Mcx_kgfcm, Mcy = d.Mcy_kgfcm;
+    if (Mrx > 0 && !(Mcx > 0)) throw new Error("acero: con Mrx hace falta Mcx_kgfcm > 0");
+    if (Mry > 0 && !(Mcy > 0)) throw new Error("acero: con Mry hace falta Mcy_kgfcm > 0");
+
+    const pp = Pr / Pc;
+    const mm = (Mrx > 0 ? Mrx / Mcx : 0) + (Mry > 0 ? Mry / Mcy : 0);
+    let valor, ecuacion, art;
+    if (pp >= H1_UMBRAL) {
+      valor = pp + H1_COEF * mm;
+      ecuacion = "H1-1a · axial dominante (Pr/Pc ≥ 0,2)";
+      art = ART["H.1a"];
+    } else {
+      valor = pp / 2 + mm;
+      ecuacion = "H1-1b · flexión dominante (Pr/Pc < 0,2)";
+      art = ART["H.1b"];
+    }
+    return {
+      valor: valor, cumple: valor <= 1 + 1e-12,
+      ecuacion: ecuacion, razonAxial: pp, sumaMomentos: mm,
+      terminoAxial: pp >= H1_UMBRAL ? pp : pp / 2,
+      terminoFlexion: pp >= H1_UMBRAL ? H1_COEF * mm : mm,
+      art: art, artPr: ART["H.Pr"],
+      /* LA DIVERGENCIA · fila H.phi.  Las ecuaciones son idénticas; lo que
+         cambia es el φc que hay DENTRO de Pc, y la E.090 lo dice textual. */
+      artPhi: ART["H.phi"],
+      notaPhi: "las ecuaciones son idénticas en las dos normas; lo que divergimos " +
+        "es el φc de dentro de Pc: 0,90 en el AISC contra 0,85 en la E.090 §8.1.1.2, " +
+        "que lo dice textualmente. Manda el AISC.",
+      /* Con el Pc de la E.090, que es 0,85/0,90 del nuestro. */
+      valor_E090: (function () {
+        const pcE = Pc * (PHI_C_E090 / PHI_C);
+        const ppE = Pr / pcE;
+        return ppE >= H1_UMBRAL ? ppE + H1_COEF * mm : ppE / 2 + mm;
+      })(),
+      nota: "todos los términos se toman POSITIVOS (User Note de H1.1). En H2 es al " +
+            "contrario: ahí el signo importa."
+    };
+  }
+
+  /* ---------- H1.2 · flexión con TRACCIÓN axial ------------------------ */
+  /* Mismas ecuaciones, con Pc del Capítulo D.  Y el premio que casi nadie
+     usa: la tracción estabiliza contra el pandeo lateral, así que Cb se
+     puede multiplicar por √(1 + α·Pr/Pey) (fila H.Cb.bono).  Es el caso de la
+     brida inferior del tijeral bajo gravedad: traccionada y flexionada a la
+     vez.  SOLO para secciones de doble simetría. */
+  function bonoCbTraccion(d) {
+    if (d.dobleSimetria !== true) {
+      throw new Error(
+        "acero: el bono de Cb por tracción axial (H1-2) es SOLO para secciones de\n" +
+        "  doble simetría. Pásalo como dobleSimetria: true cuando lo sea.");
+    }
+    const Pr = d.Pr_kgf, Iy = d.Iy_cm4, Lb = d.Lb_cm;
+    if (!(Pr > 0)) {
+      throw new Error("acero: bonoCbTraccion() necesita Pr_kgf > 0, la TRACCIÓN requerida");
+    }
+    if (!(Iy > 0)) throw new Error("acero: bonoCbTraccion() necesita Iy_cm4 > 0");
+    if (!(Lb > 0)) throw new Error("acero: bonoCbTraccion() necesita Lb_cm > 0");
+    const alfa = (d.metodo === "ASD") ? 1.6 : 1.0;
+    const Pey = Math.PI * Math.PI * E_ACERO * Iy / (Lb * Lb);          /* H1-2 */
+    const factor = Math.sqrt(1 + alfa * Pr / Pey);
+    return { factor: factor, Pey_kgf: Pey, alfa: alfa, art: ART["H.Cb.bono"],
+      nota: "la tracción axial estabiliza contra el pandeo lateral-torsional y la " +
+            "norma lo reconoce. Es la brida inferior del tijeral bajo gravedad: " +
+            "traccionada y flexionada a la vez." };
+  }
+
+  /* ---------- H1.3 · separar en el plano y fuera del plano ------------- */
+  /* Permitido solo para perfiles laminados compactos de doble simetría, con
+     Lcz ≤ Lcy y Mry/Mcy < 0,05.  Suele dar menos conservador que la
+     interacción única, y la E.090 NO lo trae (fila H.1_3.div): se ofrece como
+     opción y no como defecto. */
+  function puedeSepararH13(d) {
+    const razones = [];
+    if (!(d.Lcz_cm <= d.Lcy_cm)) razones.push("Lcz tiene que ser ≤ Lcy");
+    const mry = Math.abs(d.Mry_kgfcm || 0);
+    const r = (mry > 0 && d.Mcy_kgfcm > 0) ? mry / d.Mcy_kgfcm : 0;
+    if (!(r < H1_3_MRY_MAX)) razones.push("Mry/Mcy = " + r.toFixed(3) + " tiene que ser < 0,05");
+    if (d.laminadoCompactoDobleSimetria !== true) {
+      razones.push("solo vale para perfil laminado compacto de doble simetría");
+    }
+    return { puede: razones.length === 0, razones: razones, razonMry: r,
+      art: ART["H.1_3"], artDivergencia: ART["H.1_3.div"],
+      nota: "la E.090 no trae H1.3: solo tiene la interacción única. Usarlo es menos " +
+            "conservador, así que es una opción y no el defecto." };
+  }
+
+  /* H1-3 · fuera del plano.  Mcx se calcula con Cb = 1,0 y DESPUÉS se
+     multiplica por Cb dentro de la ecuación; la User Note avisa de que
+     Cb·Mcx puede superar φb·Mpx y que eso es correcto, porque la fluencia ya
+     la captura H1-1a/b. */
+  function fueraDelPlanoH13(d) {
+    exigeSegundoOrden(d);
+    const Pr = Math.abs(d.Pr_kgf), Pcy = d.Pcy_kgf;
+    const Mrx = Math.abs(d.Mrx_kgfcm), McxCb1 = d.McxCb1_kgfcm, cb = d.Cb;
+    if (!(Pcy > 0)) throw new Error("acero: fueraDelPlanoH13() necesita Pcy_kgf > 0");
+    if (!(McxCb1 > 0)) {
+      throw new Error(
+        "acero: fueraDelPlanoH13() necesita McxCb1_kgfcm, la resistencia a flexión\n" +
+        "  calculada CON Cb = 1,0. El Cb entra aparte, multiplicando dentro de la\n" +
+        "  ecuación: no se puede pasar un Mcx que ya lleve Cb dentro o se aplica dos veces.");
+    }
+    if (!(cb > 0)) throw new Error("acero: fueraDelPlanoH13() necesita Cb > 0");
+    const p = Pr / Pcy;
+    const m = Mrx / (cb * McxCb1);
+    const valor = p * (1.5 - 0.5 * p) + m * m;
+    return { valor: valor, cumple: valor <= 1 + 1e-12,
+      terminoAxial: p * (1.5 - 0.5 * p), terminoFlexion: m * m,
+      razonAxial: p, CbMcx_kgfcm: cb * McxCb1,
+      art: ART["H.1_3.eq"],
+      nota: "Cb·Mcx PUEDE superar φb·Mpx y es correcto: la fluencia la captura " +
+            "H1-1a/b, no esta ecuación. Todos los términos, positivos." };
+  }
+
+  /* ---------- H2 · secciones asimétricas, por ESFUERZOS --------------- */
+  /* Trabaja con ESFUERZOS, no con fuerzas, y sobre los ejes PRINCIPALES w
+     (mayor) y z (menor).  Hay que usar el módulo de sección S DEL PUNTO
+     concreto que se analiza y RESPETAR EL SIGNO: los términos de flexión se
+     suman o se restan al axial según corresponda.  Es al contrario que H1,
+     donde todo va en positivo.
+
+     Y SE PUEDE USAR SIEMPRE, en lugar de H1, para cualquier forma (fila
+     H.2.opcion): sirve de comprobación cruzada del propio complemento, dos
+     caminos independientes para el mismo elemento. */
+  function interaccionH2(d) {
+    exigeSegundoOrden(d);
+    const fra = d.fra_kgcm2, Fca = d.Fca_kgcm2;
+    if (typeof fra !== "number") throw new Error("acero: interaccionH2() necesita fra_kgcm2");
+    if (!(Fca > 0)) throw new Error("acero: interaccionH2() necesita Fca_kgcm2 > 0");
+    const frbw = d.frbw_kgcm2 || 0, frbz = d.frbz_kgcm2 || 0;
+    const Fcbw = d.Fcbw_kgcm2, Fcbz = d.Fcbz_kgcm2;
+    if (frbw !== 0 && !(Fcbw > 0)) throw new Error("acero: con frbw hace falta Fcbw_kgcm2 > 0");
+    if (frbz !== 0 && !(Fcbz > 0)) throw new Error("acero: con frbz hace falta Fcbz_kgcm2 > 0");
+    if (d.signosRevisados !== true) {
+      throw new Error(
+        "acero: la H2-1 se evalúa RESPETANDO EL SIGNO de los esfuerzos en el punto\n" +
+        "  crítico: los términos de flexión se SUMAN O SE RESTAN al axial según\n" +
+        "  corresponda, y hay que usar el módulo S de ese punto concreto.\n" +
+        "  No es como H1, donde todo va en positivo. Cuando los signos estén\n" +
+        "  revisados en el punto que se analiza, pasa signosRevisados: true.");
+    }
+    const ta = fra / Fca;
+    const tw = frbw !== 0 ? frbw / Fcbw : 0;
+    const tz = frbz !== 0 ? frbz / Fcbz : 0;
+    const valor = ta + tw + tz;
+    return { valor: valor, cumple: valor <= 1 + 1e-12,
+      terminoAxial: ta, terminoW: tw, terminoZ: tz,
+      art: ART["H.2"], artOpcion: ART["H.2.opcion"],
+      nota: "ejes PRINCIPALES w (mayor) y z (menor), con el S del punto analizado y " +
+            "su signo. Se puede usar para cualquier forma en lugar de H1, y eso la " +
+            "hace útil como comprobación cruzada." };
+  }
+
   return {
     ART, ACEROS, E_ACERO, G_ACERO, PHI, CASOS_U, ESBELTEZ_TRACCION,
     FNT_ROSCADA, PHI_ROSCADA,
@@ -1648,6 +1868,9 @@
     PHI_V, PHI_V_ALMA, PHI_V_E090, COEF_PHI_V1, COEF_SIN_RIGID,
     KV_SIN_RIGID, KV_E090, LIM_H_TW_E090, KV_G3, KV_G4, KV_G6,
     kv, Cv1, Cv2, corteAlma, requiereRigidizadores,
-    corteAngulo, corteHSS, corteRedondo, corteEjeMenor
+    corteAngulo, corteHSS, corteRedondo, corteEjeMenor,
+    H1_UMBRAL, H1_COEF, H1_3_MRY_MAX,
+    exigeSegundoOrden, interaccionH1, bonoCbTraccion,
+    puedeSepararH13, fueraDelPlanoH13, interaccionH2
   };
 });
