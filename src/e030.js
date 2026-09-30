@@ -288,6 +288,15 @@
   const CR_MIN = 0.11;       /* Art. 34.2 · fila S.CR */
 
   function cortanteBasal(d) {
+    /* SIN ESTA GUARDA DEVOLVÍA NaN EN SILENCIO, que es justo lo que este
+       proyecto no hace: un NaN se propaga por todo el cálculo y no lo delata
+       ningún resultado hasta que alguien mira una celda vacía. */
+    if (typeof d.P_kgf !== "number" || !(d.P_kgf > 0)) {
+      throw new Error(
+        "e030: cortanteBasal() necesita el peso sísmico P_kgf > 0.\n" +
+        "  Sale de pesoSismico(), que aplica el Art. 31: para el pórtico de un\n" +
+        "  galpón es la carga muerta más el 25 % de la viva de TECHO.");
+    }
     const s = sitio(d);
     const u = factorU(d.categoria);
     const r = coefR(d);

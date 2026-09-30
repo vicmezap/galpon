@@ -26,7 +26,20 @@ const fs = require("fs");
 const path = require("path");
 
 const RAIZ = path.join(__dirname, "..");
-const SALIDA = path.join(RAIZ, "complemento");
+
+/* LOS DIRECTORIOS DE SALIDA, y son dos porque hoy solo existe el segundo.
+   Esta guarda estuvo DORMIDA desde el primer commit: vigilaba solo
+   complemento/, que lo produciría gen_complemento.py, un script que nunca se
+   escribió. Al no haber nada generado, estado() contestaba siempre «todavía no
+   se ha generado el complemento» y la guarda no podía delatar nada.  Peor:
+   cuando apareció el visor —que SÍ se genera y SÍ se puede quedar rancio—
+   seguía sin verlo, así que se podía publicar una página que no corresponde al
+   código.  Justo el fallo que este archivo existe para impedir. */
+const SALIDAS = [
+  path.join(RAIZ, "visor"),        /* gen_visor.py · el banco de cargas, hoy */
+  path.join(RAIZ, "complemento")   /* gen_complemento.py · el add-in, en E6 */
+];
+const SALIDA = SALIDAS[0];
 
 /* Todo lo que entra en el bundle.  Directorios completos, no nombres. */
 function fuentes() {
@@ -46,12 +59,16 @@ function fuentes() {
   return out;
 }
 
-/* Los archivos publicables que produce gen_complemento.py */
+/* Todo lo publicable que producen los generadores, en los dos directorios. */
 function generados() {
-  if (!fs.existsSync(SALIDA)) return [];
-  return fs.readdirSync(SALIDA)
-    .filter((f) => /\.(html|xml)$/.test(f))
-    .map((f) => path.join(SALIDA, f));
+  const out = [];
+  for (const d of SALIDAS) {
+    if (!fs.existsSync(d)) continue;
+    for (const f of fs.readdirSync(d)) {
+      if (/\.(html|xml)$/.test(f)) out.push(path.join(d, f));
+    }
+  }
+  return out;
 }
 
 function mtime(f) { return fs.statSync(f).mtimeMs; }
@@ -86,17 +103,17 @@ function alDiaOMuere() {
   const e = estado();
   if (!e.hayBundle) {
     throw new Error(
-      "bundle: no hay complemento generado todavía.\n" +
-      "  Ejecuta:  python scripts/gen_complemento.py");
+      "bundle: no hay nada generado todavía.\n" +
+      "  Ejecuta:  python scripts/gen_visor.py");
   }
   if (!e.alDia) {
     throw new Error(
-      "bundle: EL COMPLEMENTO GENERADO ESTÁ RANCIO.\n" +
+      "bundle: LO GENERADO ESTÁ RANCIO.\n" +
       "  " + e.motivo + "\n" +
-      "  Lo que estás probando no es lo que acabas de escribir.\n" +
-      "  Ejecuta:  python scripts/gen_complemento.py");
+      "  Lo que estás mirando no es lo que acabas de escribir.\n" +
+      "  Ejecuta:  python scripts/gen_visor.py");
   }
   return true;
 }
 
-module.exports = { fuentes, generados, estado, alDiaOMuere, RAIZ, SALIDA };
+module.exports = { fuentes, generados, estado, alDiaOMuere, RAIZ, SALIDA, SALIDAS };

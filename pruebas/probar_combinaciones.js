@@ -81,6 +81,44 @@ comp("con solo Lr, una sola",
   C.paraAcero({ casos: { D: true, L: true, Lr: true } })
     .combinaciones.filter((x) => x.id === "1.4-2").length, 1);
 
+/* ---------- EL ERROR MAS GRAVE QUE HE TENIDO AQUI, y su prueba ---------
+   E.090 §1.4.1, TEXTUAL: «El efecto critico puede ocurrir cuando una o mas
+   cargas NO ESTEN ACTUANDO.» La norma manda evaluar la combinacion con el
+   termino a cero, no descartarla.
+
+   Mi primera version descartaba la combinacion entera cuando faltaba un caso,
+   y por eso se perdia 1,2 D + 1,6 Lr —la 1.4-3 sin L ni W—, que es la que
+   gobierna la gravedad de un techo. Con solo D y Lr el techo quedaba
+   dimensionado por 1,2 D + 0,5 Lr: un factor 3,2 de menos sobre la carga viva.
+   El mismo error aparecia una segunda vez con la exencion de nieve, que se
+   llevaba las dos combinaciones con 1,6 S y no dejaba ninguna. */
+const gLr = C.paraAcero({ casos: { D: true, Lr: true } });
+cierto("con solo D y Lr existe 1,2 D + 1,6 Lr",
+  gLr.combinaciones.some((x) => x.texto === "1.2 D + 1.6 Lr"));
+const peorLr = Math.max.apply(null, gLr.combinaciones
+  .map((x) => { const t = x.terminos.find(([c]) => c === "Lr"); return t ? t[1] : 0; }));
+comp("y el factor mayor sobre Lr es 1,6, no 0,5", peorLr, 1.6);
+
+/* Y la nieve, que se perdia por la exencion: tiene que quedar su 1,6 S. */
+const gS = C.paraAcero({ casos: { D: true, S: true, W: true } });
+cierto("con nieve y viento sigue existiendo 1,2 D + 1,6 S",
+  gS.combinaciones.some((x) => x.texto === "1.2 D + 1.6 S"));
+cierto("y ninguna viva junta W con S",
+  gS.combinaciones.every((x) =>
+    !(x.terminos.some(([c]) => c === "W") && x.terminos.some(([c]) => c === "S"))));
+
+/* D es obligatorio: no hay estructura sin peso propio. */
+lanza("sin carga muerta PARA", () => C.paraAcero({ casos: { L: true } }), "falta el caso D");
+
+/* Dos plantillas pueden degenerar en la MISMA combinacion cuando faltan casos.
+   Se emite una vez y se citan las dos, en vez de repetir la fila. */
+const dup = C.paraAcero({ casos: { D: true, Lr: true } })
+  .combinaciones.find((x) => x.texto === "1.2 D + 0.5 Lr");
+cierto("una combinacion repetida se emite una vez, citando las dos plantillas",
+  dup.tambien.length >= 1);
+comp("ninguna combinacion se repite",
+  gLr.combinaciones.length, new Set(gLr.combinaciones.map((x) => x.texto)).size);
+
 /* ---------- la exención de viento y nieve · E.020 Art. 11.1 ------------ */
 /* e020.js expone NIEVE_CON_VIENTO = false y este módulo lo LEE, no lo
    vuelve a decidir. */
@@ -102,8 +140,8 @@ comp("desactivándola no se descarta nada", sinEx.descartadas.length, 0);
 cierto("y reaparecen las combinaciones con W y S",
   sinEx.combinaciones.some((x) =>
     x.terminos.some(([c]) => c === "W") && x.terminos.some(([c]) => c === "S")));
-cierto("son dos más que con la exención puesta",
-  sinEx.combinaciones.length === ex.combinaciones.length + 2);
+cierto("con la exención desactivada hay más combinaciones vivas",
+  sinEx.combinaciones.length > ex.combinaciones.length);
 /* El sismo SÍ va con la nieve: la exención es solo del viento. */
 cierto("la 1.4-5 mantiene el 0,2 S junto al sismo",
   C.paraAcero({ casos: { D: true, E: true, S: true } })

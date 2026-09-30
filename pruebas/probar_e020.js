@@ -63,8 +63,28 @@ cierto("y avisa de que está en el piso",
    proyectista, y en la sierra el error va del lado inseguro. */
 lanza("no decir si hay nieve PARA en vez de suponer que no",
   () => E.vivaTecho({ tipo: "liviana" }), "puede acumularse nieve");
-comp("con nieve, no devuelve Lr: remite al Art. 11",
+comp("cobertura liviana con nieve: no devuelve Lr, remite al Art. 11",
   E.vivaTecho({ tipo: "liviana", hayNieve: true }).manda, "nieve");
+/* LA EXCEPCIÓN ES SOLO DEL INCISO d) · comprobado en el texto: «Para techos
+   con coberturas livianas ... EXCEPTO cuando en el techo pueda haber
+   acumulación de nieve». Los incisos a), b) y c) NO la traen, así que ahí Lr
+   SIGUE VALIENDO y la nieve entra además como su propio caso: las
+   combinaciones dicen «Lr ó S» y la envolvente decide.
+   Mi primera versión la aplicaba a los cuatro tipos y citaba Lr.liviana para
+   todos: en un techo plano con nieve devolvía «no hay Lr» cuando el inciso a)
+   da 100 kgf/m² igual. Era una cita falsa y un número de menos. */
+comp("techo plano con nieve · el inciso a) sigue dando 100",
+  E.vivaTecho({ tipo: "plano", theta_grad: 2, hayNieve: true }).Lo_kgfm2, 100);
+comp("techo inclinado con nieve · el inciso b) sigue dando su valor",
+  E.vivaTecho({ tipo: "inclinado", theta_grad: 8, hayNieve: true }).Lo_kgfm2, 75);
+comp("techo curvo con nieve · el inciso c) sigue dando 50",
+  E.vivaTecho({ tipo: "curvo", hayNieve: true }).Lo_kgfm2, 50);
+cierto("pero avisa de que hay que calcular la nieve además",
+  E.vivaTecho({ tipo: "plano", theta_grad: 2, hayNieve: true }).tambienNieve === true);
+cierto("y sin nieve no lo marca",
+  E.vivaTecho({ tipo: "plano", theta_grad: 2, hayNieve: false }).tambienNieve === undefined);
+cierto("la liviana con nieve cita el inciso d), no otro",
+  /7\.1 d\)|liviana/i.test(E.vivaTecho({ tipo: "liviana", hayNieve: true }).nota));
 lanza("un tipo de techo que no es de los cuatro incisos PARA",
   () => E.vivaTecho({ tipo: "verde", hayNieve: false }), "no es un tipo de techo");
 lanza("un techo inclinado sin inclinación PARA",
@@ -77,7 +97,9 @@ lanza("un techo inclinado sin inclinación PARA",
 const red = E.reduceViva({ Lo_kgfm2: 30, At_m2: 120 });
 comp("k por defecto es el del tijeral liviano, Tabla 3", red.k, 1);
 comp("Ai = k·At", red.Ai_m2, 120);
-cerca("Lr del ejemplo del inventario ≈ 20 kgf/m²", red.Lr_kgfm2, 20.1, 0.02);
+cerca("Lr del ejemplo del inventario = 20,0976 kgf/m²", red.Lr_kgfm2,
+  30 * (0.25 + 4.6 / Math.sqrt(120)), 1e-12);
+cerca("que es el «≈ 20» de la fila Lr.red.k", red.Lr_kgfm2, 20.0976, 1e-4);
 cierto("y queda por encima del piso de 0,50·Lo = 15", red.Lr_kgfm2 > 15);
 cierto("está reducido", red.reducido === true);
 

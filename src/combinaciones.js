@@ -106,6 +106,13 @@
           CASOS.join(" · ") + " (y CE para el empuje de suelos en la E.060).");
       }
     }
+    if (!casos.D) {
+      throw new Error(
+        "combinaciones: falta el caso D.\n" +
+        "  Las seis combinaciones de la E.090 llevan carga muerta, y una\n" +
+        "  estructura sin peso propio no existe. Si la intención es ver solo el\n" +
+        "  efecto del viento, ese es un CASO, no una combinación.");
+    }
     return casos;
   }
 
@@ -133,36 +140,44 @@
 
     const out = [];
     const descartadas = [];
+    const vistos = new Map();
 
+    /* TEXTUAL, E.090 §1.4.1: «El efecto crítico puede ocurrir cuando una o
+       más cargas NO ESTÉN ACTUANDO.» La norma manda evaluar la combinación con
+       el término a cero, no descartarla.  Mi primera versión descartaba la
+       combinación entera cuando faltaba un caso, y por eso se perdía
+       1,2 D + 1,6 Lr —la 1.4-3 sin L ni W—, que es la que gobierna la gravedad
+       de un techo: el techo quedaba dimensionado con 0,5 Lr en vez de 1,6 Lr,
+       un factor 3,2 de menos sobre la carga viva. */
     for (const p of E090) {
-      /* ramas del grupo «ó»: una por caso de techo presente, o ninguna */
-      const ramasTecho = p.techo
+      /* El grupo «Lr ó S ó R»: una rama por caso presente, y si no hay
+         ninguno el término vale cero y la combinación sigue existiendo. */
+      let ramasTecho = p.techo
         ? GRUPO_TECHO.filter((c) => casos[c]).map((c) => [[c, p.techo]])
         : [[]];
-      if (p.techo && !ramasTecho.length) ramasTecho.push([]);
+      if (!ramasTecho.length) ramasTecho = [[]];
 
-      /* alternativas explícitas de la 1.4-3 */
-      const ramasAlt = p.alt || [[]];
+      /* Las alternativas de la 1.4-3, y SIEMPRE tambien la rama sin ninguna,
+         por la misma frase del §1.4.1.  No es redundancia: con nieve y viento
+         a la vez, las dos alternativas con W se descartan por la exención del
+         Art. 11.1 y sin esta rama se perdería 1,2 D + 1,6 S, que es la que
+         gobierna la gravedad de un techo con nieve.  Fue el mismo error dos
+         veces: descartar la combinación en vez de poner el término a cero. */
+      const ramasAlt = (p.alt ? p.alt.filter((a) => casos[a[0][0]]) : []).concat([[]]);
 
       for (const rt of ramasTecho) {
         for (const ra of ramasAlt) {
-          let t = p.t.concat(rt, ra);
-          /* el caso tiene que existir en el proyecto, salvo D que siempre está */
-          t = t.filter(([c]) => c === "D" || casos[c]);
-          /* si la plantilla exigía una alternativa y su caso no existe, la rama muere */
-          if (ra.length && !casos[ra[0][0]]) continue;
-          /* una combinación que se queda solo con D duplica la 1.4-1 */
-          if (p.id !== "1.4-1" && t.length === 1 && t[0][0] === "D") continue;
-          /* si la plantilla tiene un término no-D obligatorio que falta, muere */
-          if (p.id === "1.4-6" && !casos.W) continue;
-          if (p.id === "1.4-6E" && !casos.E) continue;
-          if (p.id === "1.4-5" && !casos.E) continue;
-          if (p.id === "1.4-2" && !casos.L && !rt.length) continue;
+          let t = p.t.concat(rt, ra).filter(([c]) => casos[c]);
 
           /* factor de L a 1,0 · fila U.L1 */
           if (vivaAlta && CON_L1.indexOf(p.id) >= 0) {
             t = t.map(([c, f]) => (c === "L" ? [c, 1.0] : [c, f]));
           }
+
+          /* Una que se queda solo con D no aporta nada: 1,4 D la envuelve
+             —es mayor que 1,2 D y que 0,9 D—. Se quita como DUPLICADO, no
+             por interpretar la norma. */
+          if (p.id !== "1.4-1" && t.length === 1 && t[0][0] === "D") continue;
 
           const tieneW = t.some(([c]) => c === "W");
           const tieneS = t.some(([c]) => c === "S");
@@ -175,8 +190,19 @@
             continue;
           }
 
-          out.push({ id: p.id, norma: "E.090", terminos: limpia(t), texto: texto(t),
-            art: ART[p.art] });
+          /* Dos plantillas pueden degenerar en la MISMA combinación cuando
+             faltan casos —sin Lr ni W, la 1.4-3 y la 1.4-4 dan las dos
+             1,2 D + 0,5 L—. Se emite una vez, citando las dos. */
+          const clave = texto(t);
+          if (vistos.has(clave)) {
+            const y = vistos.get(clave);
+            if (y.tambien.indexOf(p.id) < 0) y.tambien.push(p.id);
+            continue;
+          }
+          const fila = { id: p.id, norma: "E.090", terminos: limpia(t), texto: clave,
+            tambien: [], art: ART[p.art] };
+          vistos.set(clave, fila);
+          out.push(fila);
         }
       }
     }

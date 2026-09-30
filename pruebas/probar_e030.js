@@ -191,6 +191,15 @@ const Vmin = E.cortanteBasal({
 cierto("con R = 8 y T = 3 s el mínimo C/R muerde", Vmin.enMinimoCR === true);
 comp("y se usa 0,11", Vmin.CR_usado, 0.11);
 cierto("que es mayor que el C/R real", Vmin.CR < 0.11);
+/* SIN ESTA GUARDA DEVOLVÍA NaN EN SILENCIO, que se propaga por todo el
+   cálculo y no lo delata ningún resultado hasta que alguien mira una celda
+   vacía. Lo encontré auditando antes de E3. */
+lanza("la cortante basal sin peso sísmico PARA en vez de devolver NaN",
+  () => E.cortanteBasal({ zona: "Z4", suelo: "S2", categoria: "C", pendulo: true, T_s: 0.2 }),
+  "P_kgf");
+lanza("y con un peso de cero también",
+  () => E.cortanteBasal({ zona: "Z4", suelo: "S2", categoria: "C", pendulo: true,
+    T_s: 0.2, P_kgf: 0 }), "P_kgf");
 
 /* ---------- reparto en altura · Art. 35 -------------------------------- */
 comp("T ≤ 0,5 s · k = 1,0", E.exponenteK(0.4).k, 1.0);

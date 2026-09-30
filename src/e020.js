@@ -103,14 +103,39 @@
         "  el caso desbalanceado, que en una armadura puede invertir el signo\n" +
         "  de las diagonales. Decirlo es del proyecto, no de la función.");
     }
-    if (d.hayNieve) {
+    /* LA EXCEPCIÓN ES SOLO DEL INCISO d), y lo comprobé en el texto: «Para
+       techos con coberturas livianas de planchas onduladas o plegadas,
+       calaminas, fibrocemento, material plástico, etc., cualquiera sea su
+       pendiente, 0,30 kPa (30 kgf/m²), EXCEPTO cuando en el techo pueda haber
+       acumulación de nieve, en cuyo caso se aplicará lo indicado en el
+       Artículo 11.»  Los incisos a), b) y c) NO la traen.
+
+       Mi primera versión la aplicaba a los cuatro tipos y citaba Lr.liviana
+       para todos: en un techo plano con nieve devolvía «no hay Lr» cuando el
+       inciso a) da 100 kgf/m² igual, y la nieve entra además como su propio
+       caso —las combinaciones dicen «Lr ó S»—.  Era una cita falsa y un
+       número de menos. */
+    if (d.hayNieve && tipo === "liviana") {
       return {
         Lo_kgfm2: null,
         manda: "nieve",
         art: ART["Lr.liviana"],
-        nota: "hay nieve: el Art. 7.1 d) remite al Art. 11 · usa nieve()"
+        nota: "cobertura liviana con nieve: el Art. 7.1 d) sustituye los 30 " +
+              "kgf/m² por el Art. 11 · usa nieveQt()"
       };
     }
+
+    /* En los incisos a), b) y c) la nieve NO sustituye a Lr: los dos son
+       casos y las combinaciones de la E.090 dicen «Lr ó S», así que hay que
+       calcular los dos y que la envolvente decida.  Se marca para que quien
+       llame no se olvide del segundo. */
+    const tambien = d.hayNieve
+      ? { tambienNieve: true,
+          nota: "el inciso «" + tipo + "» no tiene la excepción de nieve del d): " +
+                "Lr vale, y la nieve entra además como su propio caso" }
+      : {};
+
+    function con(r) { return Object.assign(r, tambien); }
 
     if (tipo === "liviana") {
       /* ESTE ES EL CASO DEL GALPÓN · planchas onduladas o plegadas,
@@ -119,7 +144,7 @@
       return { Lo_kgfm2: 30, manda: "Lr", art: ART["Lr.liviana"], caso: "Art. 7.1 d)" };
     }
     if (tipo === "curvo") {
-      return { Lo_kgfm2: 50, manda: "Lr", art: ART["Lr.curvo"], caso: "Art. 7.1 c)" };
+      return con({ Lo_kgfm2: 50, manda: "Lr", art: ART["Lr.curvo"], caso: "Art. 7.1 c)" });
     }
 
     const th = d.theta_grad;
@@ -129,17 +154,17 @@
         "  vivaTecho({ tipo: \"" + tipo + "\", theta_grad: <0 a 90>, hayNieve: ... })");
     }
     if (th <= 3) {
-      return { Lo_kgfm2: 100, manda: "Lr", art: ART["Lr.plano"], caso: "Art. 7.1 a)" };
+      return con({ Lo_kgfm2: 100, manda: "Lr", art: ART["Lr.plano"], caso: "Art. 7.1 a)" });
     }
     /* 100 − 5·(θ − 3), con piso en 50 · fila Lr.inclinado */
     const bruto = 100 - 5 * (th - 3);
-    return {
+    return con({
       Lo_kgfm2: Math.max(50, bruto),
       manda: "Lr",
       art: ART["Lr.inclinado"],
       caso: "Art. 7.1 b)",
       enPiso: bruto < 50
-    };
+    });
   }
 
   /* ---------- reducción de carga viva · E.020 Art. 10 ------------------- */
