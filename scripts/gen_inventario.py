@@ -12,7 +12,7 @@ import json
 import os
 import sys
 
-AQUI = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "inventario")
+AQUI = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "inventario"))
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 SECCIONES = ["cargas", "perfiles", "traccion", "compresion", "flexion", "corte-flexocompresion", "estabilidad", "conexiones", "sismo", "cimentacion"]          # se añaden las otras nueve conforme se cierren
 SALIDA = os.path.join(AQUI, "inventario.html")

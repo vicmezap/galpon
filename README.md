@@ -80,8 +80,13 @@ pruebas/
   _comun.js        comp · cerca · cierto · lanza · fin
   probar_*.js      una por módulo
 scripts/
-  gen_complemento.py   genera lo publicable a GitHub Pages
+  gen_inventario.py    inventario/*.json  ->  inventario/inventario.html
+  gen_complemento.py   genera lo publicable a GitHub Pages   (etapa E6)
 ```
+
+El inventario vive **solo aquí**. No hay copia fuera del repositorio: el JSON es
+la fuente, `inventario.html` es la vista y `src/inventario.js` es el acceso desde
+el código. Tres usos, un solo dato.
 
 ---
 
