@@ -261,7 +261,9 @@
       "montante": { enPlano_cm: null, fueraPlano_cm: null,
         hipotesis: "igual que la diagonal" },
       art: ART["E.C3.arriostre"],
-      deuda: "el Apéndice 6 de la correa y del arriostre NO está comprobado aquí: es de E7"
+      deuda: "el Apéndice 6 de la correa y del arriostre se comprueba con "
+             + "arriostres.js: resistencia Y RIGIDEZ. Lo que sí es de E7 es su CONEXIÓN, "
+             + "que la norma dimensiona aparte, como arriostre puntual (fila A6.conexion)."
     };
   }
 

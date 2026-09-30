@@ -1,7 +1,11 @@
 {
   "seccion": "estabilidad",
   "titulo": "Análisis y estabilidad",
-  "modulos": ["solver.js", "estabilidad.js", "modelo.js"],
+  "modulos": [
+    "solver.js",
+    "estabilidad.js",
+    "modelo.js"
+  ],
   "version": 1,
   "fecha": "2026-09-30",
   "regla": "Ningún número entra al código sin fila aquí. Sin fuente primaria leída, no entra.",
@@ -13,136 +17,401 @@
     "pendiente": "falta el documento o falta leerlo"
   },
   "magnitudes": [
-
-    { "id": "E.C1.efectos", "grupo": "Requisitos generales", "magnitud": "Los cinco efectos que el análisis debe considerar",
+    {
+      "id": "E.C1.efectos",
+      "grupo": "Requisitos generales",
+      "magnitud": "Los cinco efectos que el análisis debe considerar",
       "valor": "(a) deformaciones por flexión, corte y axial · (b) segundo orden P-Δ y P-δ · (c) imperfecciones geométricas · (d) reducción de rigidez por inelasticidad, incluido el esfuerzo residual · (e) incertidumbre en resistencia y rigidez",
-      "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC C1",
-      "nota": "Cualquier método racional que considere los cinco está permitido. El Método Directo (C1.1), el de Longitud Efectiva y el de primer orden (Apéndice 7) son las tres rutas reconocidas." },
-
-    { "id": "E.C1.nivel", "grupo": "Requisitos generales", "magnitud": "A qué nivel de carga se calcula todo",
-      "valor": "combinaciones LRFD  (ó 1,6 × las de ASD)", "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "nota": "Cualquier método racional que considere los cinco está permitido. El Método Directo (C1.1), el de Longitud Efectiva y el de primer orden (Apéndice 7) son las tres rutas reconocidas."
+    },
+    {
+      "id": "E.C1.nivel",
+      "grupo": "Requisitos generales",
+      "magnitud": "A qué nivel de carga se calcula todo",
+      "valor": "combinaciones LRFD  (ó 1,6 × las de ASD)",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC C1, último párrafo",
-      "nota": "«All load-dependent effects shall be calculated at a level of loading corresponding to LRFD load combinations.» El análisis de estabilidad se corre con cargas FACTORIZADAS, no de servicio. Confundirlo subestima el segundo orden." },
-
-    { "id": "E.C1.alcance", "grupo": "Requisitos generales", "magnitud": "Alcance del Método Directo",
-      "valor": "permitido para TODAS las estructuras, sin restricciones", "unidad": "—", "estado": "verificado", "editable": false,
+      "nota": "«All load-dependent effects shall be calculated at a level of loading corresponding to LRFD load combinations.» El análisis de estabilidad se corre con cargas FACTORIZADAS, no de servicio. Confundirlo subestima el segundo orden."
+    },
+    {
+      "id": "E.C1.alcance",
+      "grupo": "Requisitos generales",
+      "magnitud": "Alcance del Método Directo",
+      "valor": "permitido para TODAS las estructuras, sin restricciones",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
       "fuente": "AISC C1.1",
-      "nota": "El de Longitud Efectiva y el de primer orden son alternativas SUJETAS A LIMITACIONES del Apéndice 7. Por eso el defecto del complemento es el Directo." },
-
-    { "id": "E.C2.2orden", "grupo": "Análisis", "magnitud": "El análisis debe ser de segundo orden",
-      "valor": "con P-Δ y P-δ", "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "nota": "El de Longitud Efectiva y el de primer orden son alternativas SUJETAS A LIMITACIONES del Apéndice 7. Por eso el defecto del complemento es el Directo."
+    },
+    {
+      "id": "E.C2.2orden",
+      "grupo": "Análisis",
+      "magnitud": "El análisis debe ser de segundo orden",
+      "valor": "con P-Δ y P-δ",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC C2.1(b)",
-      "nota": "P-Δ es el ladeo del pórtico completo; P-δ es el arqueo de la barra entre sus extremos." },
-
-    { "id": "E.C2.Pdelta", "grupo": "Análisis", "magnitud": "Cuándo se puede omitir P-δ en la respuesta global",
+      "nota": "P-Δ es el ladeo del pórtico completo; P-δ es el arqueo de la barra entre sus extremos."
+    },
+    {
+      "id": "E.C2.Pdelta",
+      "grupo": "Análisis",
+      "magnitud": "Cuándo se puede omitir P-δ en la respuesta global",
       "valor": "(1) las cargas de gravedad bajan por columnas o muros nominalmente verticales · (2) Δ₂ᵒ/Δ₁ᵉʳ ≤ 1,7 en todos los pisos · (3) no más de 1/3 de la gravedad la soportan columnas de pórticos a momento",
-      "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC C2.1(b)",
-      "nota": "PERO: «It is necessary in all cases to consider P-δ effects in the evaluation of individual members subjected to compression and flexure». O sea que el P-δ del elemento NUNCA se omite — se cubre aplicando B1. Ese es el puente entre un análisis P-Δ y el Apéndice 8." },
-
-    { "id": "E.C2.Ni", "grupo": "Imperfecciones", "magnitud": "Carga nocional",
-      "valor": "Ni = 0,002 · α · Yi,   α = 1,0 en LRFD", "unidad": "kgf", "estado": "verificado", "editable": false, "clave": true,
+      "nota": "PERO: «It is necessary in all cases to consider P-δ effects in the evaluation of individual members subjected to compression and flexure». O sea que el P-δ del elemento NUNCA se omite — se cubre aplicando B1. Ese es el puente entre un análisis P-Δ y el Apéndice 8."
+    },
+    {
+      "id": "E.C2.Ni",
+      "grupo": "Imperfecciones",
+      "magnitud": "Carga nocional",
+      "valor": "Ni = 0,002 · α · Yi,   α = 1,0 en LRFD",
+      "unidad": "kgf",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC C2-1",
-      "nota": "Yi = carga de gravedad en el nivel i según la combinación que se esté corriendo. Se aplica como carga lateral, ADITIVA a las otras cargas laterales." },
-
-    { "id": "E.C2.desplome", "grupo": "Imperfecciones", "magnitud": "De dónde sale el 0,002",
-      "valor": "desplome inicial de 1/500", "unidad": "—", "estado": "verificado", "editable": true,
+      "nota": "Yi = carga de gravedad en el nivel i según la combinación que se esté corriendo. Se aplica como carga lateral, ADITIVA a las otras cargas laterales."
+    },
+    {
+      "id": "E.C2.desplome",
+      "grupo": "Imperfecciones",
+      "magnitud": "De dónde sale el 0,002",
+      "valor": "desplome inicial de 1/500",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": true,
       "fuente": "AISC C2.2b(c)",
-      "nota": "«based on a nominal initial story out-of-plumbness ratio of 1/500», que es la tolerancia máxima de verticalidad del Code of Standard Practice. Si se justifica otra tolerancia, el coeficiente se ajusta proporcionalmente. Por eso el campo es editable." },
-
-    { "id": "E.C2.direccion", "grupo": "Imperfecciones", "magnitud": "En qué dirección se aplican",
-      "valor": "la que produzca el mayor efecto desestabilizador", "unidad": "—", "estado": "verificado", "editable": false,
+      "nota": "«based on a nominal initial story out-of-plumbness ratio of 1/500», que es la tolerancia máxima de verticalidad del Code of Standard Practice. Si se justifica otra tolerancia, el coeficiente se ajusta proporcionalmente. Por eso el campo es editable."
+    },
+    {
+      "id": "E.C2.direccion",
+      "grupo": "Imperfecciones",
+      "magnitud": "En qué dirección se aplican",
+      "valor": "la que produzca el mayor efecto desestabilizador",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
       "fuente": "AISC C2.2b(b)",
-      "nota": "Se reparten en el nivel igual que la carga de gravedad. En un galpón hay que probar los dos sentidos transversales." },
-
-    { "id": "E.C2.solo_gravedad", "grupo": "Imperfecciones", "magnitud": "Cuándo basta aplicarlas solo en gravedad",
-      "valor": "si Δ₂ᵒ/Δ₁ᵉʳ ≤ 1,7 en todos los pisos", "unidad": "—", "estado": "verificado", "editable": false,
+      "nota": "Se reparten en el nivel igual que la carga de gravedad. En un galpón hay que probar los dos sentidos transversales."
+    },
+    {
+      "id": "E.C2.solo_gravedad",
+      "grupo": "Imperfecciones",
+      "magnitud": "Cuándo basta aplicarlas solo en gravedad",
+      "valor": "si Δ₂ᵒ/Δ₁ᵉʳ ≤ 1,7 en todos los pisos",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
       "fuente": "AISC C2.2b(d)",
-      "nota": "Simplificación real: en estructuras poco sensibles las nocionales solo entran en las combinaciones de solo-gravedad, no en las que ya traen viento o sismo." },
-
-    { "id": "E.C2.ficticio", "grupo": "Imperfecciones", "magnitud": "El cortante ficticio en la base",
-      "valor": "corregir con una fuerza igual y opuesta a la suma de las nocionales", "unidad": "—", "estado": "verificado", "editable": false,
+      "nota": "Simplificación real: en estructuras poco sensibles las nocionales solo entran en las combinaciones de solo-gravedad, no en las que ya traen viento o sismo."
+    },
+    {
+      "id": "E.C2.ficticio",
+      "grupo": "Imperfecciones",
+      "magnitud": "El cortante ficticio en la base",
+      "valor": "corregir con una fuerza igual y opuesta a la suma de las nocionales",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
       "fuente": "AISC C2.2b(a), User Note",
-      "nota": "Las nocionales meten un cortante basal que no existe. Para las reacciones correctas de cimentación se aplica en la base una fuerza igual y contraria, repartida entre los elementos verticales en proporción a la gravedad que soportan. OJO: el efecto de VOLTEO que generan sí es real y no se corrige." },
-
-    { "id": "E.C2.k080", "grupo": "Reducción de rigidez", "magnitud": "Factor 0,80 sobre las rigideces",
+      "nota": "Las nocionales meten un cortante basal que no existe. Para las reacciones correctas de cimentación se aplica en la base una fuerza igual y contraria, repartida entre los elementos verticales en proporción a la gravedad que soportan. OJO: el efecto de VOLTEO que generan sí es real y no se corrige."
+    },
+    {
+      "id": "E.C2.k080",
+      "grupo": "Reducción de rigidez",
+      "magnitud": "Factor 0,80 sobre las rigideces",
       "valor": "0,80 sobre TODAS las rigideces que contribuyen a la estabilidad, EA incluida",
-      "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC C2.3(a)",
-      "nota": "Se permite aplicarlo a todas las rigideces de la estructura, y la User Note lo recomienda: aplicarlo solo a algunas barras puede distorsionar artificialmente el modelo y redistribuir fuerzas sin sentido físico. EN UN TIJERAL, donde las barras trabajan axialmente, ES ESTE el factor que manda, no τb." },
-
-    { "id": "E.C2.taub", "grupo": "Reducción de rigidez", "magnitud": "Factor τb, solo sobre las rigideces de flexión",
+      "nota": "Se permite aplicarlo a todas las rigideces de la estructura, y la User Note lo recomienda: aplicarlo solo a algunas barras puede distorsionar artificialmente el modelo y redistribuir fuerzas sin sentido físico. EN UN TIJERAL, donde las barras trabajan axialmente, ES ESTE el factor que manda, no τb."
+    },
+    {
+      "id": "E.C2.taub",
+      "grupo": "Reducción de rigidez",
+      "magnitud": "Factor τb, solo sobre las rigideces de flexión",
       "valor": "α·Pr/Pns ≤ 0,5 → τb = 1,0   ·   α·Pr/Pns > 0,5 → τb = 4·(α·Pr/Pns)·(1 − α·Pr/Pns)",
-      "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC C2-2a y C2-2b",
-      "nota": "Pns = resistencia axial nominal a compresión. τb modela la fluencia parcial de la sección, acentuada por el esfuerzo residual. Es ITERATIVO: depende de Pr, que depende del análisis, que depende de τb." },
-
-    { "id": "E.C3.K", "grupo": "Resistencias disponibles", "magnitud": "El factor de longitud efectiva bajo Método Directo",
-      "valor": "Lc = L  (K = 1)", "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "nota": "Pns = resistencia axial nominal a compresión. τb modela la fluencia parcial de la sección, acentuada por el esfuerzo residual. Es ITERATIVO: depende de Pr, que depende del análisis, que depende de τb."
+    },
+    {
+      "id": "E.C3.K",
+      "grupo": "Resistencias disponibles",
+      "magnitud": "El factor de longitud efectiva bajo Método Directo",
+      "valor": "Lc = L  (K = 1)",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC C3",
-      "nota": "EL PREMIO DEL MÉTODO DIRECTO, textual: «The effective length for flexural buckling of all members shall be taken as the unbraced length unless a smaller value is justified by rational analysis». Se acabó el ábaco de alineamiento, que es justo lo que no funciona en un pórtico a dos aguas de barras inclinadas." },
-
-    { "id": "E.C3.arriostre", "grupo": "Resistencias disponibles", "magnitud": "El arriostre que define la longitud no arriostrada tiene que ganárselo",
+      "nota": "EL PREMIO DEL MÉTODO DIRECTO, textual: «The effective length for flexural buckling of all members shall be taken as the unbraced length unless a smaller value is justified by rational analysis». Se acabó el ábaco de alineamiento, que es justo lo que no funciona en un pórtico a dos aguas de barras inclinadas."
+    },
+    {
+      "id": "E.C3.arriostre",
+      "grupo": "Resistencias disponibles",
+      "magnitud": "El arriostre que define la longitud no arriostrada tiene que ganárselo",
       "valor": "rigidez y resistencia suficientes · requisitos en el Apéndice 6",
-      "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC C3, segundo párrafo",
-      "nota": "«Bracing intended to define the unbraced lengths of members shall have sufficient stiffness and strength to control member movement at the braced points.» EN UN GALPÓN ESTO MUERDE: si se toma la correa como punto de arriostre de la brida superior, la correa y su conexión deben cumplir el Apéndice 6. No basta con que pase por ahí." },
-
-    { "id": "E.A8.Mr", "grupo": "Segundo orden aproximado", "magnitud": "Momento de segundo orden",
-      "valor": "Mr = B1·Mnt + B2·Mlt", "unidad": "kgf·cm", "estado": "verificado", "editable": false, "clave": true,
+      "nota": "«Bracing intended to define the unbraced lengths of members shall have sufficient stiffness and strength to control member movement at the braced points.» EN UN GALPÓN ESTO MUERDE: si se toma la correa como punto de arriostre de la brida superior, la correa y su conexión deben cumplir el Apéndice 6. No basta con que pase por ahí."
+    },
+    {
+      "id": "E.A8.Mr",
+      "grupo": "Segundo orden aproximado",
+      "magnitud": "Momento de segundo orden",
+      "valor": "Mr = B1·Mnt + B2·Mlt",
+      "unidad": "kgf·cm",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC A-8-1 · E.090 3.1-1",
-      "nota": "Mnt = momento sin traslación lateral · Mlt = momento debido SOLO a la traslación lateral. Las dos normas coinciden en la forma." },
-
-    { "id": "E.A8.Pr", "grupo": "Segundo orden aproximado", "magnitud": "Axial de segundo orden",
-      "valor": "Pr = Pnt + B2·Plt", "unidad": "kgf", "estado": "verificado", "editable": false, "clave": true,
+      "nota": "Mnt = momento sin traslación lateral · Mlt = momento debido SOLO a la traslación lateral. Las dos normas coinciden en la forma."
+    },
+    {
+      "id": "E.A8.Pr",
+      "grupo": "Segundo orden aproximado",
+      "magnitud": "Axial de segundo orden",
+      "valor": "Pr = Pnt + B2·Plt",
+      "unidad": "kgf",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC A-8-2",
-      "nota": "EL AXIAL TAMBIÉN SE AMPLIFICA, y es fácil de olvidar porque la fórmula famosa es la del momento. B2 aplica a momentos Y a fuerzas axiales de los componentes del sistema resistente a fuerzas laterales, incluidos arriostres." },
-
-    { "id": "E.A8.B1", "grupo": "Segundo orden aproximado", "magnitud": "Multiplicador B1, efectos P-δ",
-      "valor": "B1 = Cm / (1 − α·Pr/Pe1)  ≥ 1", "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
-      "fuente": "AISC A-8-3 · E.090 3.1-2" },
-
-    { "id": "E.A8.Cm", "grupo": "Segundo orden aproximado", "magnitud": "Factor Cm sin carga transversal",
-      "valor": "Cm = 0,6 − 0,4·(M1/M2)", "unidad": "—", "estado": "verificado", "editable": false,
+      "nota": "EL AXIAL TAMBIÉN SE AMPLIFICA, y es fácil de olvidar porque la fórmula famosa es la del momento. B2 aplica a momentos Y a fuerzas axiales de los componentes del sistema resistente a fuerzas laterales, incluidos arriostres."
+    },
+    {
+      "id": "E.A8.B1",
+      "grupo": "Segundo orden aproximado",
+      "magnitud": "Multiplicador B1, efectos P-δ",
+      "valor": "B1 = Cm / (1 − α·Pr/Pe1)  ≥ 1",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC A-8-3 · E.090 3.1-2"
+    },
+    {
+      "id": "E.A8.Cm",
+      "grupo": "Segundo orden aproximado",
+      "magnitud": "Factor Cm sin carga transversal",
+      "valor": "Cm = 0,6 − 0,4·(M1/M2)",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
       "fuente": "AISC A-8-4 · E.090 3.1-3",
-      "nota": "M1 y M2 son el menor y el mayor momento de extremo, del análisis de PRIMER orden. M1/M2 es POSITIVO en curvatura doble (inversa) y NEGATIVO en curvatura simple. Coinciden las dos normas." },
-
-    { "id": "E.A8.Cm.transv", "grupo": "Segundo orden aproximado", "magnitud": "Factor Cm CON carga transversal entre apoyos",
+      "nota": "M1 y M2 son el menor y el mayor momento de extremo, del análisis de PRIMER orden. M1/M2 es POSITIVO en curvatura doble (inversa) y NEGATIVO en curvatura simple. Coinciden las dos normas."
+    },
+    {
+      "id": "E.A8.Cm.transv",
+      "grupo": "Segundo orden aproximado",
+      "magnitud": "Factor Cm CON carga transversal entre apoyos",
       "valor": "AISC: por análisis, o 1,0 conservador · E.090: 0,85 si los extremos están restringidos contra rotación, 1,00 si no",
-      "unidad": "—", "estado": "conflicto", "editable": false, "clave": true,
+      "unidad": "—",
+      "estado": "conflicto",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC A-8-4(b) · E.090 §3.1 b)",
-      "nota": "DIVERGENCIA. El AISC 360-22 eliminó los valores tabulados de 0,85 y 1,00 y dejó «determinado por análisis o tomado conservadoramente como 1,0». El AISC es más conservador cuando los extremos están restringidos (1,0 contra 0,85). Es el caso de la columna de un pórtico rígido con viento repartido en su altura. DECISIÓN: manda el AISC." },
-
-    { "id": "E.A8.Pe1", "grupo": "Segundo orden aproximado", "magnitud": "Carga crítica del elemento en su plano",
-      "valor": "Pe1 = π²·EI* / (Lc1)²", "unidad": "kgf", "estado": "conflicto", "editable": false, "clave": true,
+      "nota": "DIVERGENCIA. El AISC 360-22 eliminó los valores tabulados de 0,85 y 1,00 y dejó «determinado por análisis o tomado conservadoramente como 1,0». El AISC es más conservador cuando los extremos están restringidos (1,0 contra 0,85). Es el caso de la columna de un pórtico rígido con viento repartido en su altura. DECISIÓN: manda el AISC."
+    },
+    {
+      "id": "E.A8.Pe1",
+      "grupo": "Segundo orden aproximado",
+      "magnitud": "Carga crítica del elemento en su plano",
+      "valor": "Pe1 = π²·EI* / (Lc1)²",
+      "unidad": "kgf",
+      "estado": "conflicto",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC A-8-5 · E.090 §3.1 define Pe1 = Ag·Fy/λc²",
-      "nota": "DIVERGENCIA CON EFECTO REAL. Lc1 se calcula suponiendo que NO hay traslación de los extremos, y se toma igual a la longitud no arriostrada salvo que el análisis justifique menos. Y sobre todo: EI* = 0,8·τb·EI CUANDO SE USA EL MÉTODO DIRECTO, y EI completo con Longitud Efectiva o primer orden. La E.090 siempre usa la rigidez completa. Con rigidez reducida Pe1 baja, B1 sube: el Método Directo da B1 mayores." },
-
-    { "id": "E.A8.B2", "grupo": "Segundo orden aproximado", "magnitud": "Multiplicador B2, efectos P-Δ",
-      "valor": "B2 = 1 / (1 − α·Pstory/Pe story)  ≥ 1", "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "nota": "DIVERGENCIA CON EFECTO REAL. Lc1 se calcula suponiendo que NO hay traslación de los extremos, y se toma igual a la longitud no arriostrada salvo que el análisis justifique menos. Y sobre todo: EI* = 0,8·τb·EI CUANDO SE USA EL MÉTODO DIRECTO, y EI completo con Longitud Efectiva o primer orden. La E.090 siempre usa la rigidez completa. Con rigidez reducida Pe1 baja, B1 sube: el Método Directo da B1 mayores."
+    },
+    {
+      "id": "E.A8.B2",
+      "grupo": "Segundo orden aproximado",
+      "magnitud": "Multiplicador B2, efectos P-Δ",
+      "valor": "B2 = 1 / (1 − α·Pstory/Pe story)  ≥ 1",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC A-8-6 · E.090 3.1-4",
-      "nota": "Se calcula por piso y por dirección de traslación. Pstory incluye las columnas que NO son parte del sistema resistente a fuerzas laterales." },
-
-    { "id": "E.A8.Pestory", "grupo": "Segundo orden aproximado", "magnitud": "Carga crítica de piso",
-      "valor": "Pe story = RM · H · L / ΔH", "unidad": "kgf", "estado": "verificado", "editable": false, "clave": true,
+      "nota": "Se calcula por piso y por dirección de traslación. Pstory incluye las columnas que NO son parte del sistema resistente a fuerzas laterales."
+    },
+    {
+      "id": "E.A8.Pestory",
+      "grupo": "Segundo orden aproximado",
+      "magnitud": "Carga crítica de piso",
+      "valor": "Pe story = RM · H · L / ΔH",
+      "unidad": "kgf",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC A-8-7",
-      "nota": "H = cortante de piso que produce ΔH · L = altura de piso · ΔH = deriva de entrepiso de PRIMER orden, calculada con la rigidez que exige el análisis (o sea REDUCIDA si es Método Directo). Si ΔH varía en planta, se usa la media ponderada por carga vertical o, alternativamente, la máxima." },
-
-    { "id": "E.A8.RM", "grupo": "Segundo orden aproximado", "magnitud": "Factor RM",
-      "valor": "RM = 1 − 0,15 · (Pmf / Pstory)", "unidad": "—", "estado": "conflicto", "editable": false, "clave": true,
+      "nota": "H = cortante de piso que produce ΔH · L = altura de piso · ΔH = deriva de entrepiso de PRIMER orden, calculada con la rigidez que exige el análisis (o sea REDUCIDA si es Método Directo). Si ΔH varía en planta, se usa la media ponderada por carga vertical o, alternativamente, la máxima."
+    },
+    {
+      "id": "E.A8.RM",
+      "grupo": "Segundo orden aproximado",
+      "magnitud": "Factor RM",
+      "valor": "RM = 1 − 0,15 · (Pmf / Pstory)",
+      "unidad": "—",
+      "estado": "conflicto",
+      "editable": false,
+      "clave": true,
       "fuente": "AISC A-8-8 · la E.090 no lo tiene",
-      "nota": "DIVERGENCIA. Pmf = carga vertical en las columnas que forman parte de pórticos a momento; vale 0 en sistemas arriostrados. En un pórtico a momento puro RM = 0,85, o sea que Pe story baja un 15 % y B2 sube. La E.090 §3.1 no trae este factor: da B2 directamente con ΣPu·Δoh/(ΣH·L). DECISIÓN: manda el AISC." },
-
-    { "id": "E.tension.only", "grupo": "Arriostres solo-tracción", "magnitud": "Cómo se resuelve el arriostre que no empuja",
-      "valor": "iteración: correr → quitar las comprimidas → volver a correr", "unidad": "—", "estado": "adoptado", "editable": true, "clave": true,
+      "nota": "DIVERGENCIA. Pmf = carga vertical en las columnas que forman parte de pórticos a momento; vale 0 en sistemas arriostrados. En un pórtico a momento puro RM = 0,85, o sea que Pe story baja un 15 % y B2 sube. La E.090 §3.1 no trae este factor: da B2 directamente con ΣPu·Δoh/(ΣH·L). DECISIÓN: manda el AISC."
+    },
+    {
+      "id": "E.tension.only",
+      "grupo": "Arriostres solo-tracción",
+      "magnitud": "Cómo se resuelve el arriostre que no empuja",
+      "valor": "iteración: correr → quitar las comprimidas → volver a correr",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": true,
+      "clave": true,
       "fuente": "práctica estándar de análisis · respaldo normativo en E.090 §2.7",
-      "nota": "No es un artículo de norma: es una técnica de modelado. Lo que sí es norma es la consecuencia, E.090 §2.7: los elementos diseñados para tracción «que pueden estar sometidos a una compresión reducida en otra condición de carga, no necesitan cumplir el límite de esbeltez en compresión». Criterio de parada: dos corridas consecutivas con el mismo conjunto de barras activas." },
-
-    { "id": "E.armadura", "grupo": "Solucionador", "magnitud": "La armadura como caso particular del pórtico",
-      "valor": "liberación de momentos en los extremos de barra", "unidad": "—", "estado": "adoptado", "editable": false, "clave": true,
+      "nota": "No es un artículo de norma: es una técnica de modelado. Lo que sí es norma es la consecuencia, E.090 §2.7: los elementos diseñados para tracción «que pueden estar sometidos a una compresión reducida en otra condición de carga, no necesitan cumplir el límite de esbeltez en compresión». Criterio de parada: dos corridas consecutivas con el mismo conjunto de barras activas."
+    },
+    {
+      "id": "E.armadura",
+      "grupo": "Solucionador",
+      "magnitud": "La armadura como caso particular del pórtico",
+      "valor": "liberación de momentos en los extremos de barra",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
       "fuente": "decisión de arquitectura del complemento",
-      "nota": "Un pórtico plano tiene 3 grados de libertad por nudo (2 traslaciones + giro); una armadura tiene 2. Liberando los giros en los extremos de cada barra, el solucionador de pórtico produce la armadura. Al revés no funciona. Por eso se construye el de pórtico primero." }
-
+      "nota": "Un pórtico plano tiene 3 grados de libertad por nudo (2 traslaciones + giro); una armadura tiene 2. Liberando los giros en los extremos de cada barra, el solucionador de pórtico produce la armadura. Al revés no funciona. Por eso se construye el de pórtico primero."
+    },
+    {
+      "id": "A6.dos",
+      "grupo": "Apéndice 6 · arriostre de estabilidad",
+      "magnitud": "El arriostre tiene que cumplir DOS cosas: resistencia Y RIGIDEZ",
+      "valor": "Pbr o Vbr · y además βbr",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC Apéndice 6.1, 6.2 y 6.3",
+      "nota": "ES LO QUE SE OLVIDA. Una varilla de 1/2\" tiene resistencia de sobra para el 1 % de Pr y puede ser demasiado FLEXIBLE: si no llega a βbr, el punto no está arriostrado y la longitud no arriostrada que se supuso no existe. El AISC pide las dos y la segunda casi nunca se comprueba. Y OJO A LA ETAPA, que yo mismo me equivoqué varias veces: el Apéndice 6 dimensiona EL ARRIOSTRE, que es E5; lo que va a E7 es su CONEXIÓN, y la norma lo dice aparte —fila A6.conexion—."
+    },
+    {
+      "id": "A6.col.panel",
+      "grupo": "Apéndice 6 · arriostre de estabilidad",
+      "magnitud": "Columna · arriostre de panel",
+      "valor": "Vbr = 0,005·Pr  ·  βbr = (1/φ)·(2·Pr/Lbr), φ = 0,75",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "fuente": "AISC A-6-1 y A-6-2a",
+      "nota": "Lbr es la longitud no arriostrada DENTRO del panel; Pr, el axial requerido de la columna en ese panel. Con φ = 0,75 el coeficiente de rigidez queda en 2,67·Pr/Lbr."
+    },
+    {
+      "id": "A6.col.punto",
+      "grupo": "Apéndice 6 · arriostre de estabilidad",
+      "magnitud": "Columna · arriostre puntual",
+      "valor": "Pbr = 0,01·Pr  ·  βbr = (1/φ)·(8·Pr/Lbr), φ = 0,75",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC A-6-3 y A-6-4a",
+      "nota": "Lbr es la longitud no arriostrada ADYACENTE al punto, y si las dos adyacentes dan Pr/Lbr distintos se toma el mayor. Con φ = 0,75 el coeficiente queda en 10,67·Pr/Lbr, o sea CUATRO VECES el del arriostre de panel."
+    },
+    {
+      "id": "A6.viga.panel",
+      "grupo": "Apéndice 6 · arriostre de estabilidad",
+      "magnitud": "Viga · arriostre lateral de panel",
+      "valor": "Vbr = 0,01·Mr·Cd/ho  ·  βbr = (1/φ)·(4·Mr·Cd/(Lbr·ho)), φ = 0,75",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "fuente": "AISC A-6-5 y A-6-6a",
+      "nota": "ho es la distancia entre centroides de alas. El arriostre lateral se pone EN O CERCA DEL ALA COMPRIMIDA, salvo en el extremo libre de un voladizo, donde va en el ala traccionada."
+    },
+    {
+      "id": "A6.viga.punto",
+      "grupo": "Apéndice 6 · arriostre de estabilidad",
+      "magnitud": "Viga · arriostre lateral puntual",
+      "valor": "Pbr = 0,02·Mr·Cd/ho  ·  βbr = (1/φ)·(10·Mr·Cd/(Lbr·ho)), φ = 0,75",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC A-6-7 y A-6-8a",
+      "nota": ""
+    },
+    {
+      "id": "A6.Cd",
+      "grupo": "Apéndice 6 · arriostre de estabilidad",
+      "magnitud": "El factor Cd",
+      "valor": "Cd = 1,0 · salvo 2,0 en el arriostre más cercano al punto de inflexión en curvatura doble",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "fuente": "AISC A-6-5, definición de Cd",
+      "nota": "Y ADEMÁS: en curvatura doble el punto de inflexión NO se considera punto arriostrado a menos que haya arriostre ahí (Ap. 6.3, textual). Contarlo como arriostrado es gratis y falso."
+    },
+    {
+      "id": "A6.giro",
+      "grupo": "Apéndice 6 · arriostre de estabilidad",
+      "magnitud": "Arriostrar lateralmente NO es arriostrar contra el giro",
+      "valor": "si el arriostre lateral no limita el giro, la columna sigue expuesta al pandeo TORSIONAL del E4",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC Ap. 6.2, User Note · Ap. 6.3, primer párrafo",
+      "nota": "DOS TEXTUALES QUE CONFIRMAN DOS DECISIONES DEL PROYECTO. (1) «When lateral bracing does not limit twist, the column is susceptible to torsional buckling as addressed in Section E4»: es exactamente por lo que en columnas.js la Lcz se toma con la altura entera aunque haya largueros, y por lo que el H1.3 no aplica sin arriostrar la torsión —fila H.1_3, 30,5 % de capacidad—. (2) «Beams shall be restrained against rotation about their longitudinal axis at points of support»: es la hipótesis F1(b) otra vez, o sea el clip de la correa (fila F.hipotesis). Las dos cosas las habíamos deducido y el Apéndice 6 las dice."
+    },
+    {
+      "id": "A6.conexion",
+      "grupo": "Apéndice 6 · arriostre de estabilidad",
+      "magnitud": "La conexión de un arriostre de panel se diseña como arriostre PUNTUAL",
+      "valor": "la conexión al elemento lleva la resistencia del §6.2.2 ó §6.3.1b, no la del panel",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "fuente": "AISC Ap. 6.2.1 y 6.3.1a, textual",
+      "nota": "«The connection of the bracing system to the column shall have the strength specified in Section 6.2.2 for a point brace at that location.» O sea que la conexión va con el 0,01·Pr del puntual, que es el DOBLE del 0,005·Pr del panel. Esta fila es la que sí corresponde a E7."
+    },
+    {
+      "id": "A6.Lbr.min",
+      "grupo": "Apéndice 6 · arriostre de estabilidad",
+      "magnitud": "Lbr no hace falta tomarlo menor que la longitud efectiva admisible",
+      "valor": "en arriostre puntual intermedio, Lbr ≥ Lc (o Lb) máximo admisible para el Pr (o Mr) requerido",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "fuente": "AISC Ap. 6.2.2 y 6.3.1b, último párrafo",
+      "nota": "ALIVIO REAL: si la columna va holgada, no hace falta pedirle al arriostre la rigidez correspondiente a la Lbr real, sino la de la Lc máxima que la columna admitiría con su carga. Como βbr va con 1/Lbr, tomar un Lbr mayor BAJA la rigidez exigida."
+    }
   ]
 }

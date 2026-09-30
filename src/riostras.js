@@ -157,7 +157,7 @@
   /* «Bracing intended to define the unbraced lengths of members shall have
      sufficient stiffness and strength to control member movement at the
      braced points.»  Aquí solo se deja anotada la obligación con su cita: la
-     comprobación del Apéndice 6 es de E4, no de aquí, y decir que un punto
+     comprobación del Apéndice 6 la hace arriostres.js, y decir que un punto
      está arriostrado sin haberla hecho es la forma habitual de conseguir una
      longitud no arriostrada que no existe. */
   function exigeApendice6(d) {
@@ -166,7 +166,7 @@
       elemento: d.elemento || null,
       comprobado: false,
       art: ART["E.C3.arriostre"],
-      pendiente: "rigidez y resistencia del arriostre según el Apéndice 6 (E4)",
+      pendiente: "rigidez y resistencia del arriostre según el Apéndice 6 (arriostres.js)",
       nota: "si la correa se toma como punto de arriostre de la brida superior, " +
             "la correa Y SU CONEXIÓN tienen que cumplirlo. No basta con que pase por ahí."
     };

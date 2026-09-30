@@ -84,8 +84,10 @@
             "ARRIOSTRADA. La torsión se toma con la altura entera salvo que se " +
             "declare arriostrada: el larguero sujeta lateralmente, pero impedir el " +
             "GIRO de la sección pide algo más.",
-      deuda: "el Apéndice 6 del larguero NO está comprobado aquí: es de E7. Decir que " +
-             "un punto está arriostrado sin comprobarlo da una longitud que no existe."
+      deuda: "el Apéndice 6 del larguero se comprueba con arriostres.js —resistencia Y " +
+             "RIGIDEZ—. Decir que un punto está arriostrado sin comprobarlo da una " +
+             "longitud que no existe. Lo que sí es de E7 es su CONEXIÓN, que la norma " +
+             "dimensiona aparte, como arriostre puntual (fila A6.conexion)."
     };
   }
 

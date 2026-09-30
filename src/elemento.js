@@ -125,7 +125,8 @@
         omitidos.push({ que: "que el arriostre cumpla el Apéndice 6",
           motivo: "el C3 exige que el arriostre que define la longitud no arriostrada " +
             "tenga rigidez y resistencia suficientes. Decir que un punto está " +
-            "arriostrado sin comprobarlo da una Lc que no existe",
+            "arriostrado sin comprobarlo da una Lc que no existe. Se comprueba con " +
+            "arriostres.js, que aplica el Apéndice 6",
           esencial: false, art: ART["E.C3.arriostre"] });
       }
     }
