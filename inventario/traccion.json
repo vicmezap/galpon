@@ -1,0 +1,146 @@
+{
+  "seccion": "traccion",
+  "titulo": "Elementos en tracción",
+  "modulos": ["acero.js · Cap. D", "areas.js"],
+  "version": 1,
+  "fecha": "2026-09-30",
+  "regla": "Ningún número entra al código sin fila aquí. Sin fuente primaria leída, no entra.",
+  "estados": {
+    "verificado": "leído en el texto original de la fuente",
+    "adoptado": "criterio de fuente reconocida, no normativa; se cita y se declara",
+    "conflicto": "dos fuentes válidas dan valores distintos; hay decisión tomada",
+    "sin_fuente": "criterio propio del proyectista; se adopta y se declara",
+    "pendiente": "falta el documento o falta leerlo"
+  },
+  "magnitudes": [
+
+    { "id": "T.fluencia", "grupo": "Resistencia", "magnitud": "Fluencia en el área total",
+      "valor": "Pn = Fy·Ag · φt = 0,90", "unidad": "kgf", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "AISC D2-1 · E.090 4.1.1 a)",
+      "nota": "LAS DOS NORMAS COINCIDEN, palabra por palabra. Vale la pena registrarlo: donde no hay divergencia, saberlo ahorra tiempo después." },
+
+    { "id": "T.rotura", "grupo": "Resistencia", "magnitud": "Rotura en el área neta efectiva",
+      "valor": "Pn = Fu·Ae · φt = 0,75", "unidad": "kgf", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "AISC D2-2 · E.090 4.1.1 b)",
+      "nota": "También coinciden. Ojo al φ distinto del de fluencia: la rotura es frágil y por eso se castiga más." },
+
+    { "id": "T.menor", "grupo": "Resistencia", "magnitud": "Cuál manda",
+      "valor": "el MENOR de los dos", "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "AISC D2 · E.090 4.1.1",
+      "nota": "«shall be the lower value obtained according to the limit states of tensile yielding in the gross section and tensile rupture in the net section»." },
+
+    { "id": "T.Ag", "grupo": "Áreas", "magnitud": "Área total",
+      "valor": "Ag = área de la sección completa", "unidad": "cm²", "estado": "verificado", "editable": false,
+      "fuente": "AISC B4.3a" },
+
+    { "id": "T.An.agujero", "grupo": "Áreas", "magnitud": "Ancho del agujero para calcular el área neta",
+      "valor": "dimensión nominal del agujero + 2 mm (1/16\")", "unidad": "mm", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "AISC B4.3b",
+      "nota": "Es un sobreancho ADICIONAL al del propio agujero, que ya es mayor que el perno. Se descuenta por el daño del punzonado. Olvidarlo sobrestima An." },
+
+    { "id": "T.An.zigzag", "grupo": "Áreas", "magnitud": "Cadena de agujeros en diagonal o zigzag",
+      "valor": "ancho neto = ancho total − Σ agujeros + Σ (s²/4g)", "unidad": "cm", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "AISC B4.3b",
+      "nota": "s = paso longitudinal entre dos agujeros consecutivos · g = gramil transversal entre líneas. Hay que probar TODAS las trayectorias posibles y quedarse con la menor: es un problema de camino mínimo, no una fórmula suelta." },
+
+    { "id": "T.An.angulo", "grupo": "Áreas", "magnitud": "Gramil en lados opuestos de un ángulo",
+      "valor": "g = suma de gramiles desde el dorso − espesor", "unidad": "cm", "estado": "verificado", "editable": false,
+      "fuente": "AISC B4.3b",
+      "nota": "Regla específica para ángulos con agujeros en los dos lados: se desdobla el ángulo mentalmente." },
+
+    { "id": "T.An.hss", "grupo": "Áreas", "magnitud": "HSS ranurado soldado a cartela",
+      "valor": "An = Ag − t · ancho total de la ranura", "unidad": "cm²", "estado": "verificado", "editable": false,
+      "fuente": "AISC B4.3b" },
+
+    { "id": "T.Ae", "grupo": "Retraso de cortante", "magnitud": "Área neta efectiva",
+      "valor": "Ae = An · U", "unidad": "cm²", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "AISC D3-1 · E.090 2.3-1",
+      "nota": "U es el factor de retraso de cortante: cuando la carga no entra por todos los elementos de la sección, la parte no conectada no trabaja al 100 %." },
+
+    { "id": "T.U.c1", "grupo": "Tabla D3.1", "magnitud": "Caso 1 · carga transmitida a todos los elementos",
+      "valor": "U = 1,0", "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "AISC Tabla D3.1, caso 1" },
+
+    { "id": "T.U.c2", "grupo": "Tabla D3.1", "magnitud": "Caso 2 · caso general",
+      "valor": "U = 1 − x̄/l", "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "AISC Tabla D3.1, caso 2",
+      "nota": "x̄ = excentricidad de la conexión (distancia del centroide al plano de conexión) · l = longitud de la conexión. Cuanto más larga la conexión y menor la excentricidad, mayor U." },
+
+    { "id": "T.U.c3", "grupo": "Tabla D3.1", "magnitud": "Caso 3 · solo soldadura transversal",
+      "valor": "U = 1,0 y An = área de los elementos directamente conectados", "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "AISC Tabla D3.1, caso 3",
+      "nota": "Aquí el castigo no va en U sino en An: solo cuenta lo que está soldado." },
+
+    { "id": "T.U.c4", "grupo": "Tabla D3.1", "magnitud": "Caso 4 · plancha con soldadura longitudinal solamente",
+      "valor": "l ≥ 2w → 1,00 · 2w > l ≥ 1,5w → 0,87 · 1,5w > l ≥ w → 0,75", "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "AISC Tabla D3.1, caso 4 · E.090 2.3 d)",
+      "nota": "Las dos normas dan los MISMOS tres valores. w = ancho de la plancha, l = longitud de la soldadura." },
+
+    { "id": "T.U.c7", "grupo": "Tabla D3.1", "magnitud": "Caso 7 · perfiles W, M, S, HP y tes",
+      "valor": "ala conectada, bf ≥ 2/3·d → 0,90 · bf < 2/3·d → 0,85 · alma conectada con 4+ pernos → 0,70",
+      "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "AISC Tabla D3.1, caso 7",
+      "nota": "Requiere 3 o más conectores por línea en la dirección de la carga. Si el caso 2 da más, se permite usar el mayor." },
+
+    { "id": "T.U.c8", "grupo": "Tabla D3.1", "magnitud": "Caso 8 · ángulos simples y dobles",
+      "valor": "4 o más pernos por línea → 0,80 · 3 pernos → 0,60 · menos de 3 → usar caso 2",
+      "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "AISC Tabla D3.1, caso 8",
+      "nota": "EL CASO DEL TIJERAL. Toda diagonal de ángulo conectada por un solo lado cae aquí. Calcular con Ae = An (U = 1) sobrestima la capacidad hasta un 67 %. Si el caso 2 da más, se permite usar el mayor." },
+
+    { "id": "T.U.piso", "grupo": "Retraso de cortante", "magnitud": "Piso de U en secciones abiertas",
+      "valor": "U ≥ Ag(elementos conectados) / Ag(total)", "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "AISC D3, párrafo final",
+      "nota": "«For open cross sections such as W, M, S, C, or HP shapes, WTs, STs, and single and double angles, the shear lag factor, U, need not be less than the ratio of the gross area of the connected element(s) to the member gross area.» NO aplica a secciones cerradas (HSS) ni a planchas. Es un rescate: en un ángulo conectado por un lado, U nunca baja del área del lado conectado entre el área total." },
+
+    { "id": "T.U.divergencia", "grupo": "Retraso de cortante", "magnitud": "Tope de U en la norma peruana",
+      "valor": "E.090: U = 1 − x̄/L ≤ 0,90", "unidad": "—", "estado": "conflicto", "editable": false, "clave": true,
+      "fuente": "E.090 §2.3, ecuación 2.3-2",
+      "nota": "DIVERGENCIA REAL. La E.090 tiene UNA fórmula con tope de 0,90; el AISC 360-22 tiene OCHO casos tabulados, sin tope en el caso 2, con valores fijos para ángulos (0,80 / 0,60) y con un piso por área conectada. Dan resultados distintos en los dos sentidos: con conexión larga la E.090 corta en 0,90 donde el AISC dejaría más; con 3 pernos el AISC obliga a 0,60 donde la E.090 no. DECISIÓN: manda el AISC 360-22, y el ART muestra los dos." },
+
+    { "id": "T.bloque.aisc", "grupo": "Bloque de cortante", "magnitud": "Rotura por bloque de cortante · AISC",
+      "valor": "Rn = 0,60·Fu·Anv + Ubs·Fu·Ant ≤ 0,60·Fy·Agv + Ubs·Fu·Ant · φ = 0,75",
+      "unidad": "kgf", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "AISC J4-5",
+      "nota": "UNA ecuación: rotura en corte, acotada por fluencia en corte, más rotura en tracción. Suele gobernar en cartelas empernadas de tijeral." },
+
+    { "id": "T.bloque.Ubs", "grupo": "Bloque de cortante", "magnitud": "Factor Ubs",
+      "valor": "1,0 si el esfuerzo de tracción es uniforme · 0,5 si no lo es", "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "AISC J4.3",
+      "nota": "El caso típico de Ubs = 0,5 es una viga despatinada con dos filas de pernos." },
+
+    { "id": "T.bloque.divergencia", "grupo": "Bloque de cortante", "magnitud": "Forma peruana del bloque de cortante",
+      "valor": "dos ramas según cuál término domine, SIN Ubs", "unidad": "—", "estado": "conflicto", "editable": false, "clave": true,
+      "fuente": "E.090 §10.4.3, ecuaciones 10.4-3a y 10.4-3b",
+      "nota": "DIVERGENCIA REAL. E.090: si Fu·Ant ≥ 0,6·Fu·Anv → Rn = 0,6·Fy·Agv + Fu·Ant; si no → Rn = 0,6·Fu·Anv + Fy·Agt. Mezcla rotura en un plano con FLUENCIA en el perpendicular y elige rama; el AISC usa siempre rotura acotada por fluencia y añade Ubs, que la E.090 no tiene. Zapata p.66 trae la misma forma de dos ramas que la E.090: es de la misma generación. DECISIÓN: manda el AISC 360-22." },
+
+    { "id": "T.rotura.corte", "grupo": "Bloque de cortante", "magnitud": "Rotura en corte de elementos afectados",
+      "valor": "Rn = 0,60·Fu·Anv · φ = 0,75", "unidad": "kgf", "estado": "verificado", "editable": false,
+      "fuente": "AISC J4-4 · E.090 10.4-1", "nota": "Las dos normas coinciden." },
+
+    { "id": "T.rotura.trac", "grupo": "Bloque de cortante", "magnitud": "Rotura en tracción de elementos afectados",
+      "valor": "Rn = Fu·Ant · φ = 0,75", "unidad": "kgf", "estado": "verificado", "editable": false,
+      "fuente": "E.090 10.4-2 · AISC J4.1", "nota": "Coinciden." },
+
+    { "id": "T.esbeltez", "grupo": "Esbeltez", "magnitud": "Límite de esbeltez en tracción",
+      "valor": "l/r ≤ 300, recomendado", "unidad": "—", "estado": "verificado", "editable": true, "clave": true,
+      "fuente": "AISC D1 (User Note) · E.090 §2.7",
+      "nota": "El AISC dice en texto obligatorio: «There is no maximum slenderness limit for members in tension»; el 300 está en una User Note, que NO es normativa. La E.090 dice «no deben exceder, PREFERENTEMENTE, de 300». Las dos excluyen las varillas. Se implementa como aviso, no como rechazo." },
+
+    { "id": "T.armados.esb", "grupo": "Elementos armados", "magnitud": "Esbeltez de cada componente entre conectores",
+      "valor": "≤ 300, de preferencia", "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "AISC D4 (User Note) · E.090 §4.2",
+      "nota": "Coinciden. ES LA REGLA QUE DECIDE CADA CUÁNTO SE COSEN LOS DOS ÁNGULOS de una diagonal 2L: el ángulo suelto entre presillas no puede ser más esbelto que 300." },
+
+    { "id": "T.armados.enlace", "grupo": "Elementos armados", "magnitud": "Planchas de enlace (presillas)",
+      "valor": "longitud ≥ 2/3 de la distancia entre líneas de unión · espesor ≥ 1/50 de esa distancia · soldadura o pernos cada ≤ 150 mm",
+      "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "AISC D4 · E.090 §4.2", "nota": "Coinciden literalmente." },
+
+    { "id": "T.varillas", "grupo": "Remisiones", "magnitud": "Varillas roscadas",
+      "valor": "ver Cap. J3 / E.090 10.3", "unidad": "—", "estado": "pendiente", "editable": false,
+      "fuente": "AISC J3 · E.090 §10.3",
+      "nota": "Las riostras en cruz de un galpón suelen ser varillas roscadas. Se lee al llegar a la sección de conexiones; aquí solo queda la remisión anotada." }
+
+  ]
+}

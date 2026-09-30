@@ -1,0 +1,143 @@
+{
+  "seccion": "sismo",
+  "titulo": "Sismo · E.030-2026",
+  "modulos": ["e030.js", "sismo.js"],
+  "version": 1,
+  "fecha": "2026-09-30",
+  "regla": "Ningún número entra al código sin fila aquí. Sin fuente primaria leída, no entra.",
+  "estados": {
+    "verificado": "leído en el texto original de la fuente",
+    "adoptado": "criterio de fuente reconocida, no normativa; se cita y se declara",
+    "conflicto": "dos fuentes válidas dan valores distintos; hay decisión tomada",
+    "sin_fuente": "criterio propio del proyectista; se adopta y se declara",
+    "pendiente": "falta el documento o falta leerlo"
+  },
+  "magnitudes": [
+
+    { "id": "S.V", "grupo": "Cortante basal", "magnitud": "Fuerza cortante en la base",
+      "valor": "V = Z · U · C · S · P / R", "unidad": "kgf", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "E.030-2026 Art. 34.1" },
+
+    { "id": "S.Z", "grupo": "Parámetros de sitio", "magnitud": "Factor de zona",
+      "valor": "Z4 = 0,45 · Z3 = 0,35 · Z2 = 0,25 · Z1 = 0,10", "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "E.030-2026 Tabla N° 1" },
+
+    { "id": "S.U", "grupo": "Parámetros de sitio", "magnitud": "Factor de uso o importancia",
+      "valor": "A (esenciales) = 1,5 · B (importantes) = 1,3 · C (comunes) = 1,0", "unidad": "—", "estado": "verificado", "editable": true, "clave": true,
+      "fuente": "E.030-2026 Art. 19 y Tabla N° 7",
+      "nota": "PARA UN GALPÓN LA CATEGORÍA NO ES OBVIA: un almacén corriente es C (U = 1,0); un centro de reuniones o un ambiente deportivo cae en B (U = 1,3) por concentrar gente; pero un DEPÓSITO DE MATERIALES INFLAMABLES O TÓXICOS está listado en A2 (U = 1,5). El uso que se elija cambia la fuerza sísmica en un 50 %." },
+
+    { "id": "S.perfil", "grupo": "Parámetros de sitio", "magnitud": "Clasificación del perfil de suelo",
+      "valor": "S0 ≥ 800 m/s · S1 550-800 · S2 350-550 · S3 200-350 · S4 < 200 m/s", "unidad": "V̄s30", "estado": "verificado", "editable": true, "clave": true,
+      "fuente": "E.030-2026 Art. 14 y Tabla N° 3",
+      "nota": "NUEVO EN 2026: la clasificación va por velocidad de onda de corte en los 30 m superiores, medidos desde el fondo de cimentación. Alternativas: N̄60 del SPT en granulares, S̄u en cohesivos. Hay además un S5 de «suelos excepcionales» donde se prohíbe construir salvo estudio específico." },
+
+    { "id": "S.S", "grupo": "Parámetros de sitio", "magnitud": "Factor de amplificación del suelo",
+      "valor": "depende de ZONA y SUELO · S0 = 0,80 y S1 = 1,00 siempre · S2 y S3 son RANGOS interpolables · S4: 1,30 (Z3) · 1,70 (Z2) · 2,40 (Z1) · en Z4 requiere análisis de respuesta de sitio",
+      "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "E.030-2026 Tabla N° 4",
+      "nota": "OTRA NOVEDAD DE 2026: S2 y S3 ya no son un número sino un intervalo que se interpola linealmente según V̄s30. Ej. Z4-S2 va de 1,00 a 1,10; Z1-S3 de 1,30 a 1,60. Y en Z4 el suelo S4 ya no tiene valor tabulado: exige análisis de respuesta de sitio." },
+
+    { "id": "S.TP.TL", "grupo": "Parámetros de sitio", "magnitud": "Períodos TP y TL",
+      "valor": "S0: 0,3 / 3,0 · S1: 0,4 / 2,5 · S2: 0,4-0,6 / 2,5-2,0 · S3: 0,6-0,9 / 2,0-1,6 · S4: 1,2 / 1,6",
+      "unidad": "s", "estado": "verificado", "editable": false,
+      "fuente": "E.030-2026 Tabla N° 5" },
+
+    { "id": "S.sinVs30", "grupo": "Parámetros de sitio", "magnitud": "Qué hacer si no hay medición de V̄s30",
+      "valor": "tomar el MAYOR valor del intervalo de S · S2: TP = 0,6 y TL = 2,0 · S3: TP = 0,9 y TL = 1,6",
+      "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "E.030-2026 Tabla N° 5, nota (*)",
+      "nota": "Es el caso normal en un galpón: casi nunca hay ensayo de ondas de corte. La norma da la salida conservadora explícita, así que el complemento la usa por defecto y avisa de que se puede afinar con un estudio." },
+
+    { "id": "S.C", "grupo": "Amplificación sísmica", "magnitud": "Factor C · los cuatro tramos",
+      "valor": "T < 0,2·TP → C = 1 + 7,5·(T/TP)   ·   0,2·TP ≤ T ≤ TP → C = 2,5   ·   TP < T < TL → C = 2,5·(TP/T)   ·   T > TL → C = 2,5·(TP·TL/T²)",
+      "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "E.030-2026 Tabla N° 6",
+      "nota": "LA RAMPA DEL PRIMER TRAMO ES NUEVA EN 2026. Antes C valía 2,5 desde T = 0. Ahora una estructura muy rígida recibe MENOS amplificación en el espectro: C va de 1,0 en T = 0 hasta 2,5 en T = 0,2·TP." },
+
+    { "id": "S.C.estatico", "grupo": "Amplificación sísmica", "magnitud": "Pero el análisis ESTÁTICO no usa la rampa",
+      "valor": "C = 2,5 en todo el rango 0 ≤ T ≤ TP", "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "E.030-2026 Art. 18.3 y Art. 34.1",
+      "nota": "TRAMPA PARA UN GALPÓN, que es una estructura corta y rígida. El espectro dinámico le daría C < 2,5 por la rampa nueva; pero la norma dice dos veces —18.3 y 34.1— que para la CORTANTE BASAL DEL ANÁLISIS ESTÁTICO se usa C = 2,5 en todo el rango hasta TP. Usar el C del espectro en un cálculo estático subestima la fuerza." },
+
+    { "id": "S.CR", "grupo": "Amplificación sísmica", "magnitud": "Valor mínimo de C/R",
+      "valor": "C/R ≥ 0,11", "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "E.030-2026 Art. 34.2",
+      "nota": "Piso absoluto a la fuerza sísmica, independiente del período y del sistema." },
+
+    { "id": "S.R0", "grupo": "Sistema estructural", "magnitud": "Coeficiente básico de reducción R₀ · acero",
+      "valor": "SMF pórticos especiales a momento = 8 · IMF intermedios = 5 · OMF ordinarios = 4 · SCBF especiales concéntricamente arriostrados = 7 · OCBF ordinarios concéntricamente arriostrados = 4 · EBF excéntricamente arriostrados = 8",
+      "unidad": "—", "estado": "verificado", "editable": true, "clave": true,
+      "fuente": "E.030-2026 Art. 22.1 y Tabla N° 10",
+      "nota": "Se elige POR DIRECCIÓN DE ANÁLISIS. En un galpón la transversal y la longitudinal casi nunca son el mismo sistema. Si en una dirección conviven dos sistemas, el Art. 22.2 obliga a tomar el MENOR R₀." },
+
+    { "id": "S.pendulo", "grupo": "Sistema estructural", "magnitud": "Péndulo invertido",
+      "valor": "R₀ = 2,5", "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "E.030-2026 Art. 22.3",
+      "nota": "EL CASO QUE HAY QUE VIGILAR. Un tijeral apoyado sobre columnas en voladizo concentra la masa arriba y resiste con columnas empotradas abajo: es candidato directo en la dirección transversal. Como V ∝ 1/R, elegir OMF (4) donde toca 2,5 da solo el 62 % de la fuerza correcta. El complemento lo detecta por la geometría y lo pregunta." },
+
+    { "id": "S.R", "grupo": "Sistema estructural", "magnitud": "Coeficiente de reducción final",
+      "valor": "R = R₀ · Ia · Ip", "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "E.030-2026 Art. 22 y 24",
+      "nota": "Ia por irregularidad en altura, Ip en planta. Ambos valen 1,0 si la estructura no presenta ninguna de las irregularidades de las Tablas 11 y 12 (Art. 23.2)." },
+
+    { "id": "S.aisc341", "grupo": "Sistema estructural", "magnitud": "La E.030 nombra los sistemas del AISC 341 pero no invoca el documento",
+      "valor": "SMF · IMF · OMF · SCBF · OCBF · EBF", "unidad": "—", "estado": "conflicto", "editable": false, "clave": true,
+      "fuente": "E.030-2026 Tabla N° 10 · AISC 341-22 (en NORMATIVA INTERNACIONAL)",
+      "nota": "HUECO NORMATIVO REAL. La Tabla 10 usa las siglas del AISC 341 —SMF, IMF, OMF, SCBF, OCBF, EBF— pero la E.030-2026 NO menciona el AISC 341 en ninguna parte ni exige su detallado. No se puede reclamar R₀ = 8 de un pórtico «especial» sin el detallado que lo hace especial: conexiones precalificadas, columna fuerte-viga débil, zonas protegidas, arriostres con relaciones de esbeltez y compacidad sísmica. DECISIÓN: si se elige un sistema con R₀ alto, se aplica el AISC 341-22, que sí tenemos. Y para un galpón donde el viento suele gobernar, conviene un R bajo: sale casi gratis y evita todo el detallado sísmico." },
+
+    { "id": "S.P", "grupo": "Peso sísmico", "magnitud": "Porcentaje de carga viva que entra al peso",
+      "valor": "categorías A y B: 50 % · categoría C: 25 % · depósitos: 80 % de lo almacenable · azoteas y techos: 25 % · tanques y silos: 100 %",
+      "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "E.030-2026 Art. 31",
+      "nota": "Para el pórtico del galpón manda el inciso d): 25 % de la carga viva de TECHO. El inciso c) —80 % de lo almacenable— es del contenido del depósito, que descansa en el piso y no carga el tijeral: no se mezclan. Pero si hay entrepiso o mezanine, sí entra." },
+
+    { "id": "S.T", "grupo": "Período fundamental", "magnitud": "Período estimado",
+      "valor": "T = hn / CT", "unidad": "s", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "E.030-2026 Art. 36.1" },
+
+    { "id": "S.CT", "grupo": "Período fundamental", "magnitud": "Coeficiente CT",
+      "valor": "35 · pórticos dúctiles de acero con uniones resistentes a momento, SIN arriostramiento   |   45 · pórticos de acero ARRIOSTRADOS   |   60 · albañilería, duales, muros",
+      "unidad": "—", "estado": "verificado", "editable": true, "clave": true,
+      "fuente": "E.030-2026 Art. 36.1",
+      "nota": "AMBIGÜEDAD A RESOLVER: la norma dice «pórticos DÚCTILES de acero con uniones resistentes a momentos» para CT = 35. Un tijeral apoyado sobre columnas en voladizo no tiene uniones resistentes a momento en la cumbre: no encaja limpio en ninguna categoría. El complemento lo propone y lo pregunta, y en todo caso el Art. 36.2 permite la expresión alternativa de Rayleigh con los desplazamientos del modelo." },
+
+    { "id": "S.T.rayleigh", "grupo": "Período fundamental", "magnitud": "Alternativa por Rayleigh",
+      "valor": "T = 2π·√[ Σ(Pi·di²) / (g·Σ(fi·di)) ]", "unidad": "s", "estado": "verificado", "editable": false,
+      "fuente": "E.030-2026 Art. 36.2",
+      "nota": "Con los desplazamientos di del análisis. Es la salida limpia cuando la geometría no encaja en ninguna CT tabulada." },
+
+    { "id": "S.Fi", "grupo": "Distribución en altura", "magnitud": "Fuerza sísmica por nivel",
+      "valor": "Fi = αi · V,   αi = (Pi·hi^k) / Σ(Pj·hj^k)", "unidad": "kgf", "estado": "verificado", "editable": false,
+      "fuente": "E.030-2026 Art. 35.1" },
+
+    { "id": "S.k", "grupo": "Distribución en altura", "magnitud": "Exponente k",
+      "valor": "T ≤ 0,5 s → k = 1,0   ·   T > 0,5 s → k = 0,75 + 0,5·T,  con tope 2,0",
+      "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "E.030-2026 Art. 35.2",
+      "nota": "En un galpón de un solo nivel la distribución en altura es trivial, pero hace falta si hay mezanine o si la masa del cerramiento se reparte." },
+
+    { "id": "S.despl", "grupo": "Desplazamientos", "magnitud": "Amplificación de los desplazamientos",
+      "valor": "regulares: × 0,75·R   ·   irregulares: × 0,85·R", "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "E.030-2026 Art. 50.1 y 50.2",
+      "nota": "EL PASO QUE MÁS SE OLVIDA. El análisis se hace con fuerzas sísmicas REDUCIDAS, así que sus desplazamientos también lo están. Omitir el 0,75R divide la deriva por ese factor: 3 veces con R = 4, 6 veces con R = 8. La deriva saldría «cumple» siempre." },
+
+    { "id": "S.despl.min", "grupo": "Desplazamientos", "magnitud": "Qué NO se aplica al calcular desplazamientos",
+      "valor": "ni el mínimo de C/R del Art. 34 ni la cortante mínima en la base del Art. 44",
+      "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "E.030-2026 Art. 50.3",
+      "nota": "Los mínimos son de resistencia, no de rigidez. Aplicarlos a los desplazamientos los infla artificialmente." },
+
+    { "id": "S.deriva", "grupo": "Desplazamientos", "magnitud": "Límite de distorsión de entrepiso",
+      "valor": "acero 0,010 · concreto armado 0,007 · albañilería 0,005 · madera 0,010 · MDL 0,004",
+      "unidad": "Δi/hei", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "E.030-2026 Art. 51 y Tabla N° 14" },
+
+    { "id": "S.deriva.industrial", "grupo": "Desplazamientos", "magnitud": "La nota que aplica a un galpón",
+      "valor": "en uso industrial lo fija el proyectista, pero NUNCA excede el doble de la tabla → tope 0,020 en acero",
+      "unidad": "—", "estado": "verificado", "editable": true, "clave": true,
+      "fuente": "E.030-2026 Tabla N° 14, nota",
+      "nota": "«Los límites de la distorsión (deriva) para estructuras de uso industrial son establecidos por el proyectista, pero en ningún caso exceden el doble de los valores de esta Tabla.» Es una licencia explícita para el galpón — y como toda licencia, se adopta y se declara. No confundir con el desplazamiento por viento, que es otra verificación y otra fuente (AISC DG3, H/100)." }
+
+  ]
+}

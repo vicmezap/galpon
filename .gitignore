@@ -1,0 +1,36 @@
+# QUE NO ENTRA AL REPOSITORIO
+# La regla: entra lo que escribimos nosotros y lo que se entrega. No entra lo
+# que pesa mucho y no cambia (las normas, los libros), ni lo que se vuelve a
+# generar solo.
+#
+# OJO: en un .gitignore el comentario va en SU PROPIA LINEA. Puesto detras de
+# un patron, el "#" y los espacios cuentan como parte del patron.
+
+# --- LO QUE SE GENERA SOLO ---
+# el complemento publicable lo produce gen_complemento.py
+complemento/
+# la vista del inventario la produce gen_inventario.py
+inventario/inventario.html
+
+# --- BIBLIOGRAFIA ---
+# las normas y los libros viven fuera del repositorio: pesan y no cambian
+normas/
+libros/
+
+# --- REGISTROS ---
+*.log
+
+# --- COMPILADOS Y CACHES ---
+__pycache__/
+*.pyc
+node_modules/
+.venv/
+
+# --- TEMPORALES DE OFFICE Y DEL SISTEMA ---
+~$*
+*.tmp
+Thumbs.db
+desktop.ini
+
+# --- AJUSTES LOCALES DE ESTA MAQUINA ---
+.claude/settings.local.json

@@ -1,0 +1,132 @@
+{
+  "seccion": "corte-flexocompresion",
+  "titulo": "Corte y fuerzas combinadas",
+  "modulos": ["acero.js · Cap. G", "acero.js · Cap. H"],
+  "version": 1,
+  "fecha": "2026-09-30",
+  "regla": "Ningún número entra al código sin fila aquí. Sin fuente primaria leída, no entra.",
+  "estados": {
+    "verificado": "leído en el texto original de la fuente",
+    "adoptado": "criterio de fuente reconocida, no normativa; se cita y se declara",
+    "conflicto": "dos fuentes válidas dan valores distintos; hay decisión tomada",
+    "sin_fuente": "criterio propio del proyectista; se adopta y se declara",
+    "pendiente": "falta el documento o falta leerlo"
+  },
+  "magnitudes": [
+
+    { "id": "V.phi", "grupo": "Corte · generales", "magnitud": "Factor de resistencia en corte",
+      "valor": "φv = 0,90", "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "AISC G1(a) · E.090 §6.2.2.1",
+      "nota": "Coinciden en el caso general. La excepción del AISC va en la fila siguiente." },
+
+    { "id": "V.phi1", "grupo": "Corte · generales", "magnitud": "La excepción de φv = 1,00",
+      "valor": "φv = 1,00 para almas de perfil I LAMINADO con h/tw ≤ 2,24·√(E/Fy)",
+      "unidad": "—", "estado": "conflicto", "editable": false, "clave": true,
+      "fuente": "AISC G2.1(a) · la E.090 no la tiene",
+      "nota": "DIVERGENCIA. Es el ÚNICO φ = 1,00 de toda la especificación: el AISC considera que la fluencia por corte del alma es tan dúctil y predecible que no necesita castigo. Con A36 el umbral es h/tw ≤ 63,6, que cumple casi cualquier perfil laminado. La E.090 mantiene 0,90 siempre → 11 % de diferencia en capacidad a corte. DECISIÓN: manda el AISC." },
+
+    { "id": "V.Vn", "grupo": "Corte · almas", "magnitud": "Resistencia nominal al corte del alma",
+      "valor": "Vn = 0,6·Fy·Aw·Cv1", "unidad": "kgf", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "AISC G2-1 · E.090 6.2-1 a 6.2-3" },
+
+    { "id": "V.Aw", "grupo": "Corte · almas", "magnitud": "Área del alma",
+      "valor": "Aw = d · tw", "unidad": "cm²", "estado": "verificado", "editable": false,
+      "fuente": "AISC G2.1 · E.090 §6.2.1",
+      "nota": "COINCIDEN, y conviene fijarse: es el peralte TOTAL por el espesor del alma, no la altura libre. Usar h en vez de d subestima el área." },
+
+    { "id": "V.Cv1", "grupo": "Corte · almas", "magnitud": "Coeficiente de pandeo por corte del alma",
+      "valor": "h/tw ≤ 1,10·√(kv·E/Fy) → Cv1 = 1,0   ·   si es mayor → Cv1 = 1,10·√(kv·E/Fy)/(h/tw)",
+      "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "AISC G2-3 y G2-4" },
+
+    { "id": "V.kv", "grupo": "Corte · almas", "magnitud": "Coeficiente de pandeo de la placa del alma",
+      "valor": "AISC: kv = 5,34 sin rigidizadores · E.090: kv = 5,0", "unidad": "—", "estado": "conflicto", "editable": false,
+      "fuente": "AISC G2.1(b)(2) · E.090 6.2-1",
+      "nota": "DIVERGENCIA PEQUEÑA PERO REAL. La E.090 escribe el umbral como 1098/√Fyw con Fy en MPa, que es 1,10·√(5,0·E/Fy); el AISC usa 5,34. Con A36 el umbral pasa de 69,7 a 72,2 — un 3,6 %. Con rigidizadores el AISC da kv = 5 + 5/(a/h)², y 5,34 cuando a/h > 3,0." },
+
+    { "id": "V.h", "grupo": "Corte · almas", "magnitud": "Qué es h según cómo se fabricó la sección",
+      "valor": "laminada: luz libre entre alas menos los filetes · armada soldada: luz libre entre alas · armada empernada: distancia entre líneas de conectores",
+      "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "AISC G2.1(a) y G2.1(b)(1)(i)",
+      "nota": "Otra vez la fabricación cambia la definición, no solo el material. Va con el campo «fabricación» de la sección." },
+
+    { "id": "V.lim260", "grupo": "Corte · almas", "magnitud": "Límite de aplicabilidad peruano",
+      "valor": "h/tw ≤ 260 para almas no rigidizadas", "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "E.090 §6.2.2.1",
+      "nota": "Por encima de 260 la E.090 manda al Apéndice 6.2.2 o al Cap. 7 (vigas de plancha con campo de tensiones)." },
+
+    { "id": "V.G3", "grupo": "Corte · otras formas", "magnitud": "Ángulos simples y almas de tes",
+      "valor": "Vn = 0,6·Fy·b·t·Cv2,  con h/tw = b/t y kv = 1,2", "unidad": "kgf", "estado": "verificado", "editable": false,
+      "fuente": "AISC G3-1",
+      "nota": "b = ancho del lado que resiste el corte, o peralte del alma de la te." },
+
+    { "id": "V.G4", "grupo": "Corte · otras formas", "magnitud": "HSS rectangulares y cajones",
+      "valor": "Vn = 0,6·Fy·Aw·Cv2,  Aw = 2·h·t,  kv = 5", "unidad": "kgf", "estado": "verificado", "editable": false,
+      "fuente": "AISC G4-1",
+      "nota": "El factor 2 es porque el tubo tiene DOS almas. h = distancia libre entre alas menos el radio interior de esquina; si no se conoce el radio, la dimensión exterior menos tres veces el espesor." },
+
+    { "id": "V.G6", "grupo": "Corte · otras formas", "magnitud": "Corte en el eje menor",
+      "valor": "Vn = 0,6·Fy·bf·tf·Cv2 POR CADA elemento que resiste corte,  kv = 1,2",
+      "unidad": "kgf", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "AISC G6-1",
+      "nota": "EL CORTE DE LA CORREA EN SU EJE DÉBIL, el que produce la componente paralela al faldón. La relación de esbeltez a usar es bf/(2·tf) en perfiles I y tes, pero bf/tf en CANALES — la misma asimetría que en F6. Se calcula por elemento, o sea por ala." },
+
+    { "id": "H.1a", "grupo": "Fuerzas combinadas", "magnitud": "Interacción · axial dominante",
+      "valor": "Pr/Pc + (8/9)·(Mrx/Mcx + Mry/Mcy) ≤ 1,0   cuando Pr/Pc ≥ 0,2",
+      "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "AISC H1-1a · E.090 8.1-1a",
+      "nota": "IDÉNTICAS en las dos normas, término por término. Todos los términos se toman positivos." },
+
+    { "id": "H.1b", "grupo": "Fuerzas combinadas", "magnitud": "Interacción · flexión dominante",
+      "valor": "Pr/(2·Pc) + (Mrx/Mcx + Mry/Mcy) ≤ 1,0   cuando Pr/Pc < 0,2",
+      "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "AISC H1-1b · E.090 8.1-1b" },
+
+    { "id": "H.phi", "grupo": "Fuerzas combinadas", "magnitud": "El φc que va dentro de la interacción",
+      "valor": "AISC: 0,90 · E.090: 0,85", "unidad": "—", "estado": "conflicto", "editable": false, "clave": true,
+      "fuente": "AISC E1 vía H1 · E.090 §8.1.1.2, que remite explícitamente a su §5.2.1",
+      "nota": "AQUÍ SE VE POR QUÉ IMPORTABA LA FILA C.phi. Las ecuaciones de interacción son idénticas, pero la E.090 §8.1.1.2 dice textualmente «φ = φc = factor de resistencia a la compresión = 0,85». La divergencia de un solo número en el Cap. 5 se propaga a TODA columna en flexo-compresión, que en un galpón son todas. DECISIÓN: manda el AISC." },
+
+    { "id": "H.Pr", "grupo": "Fuerzas combinadas", "magnitud": "De dónde sale la resistencia requerida",
+      "valor": "Pr y Mr del Capítulo C", "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "AISC H1.1, definiciones de Pr y Mr",
+      "nota": "No son las fuerzas del análisis de primer orden: son las del Cap. C, o sea CON los efectos de segundo orden ya incluidos (B1/B2 o análisis riguroso). Meter fuerzas de primer orden en H1-1a es el error silencioso más fácil de cometer en todo el diseño de un pórtico." },
+
+    { "id": "H.traccion", "grupo": "Fuerzas combinadas", "magnitud": "Flexión con tracción axial",
+      "valor": "mismas ecuaciones H1-1a y H1-1b, con Pc del Capítulo D", "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "AISC H1.2 · E.090 §8.1.1.1" },
+
+    { "id": "H.Cb.bono", "grupo": "Fuerzas combinadas", "magnitud": "La tracción axial mejora el pandeo lateral",
+      "valor": "Cb puede multiplicarse por √(1 + α·Pr/Pey),  con Pey = π²·E·Iy/Lb²  y  α = 1,0 en LRFD",
+      "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "AISC H1.2 y H1-2",
+      "nota": "PREMIO QUE CASI NADIE USA. Cuando hay tracción axial actuando a la vez que la flexión, la tracción estabiliza contra el pandeo lateral-torsional y la norma lo reconoce. Es el caso de la brida inferior del tijeral bajo carga de gravedad: traccionada y flexionada a la vez. Solo para secciones de doble simetría." },
+
+    { "id": "H.1_3", "grupo": "Fuerzas combinadas", "magnitud": "Separar el problema en el plano y fuera del plano",
+      "valor": "permitido si Lcz ≤ Lcy y Mry/Mcy < 0,05", "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "AISC H1.3",
+      "nota": "Para perfiles laminados compactos de doble simetría con flexión principalmente en el eje mayor. Se verifica por separado la inestabilidad EN el plano (con H1-1a/b, Pc en el plano de flexión y Mcx por fluencia) y FUERA del plano (con H1-3). Suele dar menos conservador que la interacción única." },
+
+    { "id": "H.1_3.eq", "grupo": "Fuerzas combinadas", "magnitud": "Ecuación fuera del plano",
+      "valor": "(Pr/Pcy)·(1,5 − 0,5·Pr/Pcy) + (Mrx/(Cb·Mcx))² ≤ 1,0",
+      "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "AISC H1-3",
+      "nota": "Mcx se calcula con Cb = 1,0 y después se multiplica por Cb dentro de la ecuación. El User Note avisa que Cb·Mcx puede superar φb·Mpx: es correcto, la fluencia ya la captura H1-1a/b." },
+
+    { "id": "H.1_3.div", "grupo": "Fuerzas combinadas", "magnitud": "La norma peruana no trae H1.3",
+      "valor": "E.090 solo tiene la interacción única", "unidad": "—", "estado": "conflicto", "editable": false,
+      "fuente": "E.090 §8.1.1",
+      "nota": "El Cap. 8 de la E.090 tiene 8.1-1a y 8.1-1b y nada más para secciones simétricas. La separación en-plano / fuera-de-plano es una adición del AISC posterior. Usarla es menos conservador, así que se ofrece como opción y no como defecto." },
+
+    { "id": "H.2", "grupo": "Fuerzas combinadas", "magnitud": "Secciones asimétricas · ecuación de esfuerzos",
+      "valor": "fra/Fca + frbw/Fcbw + frbz/Fcbz ≤ 1,0", "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "AISC H2-1",
+      "nota": "Trabaja con ESFUERZOS, no con fuerzas, y sobre los ejes PRINCIPALES w (mayor) y z (menor). Hay que usar el módulo de sección S del punto concreto que se analiza y respetar el signo. Es la ruta obligatoria del ángulo simple con momento en los dos ejes, a la que remite F10." },
+
+    { "id": "H.2.opcion", "grupo": "Fuerzas combinadas", "magnitud": "H2 se puede usar siempre",
+      "valor": "permitido en lugar de H1 para cualquier forma", "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "AISC H2, primer párrafo, y User Note de H1.1",
+      "nota": "«It is permitted to use the provisions of this section for any shape in lieu of the provisions of Section H1.» Útil como comprobación cruzada del propio complemento: dos caminos independientes para el mismo elemento." }
+
+  ]
+}

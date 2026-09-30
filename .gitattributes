@@ -1,0 +1,20 @@
+# FINALES DE LINEA
+# En Windows cada herramienta reescribe los archivos a su manera (unas con LF,
+# otras con CRLF). Sin esto, git ve el archivo ENTERO como cambiado y los
+# cambios de verdad se pierden dentro del ruido.
+# Con "text=auto" git guarda siempre LF dentro del repositorio y deja el
+# archivo en disco como lo quiera cada herramienta.
+* text=auto
+
+# LO QUE NO SE TOCA NUNCA: binarios. Si git intentara "arreglarles" los
+# saltos de linea, los rompe.
+*.xlsm binary
+*.xlsx binary
+*.xlam binary
+*.xls  binary
+*.png  binary
+*.jpg  binary
+*.pdf  binary
+*.dwg  binary
+*.ico  binary
+*.gz   binary

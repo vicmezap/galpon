@@ -1,0 +1,28 @@
+# =====================================================================
+# Las pruebas corren en cada push y en cada pull request.
+#
+# Esto es lo que Retícula no tuvo: allí «todo pasa» es una creencia.
+# Aquí es un hecho con fecha, o el commit sale en rojo.
+# =====================================================================
+name: pruebas
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Sin dependencias a propósito: el motor de cálculo es JavaScript
+      # puro y se prueba con el Node que trae la máquina. Nada que
+      # instalar es nada que se pueda romper.
+      - name: Ejecutar todas las pruebas
+        run: node pruebas/correr.js

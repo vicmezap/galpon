@@ -1,0 +1,148 @@
+{
+  "seccion": "cimentacion",
+  "titulo": "Pedestal y zapata · E.060",
+  "modulos": ["pedestal.js", "zapatas.js", "diseno.js"],
+  "version": 1,
+  "fecha": "2026-09-30",
+  "regla": "Ningún número entra al código sin fila aquí. Sin fuente primaria leída, no entra.",
+  "estados": {
+    "verificado": "leído en el texto original de la fuente",
+    "adoptado": "criterio de fuente reconocida, no normativa; se cita y se declara",
+    "conflicto": "dos fuentes válidas dan valores distintos; hay decisión tomada",
+    "sin_fuente": "criterio propio del proyectista; se adopta y se declara",
+    "pendiente": "falta el documento o falta leerlo"
+  },
+  "magnitudes": [
+
+    { "id": "Z.dos.niveles", "grupo": "La lógica de dos niveles", "magnitud": "El área sale de servicio, el acero de rotura",
+      "valor": "área: cargas NO amplificadas · diseño estructural: cargas amplificadas",
+      "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "E.060 §15.2.1 y §15.2.2",
+      "nota": "15.2.2: «El área de la base de la zapata debe determinarse a partir de las fuerzas y momentos NO AMPLIFICADOS (EN SERVICIO)… a partir de la resistencia admisible del suelo». 15.2.1: la zapata «debe diseñarse para resistir las cargas AMPLIFICADAS». Son dos cálculos con dos juegos de carga distintos sobre la misma pieza. Mezclarlos es el error clásico de la cimentación." },
+
+    { "id": "Z.sin.traccion", "grupo": "La lógica de dos niveles", "magnitud": "El suelo no jala",
+      "valor": "en las presiones de contacto NO se consideran las tracciones", "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "E.060 §15.2.3",
+      "nota": "Con momento grande y carga axial pequeña —el caso del galpón bajo viento— parte de la zapata se despega. La distribución deja de ser trapecial y pasa a ser triangular sobre el área en contacto. Hay que resolverlo, no promediarlo." },
+
+    { "id": "Z.inc30", "grupo": "Presión admisible", "magnitud": "Incremento por cargas temporales",
+      "valor": "+30 % sobre la presión admisible", "unidad": "—", "estado": "verificado", "editable": true, "clave": true,
+      "fuente": "E.060 §15.2.4",
+      "nota": "«Se podrá considerar un incremento del 30 % en el valor de la presión admisible del suelo para los estados de cargas en los que intervengan cargas temporales, tales como SISMO O VIENTO.» En un galpón el viento es precisamente la carga que manda: este 30 % cambia el área de la zapata de forma directa." },
+
+    { "id": "Z.sismo80", "grupo": "Presión admisible", "magnitud": "Reducción del sismo para esfuerzos en el suelo",
+      "valor": "las acciones sísmicas pueden reducirse al 80 %", "unidad": "—", "estado": "verificado", "editable": true,
+      "fuente": "E.060 §15.2.5",
+      "nota": "«…ya que las solicitaciones sísmicas especificadas en la NTE E.030 están especificadas al nivel de resistencia de la estructura.» Es un puente explícito entre el nivel de resistencia de la E.030 y el nivel de servicio del suelo. OJO: aplica al sismo, NO al viento." },
+
+    { "id": "Z.sigma.neta", "grupo": "Presión admisible", "magnitud": "Presión neta del suelo",
+      "valor": "σn = σt − s/c − γm·(Df − hz)", "unidad": "t/m²", "estado": "adoptado", "editable": true,
+      "fuente": "Harmsen 12.5.1 · tesis UCSM 2022 ec. 35 · ya implementado en zapatas.js de Retícula",
+      "nota": "No está en la E.060: es el procedimiento de la literatura peruana para descontar lo que ya pesa encima de la zapata. Si el estudio de suelos entrega la presión NETA, no se resta nada. Se reusa tal cual de Retícula, incluida su casilla de «el estudio da σs ya neta»." },
+
+    { "id": "Z.peralte.min", "grupo": "Geometría", "magnitud": "Peralte mínimo de la zapata",
+      "valor": "300 mm sobre el refuerzo inferior (apoyada en suelo) · 400 mm (sobre pilotes)",
+      "unidad": "mm", "estado": "verificado", "editable": false,
+      "fuente": "E.060 §15.7",
+      "nota": "Y además «deberá ser compatible con los requerimientos de anclaje de las armaduras de las columnas, pedestales y muros que se apoyen en la zapata» — que en nuestro caso son los dowels del pedestal." },
+
+    { "id": "Z.seccion.critica", "grupo": "Geometría", "magnitud": "Sección crítica cuando hay plancha de apoyo de acero",
+      "valor": "en el punto medio entre la cara de la columna y el borde de la plancha",
+      "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "E.060 §15.4.2 (c) para momento · §15.5.2 para cortante",
+      "nota": "ARTÍCULO HECHO A MEDIDA PARA NOSOTROS. La E.060 tiene un inciso específico para «zapatas que soporten una columna con plancha de apoyo de acero». La sección crítica NO está en la cara del pedestal ni en el borde de la placa, sino a medio camino. Aplica a momento y a cortante por igual." },
+
+    { "id": "Z.punzon.Vc", "grupo": "Punzonamiento", "magnitud": "Vc en dos direcciones · el menor de tres",
+      "valor": "(a) 0,17·(1 + 2/β)·√f'c·bo·d   ·   (b) 0,083·(αs·d/bo + 2)·√f'c·bo·d   ·   (c) 0,33·√f'c·bo·d",
+      "unidad": "N (f'c en MPa)", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "E.060 ecuaciones 11-33, 11-34 y 11-35",
+      "nota": "β = relación lado largo a lado corto de la columna o del área de reacción. Se toma el MENOR de los tres: cada uno domina en un régimen distinto." },
+
+    { "id": "Z.punzon.alfa", "grupo": "Punzonamiento", "magnitud": "Factor αs según la posición de la columna",
+      "valor": "40 interior · 30 de borde · 20 de esquina", "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "E.060 ec. 11-34",
+      "nota": "La posición la decide la geometría, no el usuario. En un galpón todas las columnas del perímetro son de borde o de esquina — casi ninguna es interior." },
+
+    { "id": "Z.punzon.bo", "grupo": "Punzonamiento", "magnitud": "Perímetro crítico",
+      "valor": "bo mínimo, a no menos de d/2 de la cara del pedestal", "unidad": "cm", "estado": "verificado", "editable": false,
+      "fuente": "E.060 §11.12.1.2",
+      "nota": "Para pedestales cuadrados o rectangulares se permite usar secciones críticas equivalentes de cuatro lados rectos." },
+
+    { "id": "Z.phi.corte", "grupo": "Factores de resistencia", "magnitud": "φ cortante y torsión",
+      "valor": "0,85", "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "E.060 §9.3.2.3",
+      "nota": "El ACI 318 moderno usa 0,75 para lo mismo. La E.060 puede usar 0,85 porque va emparejada con SUS factores de carga, que son mayores (1,4/1,7 contra 1,2/1,6). Los φ y los factores de carga son un paquete: no se mezclan piezas de normas distintas." },
+
+    { "id": "Z.phi.flexion", "grupo": "Factores de resistencia", "magnitud": "φ flexión sin carga axial",
+      "valor": "0,90", "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "E.060 §9.3.2.1" },
+
+    { "id": "Z.phi.compresion", "grupo": "Factores de resistencia", "magnitud": "φ compresión axial · el pedestal",
+      "valor": "estribos 0,70 · espiral 0,75 · puede subir linealmente hasta 0,90 según Pn baja desde el menor de 0,1·f'c·Ag ó Pb hasta cero",
+      "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "E.060 §9.3.2.2",
+      "nota": "En un galpón el pedestal suele tener poca carga axial y momento apreciable, así que ese incremento lineal hacia 0,90 sí llega a actuar." },
+
+    { "id": "Z.phi.aplast", "grupo": "Factores de resistencia", "magnitud": "φ aplastamiento en el concreto",
+      "valor": "0,70", "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "E.060 §9.3.2.4" },
+
+    { "id": "Z.aplast", "grupo": "Transferencia de fuerzas", "magnitud": "Resistencia al aplastamiento",
+      "valor": "0,85·f'c·A1 · multiplicable por √(A2/A1), pero no más de 2",
+      "unidad": "kgf", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "E.060 §10.17.1, invocado por §15.8.1.1",
+      "nota": "LA MISMA FÓRMULA que AISC J8-2 y E.090 §10.9. Las tres normas coinciden en la expresión." },
+
+    { "id": "Z.tres.phi", "grupo": "Transferencia de fuerzas", "magnitud": "TRES φ distintos para el mismo aplastamiento",
+      "valor": "AISC J8: 0,65  ·  E.090 §10.9: 0,60  ·  E.060 §9.3.2.4: 0,70",
+      "unidad": "—", "estado": "conflicto", "editable": false, "clave": true,
+      "fuente": "AISC J8 · E.090 §10.9 · E.060 §9.3.2.4",
+      "nota": "El concreto bajo la placa base es UNA superficie física, y tres normas la verifican con tres φ distintos. No es contradicción: cada φ va emparejado con los factores de carga de su propia norma. La consecuencia práctica es que hay que decidir DESDE QUÉ NORMA se hace la verificación y ser coherente en todo el paquete — φ y factores de carga juntos." },
+
+    { "id": "Z.dowels.traccion", "grupo": "Transferencia de fuerzas", "magnitud": "Los dowels también transmiten tracción",
+      "valor": "compresión que exceda el aplastamiento  Y  las fuerzas de tracción calculadas en la interfase",
+      "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "E.060 §15.8.1.2 (a) y (b)",
+      "nota": "EN UN GALPÓN EL INCISO (b) NO ES TEÓRICO. Con 0,9CM − 1,25CVi el viento levanta el techo, la columna tira hacia arriba y la interfase pedestal-zapata trabaja en TRACCIÓN. Los dowels tienen que anclarse para eso, no solo para comprimir." },
+
+    { "id": "Z.dowels.min", "grupo": "Transferencia de fuerzas", "magnitud": "Área mínima de dowels",
+      "valor": "As ≥ 0,005 · Ag", "unidad": "cm²", "estado": "verificado", "editable": false,
+      "fuente": "E.060 §15.8.2.1",
+      "nota": "Ag = área bruta del elemento soportado, o sea del pedestal." },
+
+    { "id": "Z.lateral", "grupo": "Transferencia de fuerzas", "magnitud": "Fuerzas laterales a la zapata",
+      "valor": "por cortante-fricción (§11.7) u otros medios apropiados", "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "E.060 §15.8.1.4",
+      "nota": "El cortante en la base del galpón —viento longitudinal bajando por el arriostre lateral— entra por aquí." },
+
+    { "id": "Z.franja", "grupo": "Refuerzo", "magnitud": "Reparto del acero en zapata rectangular",
+      "valor": "γs·As en la franja central de ancho igual al lado corto,  γs = 2/(β+1)",
+      "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "E.060 §15.4.4.2 y ec. 15-1",
+      "nota": "β = lado largo / lado corto. El resto, (1 − γs)·As, se reparte uniformemente fuera de la franja central. En la dirección larga el refuerzo va uniforme en todo el ancho (§15.4.4.1)." },
+
+    { "id": "Z.conectar", "grupo": "Disposiciones", "magnitud": "Vigas de conexión entre zapatas",
+      "valor": "analizar la necesidad en terrenos de baja capacidad portante", "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "E.060 §15.2.6",
+      "nota": "No es obligatorio: es una obligación de ANALIZAR si hace falta, evaluando el comportamiento según la rigidez de la viga y la del conjunto suelo-cimentación." },
+
+    { "id": "Z.combos.E060", "grupo": "La costura", "magnitud": "Combinaciones de la norma de concreto",
+      "valor": "1,4CM + 1,7CV · 1,25(CM + CV ± CVi) · 0,9CM ± 1,25CVi · 1,25(CM + CV) ± CS · 0,9CM ± CS",
+      "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "E.060 §9.2, ecuaciones 9-1 a 9-5",
+      "nota": "Y §9.2.4: no es necesario considerar sismo y viento simultáneamente." },
+
+    { "id": "Z.costura", "grupo": "La costura", "magnitud": "Tres normas, tres juegos de factores de carga",
+      "valor": "E.090 acero: 1,2D + 1,6L · 0,9D − 1,3W    |    E.060 concreto: 1,4CM + 1,7CV · 0,9CM − 1,25CVi    |    ACI 318 (anclajes): 1,2D + 1,6L",
+      "unidad": "—", "estado": "conflicto", "editable": false, "clave": true,
+      "fuente": "E.090 §1.4.1 · E.060 §9.2 · ACI 318 · corrección exigida por E.090 §10.10",
+      "nota": "EL NUDO DE TODO EL PROYECTO. La E.090 (acero) usa factores tipo ASCE, iguales a los del ACI 318; la E.060 (concreto) conserva los antiguos 1,4/1,7. Y el perno de anclaje, que es una pieza sola, se diseña con ACI del lado del concreto dentro de una cimentación calculada con E.060 — por eso la E.090 §10.10 exige corregir φ «en función de la relación de los factores de carga de esta Norma y los del ACI». REGLA DE ARQUITECTURA: la interfaz entre acero y cimentación transporta CASOS DE CARGA sin factorizar (D, Lr, W, E, S), y cada norma arma sus propias combinaciones. Nunca una reacción ya combinada." },
+
+    { "id": "Z.levantamiento", "grupo": "La costura", "magnitud": "La zapata del galpón tiene que pesar",
+      "valor": "verificar 0,9CM − 1,25CVi con el peso propio de zapata y relleno",
+      "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "E.060 ec. 9-3 · E.090 comb. 1.4-6",
+      "nota": "En un edificio la zapata se dimensiona por área: cuánta superficie hace falta para no exceder la presión admisible. EN UN GALPÓN, LA MISMA ZAPATA PUEDE DIMENSIONARSE POR PESO: cuánto volumen de concreto y relleno hace falta para que el viento no la levante. Son dos criterios distintos sobre la misma pieza, y la combinación con 0,9 sobre la carga muerta existe precisamente para ese caso." }
+
+  ]
+}

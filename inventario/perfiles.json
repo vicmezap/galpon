@@ -1,0 +1,270 @@
+{
+  "seccion": "perfiles",
+  "titulo": "Material, catálogos y propiedades de sección",
+  "modulos": [
+    "acero.js",
+    "perfiles.js",
+    "propiedades.js"
+  ],
+  "version": 1,
+  "fecha": "2026-09-30",
+  "regla": "Ningún número entra al código sin fila aquí. Sin fuente primaria leída, no entra.",
+  "estados": {
+    "verificado": "leído en el texto original de la fuente",
+    "adoptado": "criterio de fuente reconocida, no normativa; se cita y se declara",
+    "conflicto": "dos fuentes válidas dan valores distintos; hay decisión tomada",
+    "sin_fuente": "criterio propio del proyectista; se adopta y se declara",
+    "pendiente": "falta el documento o falta leerlo"
+  },
+  "magnitudes": [
+    {
+      "id": "MAT.E",
+      "grupo": "Material",
+      "magnitud": "Módulo de elasticidad del acero",
+      "valor": "2 039 000",
+      "unidad": "kg/cm²",
+      "estado": "conflicto",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC 360-22 · Símbolos: «E = 29,000 ksi (200 000 MPa)»",
+      "nota": "DISCREPANCIA REAL. Zapata 2.1 (p.50) da E = 29 500 ksi = 2 100 000 kg/cm², un 3,0 % más. DECISIÓN: manda el AISC, que es la norma que adoptamos. Al contrastar contra un ejemplo de Zapata la diferencia aparecerá en todo lo que dependa de E (Pe, Lp, Lr, Fe): NO es un bug."
+    },
+    {
+      "id": "MAT.G",
+      "grupo": "Material",
+      "magnitud": "Módulo de corte del acero",
+      "valor": "787 000",
+      "unidad": "kg/cm²",
+      "estado": "conflicto",
+      "editable": false,
+      "fuente": "AISC 360-22 · Símbolos: «G = 11,200 ksi (77 200 MPa)», usado en E4",
+      "nota": "Zapata da 11 300 ksi = 800 000 kg/cm², un 1,6 % más. Misma decisión que E."
+    },
+    {
+      "id": "MAT.mu",
+      "grupo": "Material",
+      "magnitud": "Relación de Poisson",
+      "valor": "0,30",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "fuente": "Zapata 2.1 (p.50)",
+      "nota": "Coherente con G = E/[2(1+μ)]."
+    },
+    {
+      "id": "MAT.A36.Fy",
+      "grupo": "Material",
+      "magnitud": "A36 · esfuerzo de fluencia",
+      "valor": "2530",
+      "unidad": "kg/cm²",
+      "estado": "verificado",
+      "editable": true,
+      "clave": true,
+      "fuente": "ASTM A36 (36 ksi) · admitido por E.090 §1.3.1.a · valor métrico en Zapata 2.1",
+      "nota": "Es el que usa Zapata en todos sus ejemplos. Preset por defecto."
+    },
+    {
+      "id": "MAT.A36.Fu",
+      "grupo": "Material",
+      "magnitud": "A36 · resistencia a la rotura",
+      "valor": "4080",
+      "unidad": "kg/cm²",
+      "estado": "verificado",
+      "editable": true,
+      "fuente": "Zapata 2.1 (p.50): «Fu = 58 ksi para Acero A36, Fu = 4080 kg/cm²»"
+    },
+    {
+      "id": "MAT.A572.Fy",
+      "grupo": "Material",
+      "magnitud": "A572 Gr.50 · esfuerzo de fluencia",
+      "valor": "3515",
+      "unidad": "kg/cm²",
+      "estado": "verificado",
+      "editable": true,
+      "fuente": "ASTM A572 Gr.50 (50 ksi = 345 MPa) · admitido por E.090 §1.3.1.a"
+    },
+    {
+      "id": "MAT.A572.Fu",
+      "grupo": "Material",
+      "magnitud": "A572 Gr.50 · resistencia a la rotura",
+      "valor": "4570",
+      "unidad": "kg/cm²",
+      "estado": "verificado",
+      "editable": true,
+      "fuente": "ASTM A572 Gr.50 (65 ksi = 450 MPa)"
+    },
+    {
+      "id": "MAT.admitidos",
+      "grupo": "Material",
+      "magnitud": "Aceros que la norma peruana admite",
+      "valor": "A36 · A53 Gr.B · A242 · A500 · A501 · A514 · A529 · A570 · A572 · A588 · A606 · A607 · A618 · A709 · A852",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "fuente": "E.090 §1.3.1.a (pág. 17)",
+      "nota": "Ojo: A500 y A501 son tubos, y el A500 es conformado en frío. La E.090 los admite como material aunque no tenga capítulo de perfiles conformados en frío: el AISC 360 trata los HSS dentro de su cuerpo normal."
+    },
+    {
+      "id": "MAT.Fr",
+      "grupo": "Material",
+      "magnitud": "Esfuerzo residual",
+      "valor": "laminado 705 · soldado 1130",
+      "unidad": "kg/cm²",
+      "estado": "conflicto",
+      "editable": false,
+      "clave": true,
+      "fuente": "Zapata 2.1 (p.50): Fp = Fy − 10 ksi laminado, Fy − 16 ksi soldado",
+      "nota": "El AISC 360-22 YA NO distingue: su capítulo F usa 0,7·Fy para todos, que con A36 equivale a Fr = 759. DECISIÓN: se sigue el 360-22. Pero la fabricación queda registrada en cada sección, porque el dato hace falta para contrastar con Zapata y por si algún día se vuelve a distinguir."
+    },
+    {
+      "id": "CAT.aisc",
+      "grupo": "Catálogos",
+      "magnitud": "AISC Shapes Database v13",
+      "valor": "7 hojas · ~1250 perfiles",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISCProp13-1.0.xls (PREDIMENSIONAMIENTO/)",
+      "nota": "W/M/S/HP · C/MC · WT/MT/ST · Single Angles · Double Angles · Rect. & Square HSS · Round HSS & Pipes. Unidades IMPERIALES (in, in², lb/ft): se convierten una sola vez al importar. Es el catálogo que usa el profesor."
+    },
+    {
+      "id": "CAT.precor",
+      "grupo": "Catálogos",
+      "magnitud": "Precor · perfiles conformados en frío",
+      "valor": "8 familias",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "fuente": "TablaPrecorSections.pdf, 15 páginas (PREDIMENSIONAMIENTO/)",
+      "nota": "L · U · C · Z · TC · IC · TU · IU. Métrico. Espesores 2,0 / 2,5 / 3,0 / 4,5 mm: TODAS conformadas en frío → requieren AISI S100. Se digitalizan ya y entran marcadas «en espera» hasta la fase 2."
+    },
+    {
+      "id": "CAT.soldados",
+      "grupo": "Catálogos",
+      "magnitud": "Perfiles soldados · serie VS · CS · CVS",
+      "valor": "NBR 5884 · 47 perfiles por página",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "FAM Perfis Soldados (CATALOGOS Y FICHAS/PERFILES/), norma ABNT NBR 5884",
+      "nota": "DOCUMENTO CONSEGUIDO Y EXTRACCIÓN RESUELTA. Serie que Zapata usa en todos sus ejemplos (VS600x99, CS400x204, CVS650x217) y la que recomienda para pórticos de un piso. El catálogo define su «Nível 2» de calidad como el de «galpões industriais». La extracción va por posición de texto: los caracteres salen sueltos y se agrupan por hueco en x — 2,5 pt dentro de un número, ≥10 pt entre columnas; umbral 6. Da 47 filas de 25 campos, todas consistentes."
+    },
+    {
+      "id": "CAT.soldados.cols",
+      "grupo": "Catálogos",
+      "magnitud": "Orden real de columnas de la tabla FAM",
+      "valor": "perfil · masa · A · d · tw · h · tf · bf · Ix · Wx · rx · Zx · Iy · Wy · ry · Zy · rt · It · Cw · h/tw · b/2tf · d/Af · ec · u · u/A",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "fuente": "FAM · verificado campo por campo contra las relaciones geométricas",
+      "nota": "OJO: el orden NO es el de la página de abreviaturas. Ahí figuran bf antes que tf, y rx/Zx en otro orden; los datos van como está escrito arriba. Verificado con Wx=2Ix/d, rx=√(Ix/A), Wy=2Iy/bf, ry=√(Iy/A), h/tw, b/2tf y d/Af: todas exactas.",
+      "clave": true
+    },
+    {
+      "id": "PROP.basicas",
+      "grupo": "Propiedades calculadas",
+      "magnitud": "Área, inercias, módulos elásticos, radios de giro",
+      "valor": "A · Ix · Iy · Sx · Sy · rx · ry",
+      "unidad": "cm², cm⁴, cm³, cm",
+      "estado": "verificado",
+      "editable": false,
+      "fuente": "mecánica de secciones · teorema de ejes paralelos",
+      "nota": "Sin controversia. Se verifican contra el catálogo: calcular las de un W12X26 y comparar con la tabla es la primera prueba de oro del proyecto."
+    },
+    {
+      "id": "PROP.Z",
+      "grupo": "Propiedades calculadas",
+      "magnitud": "Módulo plástico",
+      "valor": "Zx · Zy",
+      "unidad": "cm³",
+      "estado": "verificado",
+      "editable": false,
+      "fuente": "definición: primer momento de las dos mitades de área iguales respecto al eje neutro plástico"
+    },
+    {
+      "id": "PROP.J",
+      "grupo": "Propiedades calculadas",
+      "magnitud": "Constante de torsión de Saint-Venant",
+      "valor": "J",
+      "unidad": "cm⁴",
+      "estado": "verificado",
+      "editable": false,
+      "fuente": "FAM da IT = [(h+tf)·tw³ + 2·bf·tf³]/3 para secciones I soldadas",
+      "nota": "Aproximación de paredes delgadas. Para perfiles laminados se toma del catálogo AISC, que la tabula."
+    },
+    {
+      "id": "PROP.Cw",
+      "grupo": "Propiedades calculadas",
+      "magnitud": "Constante de alabeo",
+      "valor": "Cw",
+      "unidad": "cm⁶",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "se calcula de la geometría; el AISC la tabula para perfiles laminados",
+      "nota": "CORRECCIÓN: la tabla FAM SÍ trae Cw — lo negué antes leyendo solo la página de abreviaturas. Se comprobó contra Cw = Iy·ho²/4 con ho = d − tf: CS400x176 da 8 518 600 calculado contra 8 516 884 tabulado, 0,02 % de diferencia. Las tablas de Precor y la de AISC sí obligan a calcularlo. Hace falta para el pandeo lateral-torsional (F2) y el torsional (E4)."
+    },
+    {
+      "id": "PROP.compuestas",
+      "grupo": "Propiedades calculadas",
+      "magnitud": "Secciones compuestas del catálogo",
+      "valor": "2L con separación de cartela · 2C en cajón",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": true,
+      "clave": true,
+      "fuente": "teorema de ejes paralelos sobre los perfiles del catálogo",
+      "nota": "La diagonal de tijeral casi nunca es un ángulo suelto. El AISC tabula «Double Angles» solo para separaciones estándar (3/8\", 3/4\"); si tu cartela es de 8 mm, esa sección no está en ninguna tabla y hay que calcularla."
+    },
+    {
+      "id": "PROP.planchas",
+      "grupo": "Propiedades calculadas",
+      "magnitud": "Sección armada de planchas",
+      "valor": "alma h×tw + alas bf×tf",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": true,
+      "fuente": "geometría",
+      "nota": "Zapata p.280: para pórticos de un piso «los perfiles más adecuados son los perfiles VS». Una columna de galpón de 8-10 m suele ser una I soldada a medida, que no existe en ningún catálogo."
+    },
+    {
+      "id": "PROP.fabricacion",
+      "grupo": "Propiedades calculadas",
+      "magnitud": "La sección conoce su fabricación",
+      "valor": "laminado | soldado | conformado en frío",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "decisión de diseño del complemento",
+      "nota": "No es geometría, pero viaja con ella: decide qué especificación aplica (AISC 360 o AISI S100), el esfuerzo residual, y si el perfil está activo o «en espera». Es el campo que hace que la fase 2 sea un módulo nuevo y no una refactorización."
+    },
+    {
+      "id": "PROP.unidad",
+      "grupo": "Propiedades calculadas",
+      "magnitud": "El perfil conoce su sistema de unidades de origen",
+      "valor": "imperial | métrico",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "decisión de diseño del complemento",
+      "nota": "La conversión ocurre UNA SOLA VEZ al importar. Aguas abajo no existe ninguna pulgada. Es la regla que evita la clase de error que costó el factor U en Retícula."
+    },
+    {
+      "id": "CAT.soldados.prueba",
+      "grupo": "Catálogos",
+      "magnitud": "Verificación cruzada de la digitalización",
+      "valor": "6 relaciones por fila",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "geometría de secciones",
+      "nota": "Wx=2Ix/d · rx=√(Ix/A) · Wy=2Iy/bf · ry=√(Iy/A) · h/tw · b/2tf · Cw=Iy·ho²/4. Cada fila del catálogo se comprueba sola: si las siete cuadran, el parseo está bien Y la tabla está bien transcrita. Es la prueba de oro del proyecto, y ya se probó que funciona."
+    }
+  ]
+}

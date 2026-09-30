@@ -1,0 +1,167 @@
+{
+  "seccion": "compresion",
+  "titulo": "Elementos en compresión",
+  "modulos": ["acero.js · Cap. E"],
+  "version": 1,
+  "fecha": "2026-09-30",
+  "regla": "Ningún número entra al código sin fila aquí. Sin fuente primaria leída, no entra.",
+  "estados": {
+    "verificado": "leído en el texto original de la fuente",
+    "adoptado": "criterio de fuente reconocida, no normativa; se cita y se declara",
+    "conflicto": "dos fuentes válidas dan valores distintos; hay decisión tomada",
+    "sin_fuente": "criterio propio del proyectista; se adopta y se declara",
+    "pendiente": "falta el documento o falta leerlo"
+  },
+  "magnitudes": [
+
+    { "id": "C.Pn", "grupo": "Resistencia", "magnitud": "Resistencia nominal en compresión",
+      "valor": "Pn = Fn·Ag", "unidad": "kgf", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "AISC E3-1 · E.090 5.2-1",
+      "nota": "Se toma el MENOR de los estados límite aplicables: pandeo por flexión, torsional y flexo-torsional (AISC E1)." },
+
+    { "id": "C.phi", "grupo": "Resistencia", "magnitud": "Factor de resistencia en compresión",
+      "valor": "φc = 0,90", "unidad": "—", "estado": "conflicto", "editable": false, "clave": true,
+      "fuente": "AISC E1 · E.090 §5.2.1 da φc = 0,85",
+      "nota": "LA DIVERGENCIA MÁS CARA DEL CAPÍTULO, y la más fácil de pasar por alto porque es un solo número. El AISC 360-22 da 0,90 y la E.090 da 0,85: un 5,9 % de diferencia en la resistencia de diseño de TODA columna, diagonal y montante en compresión. DECISIÓN: manda el AISC 360-22. Al contrastar contra cualquier ejemplo de Zapata la diferencia aparecerá exactamente ahí." },
+
+    { "id": "C.Fn.a", "grupo": "Resistencia", "magnitud": "Pandeo inelástico",
+      "valor": "Fn = [0,658^(Fy/Fe)]·Fy   cuando Lc/r ≤ 4,71·√(E/Fy)  ó  Fy/Fe ≤ 2,25",
+      "unidad": "kg/cm²", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "AISC E3-2" },
+
+    { "id": "C.Fn.b", "grupo": "Resistencia", "magnitud": "Pandeo elástico",
+      "valor": "Fn = 0,877·Fe   cuando Lc/r > 4,71·√(E/Fy)  ó  Fy/Fe > 2,25",
+      "unidad": "kg/cm²", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "AISC E3-3",
+      "nota": "El 0,877 castiga la imperfección inicial: ni siquiera en el rango elástico se alcanza el Euler teórico." },
+
+    { "id": "C.Fe", "grupo": "Resistencia", "magnitud": "Esfuerzo crítico de pandeo elástico (Euler)",
+      "valor": "Fe = π²·E / (Lc/r)²", "unidad": "kg/cm²", "estado": "verificado", "editable": false,
+      "fuente": "AISC E3-4" },
+
+    { "id": "C.identicas", "grupo": "Resistencia", "magnitud": "¿Difieren las curvas de las dos normas?",
+      "valor": "NO · son algebraicamente idénticas", "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "AISC E3-2/E3-3 contra E.090 5.2-2/5.2-3, comprobado algebraicamente",
+      "nota": "HALLAZGO ÚTIL. La E.090 escribe λc = (Kl/rπ)·√(Fy/E) y da Fcr = (0,658^λc²)·Fy para λc ≤ 1,5 y Fcr = (0,877/λc²)·Fy para λc > 1,5. Pero λc² = Fy/Fe exactamente, y λc = 1,5 ↔ Fy/Fe = 2,25, y (0,877/λc²)·Fy = 0,877·Fe. ES LA MISMA CURVA con otra notación. Lo único que de verdad cambia entre las dos normas en pandeo por flexión es el φc." },
+
+    { "id": "C.nomenclatura", "grupo": "Resistencia", "magnitud": "El símbolo cambió de nombre",
+      "valor": "360-22: Fn · 360-16 y E.090: Fcr", "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "AISC E3 (360-22)",
+      "nota": "El 360-22 renombró Fcr a Fn en los capítulos E y F. McCormac (sobre 360-10) y Zapata dicen Fcr. Es solo nombre, pero confunde al comparar." },
+
+    { "id": "C.Lc", "grupo": "Longitud efectiva", "magnitud": "Longitud efectiva",
+      "valor": "Lc = K·L", "unidad": "cm", "estado": "verificado", "editable": false,
+      "fuente": "AISC E2 · E.090 §5.1.1",
+      "nota": "El AISC la determina por el Cap. C (Método Directo, K = 1) o el Apéndice 7 (Longitud Efectiva). La E.090 remite a su §3.2." },
+
+    { "id": "C.esbeltez", "grupo": "Longitud efectiva", "magnitud": "Límite de esbeltez en compresión",
+      "valor": "Lc/r ≤ 200, recomendado", "unidad": "—", "estado": "verificado", "editable": true, "clave": true,
+      "fuente": "AISC E2 (User Note) · E.090 §2.7",
+      "nota": "CORRECCIÓN A LO QUE ESCRIBÍ ANTES: dije que el 360-22 había eliminado el límite de 200. No es cierto — está en la User Note de E2: «the effective slenderness ratio, Lc/r, preferably should not exceed 200». La E.090 §2.7 dice «no deben exceder, preferentemente, de 200». LAS DOS SON RECOMENDACIONES y coinciden. La misma User Note añade que la longitud fabricada entre el radio menor no exceda 300." },
+
+    { "id": "C.estados", "grupo": "Estados límite", "magnitud": "Qué artículo aplica a cada sección",
+      "valor": "Tabla User Note E1.1", "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "AISC Tabla User Note E1.1",
+      "nota": "Mapea tipo de sección → artículos aplicables (E3, E4, E5, E6, E7) → estados límite (FB, TB, FTB, LB). Se hornea como tabla de decisión: es lo que evita aplicar el artículo equivocado." },
+
+    { "id": "C.E4.aplica", "grupo": "Flexo-torsional", "magnitud": "Cuándo hay que revisar flexo-torsión",
+      "valor": "ángulos simples con b/t > 0,71·√(E/Fy)  ≈ 20,2 con A36",
+      "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "AISC E4 y E5",
+      "nota": "«Flexural-torsional buckling need not be considered when b/t ≤ 0,71√(E/Fy)». Para A36: 0,71·√(2039000/2530) = 20,2. Por debajo de eso, la diagonal de ángulo se revisa solo por flexión." },
+
+    { "id": "C.E4.Fe2", "grupo": "Flexo-torsional", "magnitud": "Fe · secciones doblemente simétricas",
+      "valor": "Fe = [π²·E·Cw/Lcz² + G·J] · 1/(Ix+Iy)", "unidad": "kg/cm²", "estado": "verificado", "editable": false,
+      "fuente": "AISC E4-2" },
+
+    { "id": "C.E4.Fe3", "grupo": "Flexo-torsional", "magnitud": "Fe · secciones simplemente simétricas",
+      "valor": "Fe = [(Fey+Fez)/2H]·[1 − √(1 − 4·Fey·Fez·H/(Fey+Fez)²)]",
+      "unidad": "kg/cm²", "estado": "verificado", "editable": false,
+      "fuente": "AISC E4-3",
+      "nota": "Con Fey (E4-6), Fez (E4-7), H = 1 − (xo²+yo²)/ro² (E4-8), ro² (E4-9). Es el caso de ángulos dobles y tes." },
+
+    { "id": "C.E4.Cw", "grupo": "Flexo-torsional", "magnitud": "Simplificaciones que la norma autoriza",
+      "valor": "I doblemente simétrica: Cw = Iy·ho²/4 · tes y 2L: se puede omitir el término con Cw en Fez",
+      "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "AISC E4, User Notes",
+      "nota": "La primera es la que usé para verificar la columna Cw de la tabla FAM: cuadró al 0,02 %." },
+
+    { "id": "C.E4.divergencia", "grupo": "Flexo-torsional", "magnitud": "Alcance del capítulo peruano",
+      "valor": "E.090 §5.3 solo cubre ángulos dobles y secciones T", "unidad": "—", "estado": "conflicto", "editable": false,
+      "fuente": "E.090 §5.3",
+      "nota": "El AISC E4 cubre además secciones asimétricas, cruciformes, armadas y el caso de arriostramiento desfasado del centro de corte. La E.090 manda el resto a su Apéndice 5.3. DECISIÓN: manda el AISC, que es más completo." },
+
+    { "id": "C.E5", "grupo": "Ángulo simple", "magnitud": "Se permite despreciar la excentricidad",
+      "valor": "usando una esbeltez efectiva Lc/r tabulada", "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "AISC E5",
+      "nota": "EL ARTÍCULO QUE HACE MANEJABLE EL TIJERAL. Una diagonal de ángulo se conecta por un solo lado, o sea con excentricidad: en rigor es un elemento a flexo-compresión del Cap. H. E5 permite tratarla como cargada axialmente si se usa su esbeltez efectiva." },
+
+    { "id": "C.E5.cond", "grupo": "Ángulo simple", "magnitud": "Las cinco condiciones para poder usar E5",
+      "valor": "(1) carga por el mismo lado en los dos extremos · (2) soldado o mínimo 2 pernos · (3) sin cargas transversales intermedias · (4) Lc/r ≤ 200 · (5) lados desiguales con bl/bs < 1,7",
+      "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "AISC E5 (1) a (5)",
+      "nota": "Si no se cumplen, hay que ir al Cap. H como flexo-compresión. Aquí el Lc/r ≤ 200 SÍ es requisito duro, no recomendación." },
+
+    { "id": "C.E5.a1", "grupo": "Ángulo simple", "magnitud": "Armadura plana · lados iguales o conectado por el lado largo",
+      "valor": "L/ra ≤ 80 → Lc/r = 72 + 0,75·(L/ra)   ·   L/ra > 80 → Lc/r = 32 + 1,25·(L/ra)",
+      "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "AISC E5-1 y E5-2",
+      "nota": "Vale si las diagonales contiguas se conectan al MISMO lado de la cartela o de la brida. ra = radio de giro respecto al eje geométrico paralelo al lado conectado." },
+
+    { "id": "C.E5.a2", "grupo": "Ángulo simple", "magnitud": "Armadura plana · conectado por el lado corto",
+      "valor": "sumar 4·[(bl/bs)² − 1] al Lc/r, pero nunca menos de 0,95·L/rz",
+      "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "AISC E5(a)(2)" },
+
+    { "id": "C.E5.b", "grupo": "Ángulo simple", "magnitud": "Armadura espacial o en cajón",
+      "valor": "L/ra ≤ 75 → Lc/r = 60 + 0,8·(L/ra)   ·   L/ra > 75 → Lc/r = 45 + L/ra   ·   lado corto: +6·[(bl/bs)²−1], ≥ 0,82·L/rz",
+      "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "AISC E5-3, E5-4 y E5(b)(2)" },
+
+    { "id": "C.E5.divergencia", "grupo": "Ángulo simple", "magnitud": "La norma peruana no lo trae",
+      "valor": "E.090 remite a un documento AISC aparte", "unidad": "—", "estado": "conflicto", "editable": false, "clave": true,
+      "fuente": "E.090 Cap. 5, encabezado",
+      "nota": "Textual: «Para elementos de un solo ángulo véase Specification for Load and Resistance Design of Single Angle Members del AISC». O sea que la E.090 no legisla el caso: lo delega en el AISC. Usar E5 del 360-22 no contradice a la norma peruana — es justamente lo que manda hacer." },
+
+    { "id": "C.E6.m1", "grupo": "Elementos armados", "magnitud": "Esbeltez modificada · conectores empernados a ajuste apretado",
+      "valor": "(Lc/r)m = √[(Lc/r)o² + (a/ri)²]", "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "AISC E6-1" },
+
+    { "id": "C.E6.m2", "grupo": "Elementos armados", "magnitud": "Esbeltez modificada · soldados o pernos requintados",
+      "valor": "a/ri ≤ 40 → (Lc/r)m = (Lc/r)o   ·   a/ri > 40 → (Lc/r)m = √[(Lc/r)o² + (Ki·a/ri)²]",
+      "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "AISC E6-2a y E6-2b",
+      "nota": "Ki = 0,50 ángulos espalda con espalda · 0,75 canales espalda con espalda · 0,86 los demás. Es LA fórmula de la diagonal 2L del tijeral." },
+
+    { "id": "C.E6.a", "grupo": "Elementos armados", "magnitud": "Separación máxima entre presillas, en compresión",
+      "valor": "a/ri ≤ 3/4 · (esbeltez gobernante del elemento armado)", "unidad": "—", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "AISC E6.2(a)",
+      "nota": "OJO: NO ES LA MISMA REGLA QUE EN TRACCIÓN. En tracción (D4) el criterio es que cada componente no pase de 300; en compresión es tres cuartos de la esbeltez del conjunto, que casi siempre es más exigente. Una diagonal que trabaja en los dos sentidos debe cumplir la más estricta." },
+
+    { "id": "C.E6.extremo", "grupo": "Elementos armados", "magnitud": "Conexión de extremo del elemento armado",
+      "valor": "soldada, o con pernos requintados con superficies Clase A o B", "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "AISC E6.1",
+      "nota": "User Note: «In built-up compression members, such as double-angle struts in trusses, a small relative slip between the elements can significantly reduce the compressive strength of the strut.» Un deslizamiento pequeño entre los dos ángulos baja mucho la capacidad: la conexión de extremo se diseña contra el deslizamiento." },
+
+    { "id": "C.E6.divergencia", "grupo": "Elementos armados", "magnitud": "Fórmula peruana de esbeltez modificada",
+      "valor": "usa α = h/2·rib en vez del factor Ki", "unidad": "—", "estado": "conflicto", "editable": false,
+      "fuente": "E.090 §5.4",
+      "nota": "La E.090 conserva la formulación del LRFD 1993, con la relación de separación α = h/2rib y el radio rib respecto al eje centroidal paralelo al de pandeo. El 360-22 la simplificó al factor Ki. Dan resultados distintos. DECISIÓN: manda el AISC." },
+
+    { "id": "C.E7", "grupo": "Elementos esbeltos", "magnitud": "Secciones con elementos esbeltos",
+      "valor": "Pn = Fn·Ae, con Ae por anchos efectivos", "unidad": "kgf", "estado": "verificado", "editable": false, "clave": true,
+      "fuente": "AISC E7-1, E7-2, E7-3",
+      "nota": "be = b si λ ≤ λr·√(Fy/Fn); si no, be = b·(1 − c1·√(Fel/Fn))·√(Fel/Fn), con c1 de la Tabla E7.1. Para ÁNGULOS SIMPLES, Fn se determina solo por E3." },
+
+    { "id": "C.E7.divergencia", "grupo": "Elementos esbeltos", "magnitud": "Método peruano para elementos esbeltos",
+      "valor": "factor Q, en el Apéndice 2.5.3", "unidad": "—", "estado": "conflicto", "editable": false, "clave": true,
+      "fuente": "E.090 Cap. 5 encabezado y Apéndice 2.5.3",
+      "nota": "DOS MÉTODOS DISTINTOS. La E.090 usa el factor de reducción Q multiplicando Fy (el método clásico, el que explica Zapata p.141 con A-E2-1 y A-E2-3). El 360-22 usa ANCHOS EFECTIVOS: reduce el área, no el esfuerzo. DECISIÓN: manda el AISC 360-22." },
+
+    { "id": "C.E6.espaciado", "grupo": "Elementos armados", "magnitud": "Separación máxima de conectores en plancha exterior",
+      "valor": "≤ 0,75·√(E/Fy) · t   ó   300 mm", "unidad": "—", "estado": "verificado", "editable": false,
+      "fuente": "AISC E6.2(b) · E.090 §5.4",
+      "nota": "Coinciden: la E.090 lo escribe como 335/√Fy con Fy en MPa, que da 21,3 para A36 — el mismo número que 0,75·√(E/Fy). Solo pre-sustituyó E. En zigzag: 500/√Fy · t ó 450 mm." }
+
+  ]
+}
