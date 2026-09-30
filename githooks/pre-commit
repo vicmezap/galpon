@@ -1,0 +1,32 @@
+#!/bin/sh
+# =====================================================================
+# No se comete codigo que no pasa las pruebas.
+#
+# Existe porque paso: en E1b se corrigio un fallo del CI y el arreglo
+# salio con un error de sintaxis, porque se cometio sin correr
+# "node pruebas/correr.js". El error se habria cazado en dos segundos.
+#
+# Es la misma idea que bundle.alDiaOMuere() y que proyecto.agregaCarga():
+# convertir una regla en algo que se niega, en vez de confiar en la
+# costumbre.
+#
+# Se instala solo con  git config core.hooksPath githooks  (ver
+# scripts/instalar_hooks.sh). Para saltarselo en un caso justificado:
+# git commit --no-verify
+# =====================================================================
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "pre-commit: no encuentro node; no puedo correr las pruebas." >&2
+  echo "            usa --no-verify solo si sabes lo que haces." >&2
+  exit 1
+fi
+
+echo ""
+echo "  pre-commit: corriendo las pruebas antes de cometer..."
+if ! node pruebas/correr.js; then
+  echo ""
+  echo "  COMMIT RECHAZADO: las pruebas no pasan." >&2
+  echo "  Arreglalo, o usa  git commit --no-verify  si hay una razon." >&2
+  exit 1
+fi
+exit 0

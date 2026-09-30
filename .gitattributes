@@ -6,6 +6,13 @@
 # archivo en disco como lo quiera cada herramienta.
 * text=auto
 
+# LOS HOOKS Y LOS .sh, SIEMPRE CON LF.
+# Git for Windows los ejecuta con su bash, y un shebang terminado en CRLF
+# da "bad interpreter": el hook no corre y nadie se entera, que es la peor
+# forma de que falle una guarda.
+githooks/* text eol=lf
+*.sh       text eol=lf
+
 # LO QUE NO SE TOCA NUNCA: binarios. Si git intentara "arreglarles" los
 # saltos de linea, los rompe.
 *.xlsm binary

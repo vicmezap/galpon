@@ -63,6 +63,17 @@ node pruebas/correr.js unidades     # solo las que coincidan
 Sin dependencias. El motor de cálculo es JavaScript puro y se prueba con el Node
 que traiga la máquina. Las pruebas corren también en GitHub Actions en cada push.
 
+Y antes de cada commit, si instalas los hooks:
+
+```bash
+sh scripts/instalar_hooks.sh     # una vez por clon
+```
+
+`githooks/pre-commit` corre las pruebas y **rechaza el commit si no pasan**.
+Existe porque pasó: en E1b se arregló un fallo del CI y el arreglo salió con un
+error de sintaxis, porque se cometió sin correr las pruebas. El error se habría
+cazado en dos segundos. Para saltárselo con motivo: `git commit --no-verify`.
+
 ---
 
 ## Estructura
