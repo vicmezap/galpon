@@ -466,6 +466,120 @@
       "editable": false,
       "fuente": "AISC E6.2(b) · E.090 §5.4",
       "nota": "Coinciden: la E.090 lo escribe como 335/√Fy con Fy en MPa, que da 21,3 para A36 — el mismo número que 0,75·√(E/Fy). Solo pre-sustituyó E. En zigzag: 500/√Fy · t ó 450 mm."
+    },
+    {
+      "id": "C.E4.b",
+      "grupo": "Flexo-torsión · E4",
+      "magnitud": "En la exención de ángulo simple, b es el lado MÁS LARGO",
+      "valor": "b = ancho del lado más largo · t = espesor",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC E4, primer párrafo, textual",
+      "nota": "TEXTUAL: «These provisions also apply to single angles with b/t > 0,71·√(E/Fy), where b is the width of the LONGEST leg and t is the thickness.» En un ángulo de lados desiguales tomar el lado corto da una razón menor y exime de revisar flexo-torsión cuando sí hay que revisarla: el error va del lado inseguro."
+    },
+    {
+      "id": "C.E4.Fex",
+      "grupo": "Flexo-torsión · E4",
+      "magnitud": "Fex, Fey y Fez",
+      "valor": "Fex = π²E/(Lcx/rx)² · Fey = π²E/(Lcy/ry)² · Fez = (π²E·Cw/Lcz² + G·J)/(Ag·ro²)",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "fuente": "AISC E4-5, E4-6 y E4-7",
+      "nota": "Cada uno con SU longitud efectiva: Lcx, Lcy y Lcz pueden ser distintas, y en un galpón lo son —las correas arriostran el eje menor y no el mayor, y la torsión casi nunca está arriostrada—."
+    },
+    {
+      "id": "C.E4.ro",
+      "grupo": "Flexo-torsión · E4",
+      "magnitud": "ro² y H",
+      "valor": "ro² = xo² + yo² + (Ix+Iy)/Ag · H = 1 − (xo²+yo²)/ro²",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "fuente": "AISC E4-9 y E4-8",
+      "nota": "xo e yo son las coordenadas del centro de corte respecto del centroide. En una sección de doble simetría son cero y H = 1; en un ángulo o una te no."
+    },
+    {
+      "id": "C.E4.canal",
+      "grupo": "Flexo-torsión · E4",
+      "magnitud": "Un canal usa Fex, no Fey",
+      "valor": "en secciones simplemente simétricas con el eje X como eje de simetría, la E4-3 vale sustituyendo Fey por Fex",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "fuente": "AISC E4, User Note tras la E4-3",
+      "nota": "Es el caso del canal. Usar Fey en un canal aplica la ecuación al eje equivocado."
+    },
+    {
+      "id": "C.E6.Ki",
+      "grupo": "Elementos armados · E6",
+      "magnitud": "El factor Ki de la esbeltez modificada",
+      "valor": "0,50 ángulos espalda con espalda · 0,75 canales espalda con espalda · 0,86 los demás",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC E6-2b, definiciones",
+      "nota": ""
+    },
+    {
+      "id": "C.E6.ri",
+      "grupo": "Elementos armados · E6",
+      "magnitud": "ri es el radio de giro MÍNIMO del componente",
+      "valor": "ri = minimum radius of gyration of individual component · a = distancia entre conectores",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "fuente": "AISC E6-2b y E6.2(a), textual",
+      "nota": "TEXTUAL: «The minimum radius of gyration, ri, shall be used in computing the slenderness ratio of each component part.» En un ángulo el mínimo es rz, no rx ni ry, y usar rx da una esbeltez del componente mucho menor que la real."
+    },
+    {
+      "id": "C.E7.tabla",
+      "grupo": "Elementos esbeltos · E7",
+      "magnitud": "Factores c1 y c2 de la Tabla E7.1",
+      "valor": "atiesados salvo HSS: 0,18 / 1,31 · paredes de HSS cuadrado o rect.: 0,20 / 1,38 · todos los demás: 0,22 / 1,49",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC Tabla E7.1 · relación E7-4 verificada numéricamente",
+      "nota": "AUTOVERIFICABLE, y eso es regalo: c2 no es un dato independiente, sale de c1 por la E7-4, c2 = (1 − √(1−4c1))/(2c1). MEDIDO: 0,18 da 1,30792 contra 1,31 tabulado; 0,20 da 1,38197 contra 1,38; 0,22 da 1,48543 contra 1,49. O sea que los c2 de la tabla son los calculados REDONDEADOS a tres cifras, con 0,14 a 0,31 % de diferencia. El código calcula c2 con la E7-4 —exacta— y contrasta contra la tabla, que es la forma de saber que la transcripción de c1 es correcta."
+    },
+    {
+      "id": "C.E7.Fel",
+      "grupo": "Elementos esbeltos · E7",
+      "magnitud": "Esfuerzo de pandeo local elástico",
+      "valor": "Fel = (c2·λr/λ)²·Fy",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "fuente": "AISC E7-5",
+      "nota": "λr es el de la Tabla B4.1a, no el de flexión (fila C.B4a)."
+    },
+    {
+      "id": "C.E7.be",
+      "grupo": "Elementos esbeltos · E7",
+      "magnitud": "Ancho efectivo",
+      "valor": "λ ≤ λr·√(Fy/Fn) → be = b · si no → be = b·(1 − c1·√(Fel/Fn))·√(Fel/Fn)",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC E7-2 y E7-3 · Ae por la User Note de E7",
+      "nota": "Ae se obtiene descontando de Ag la reducción de cada elemento esbelto, (b − be)·t. OJO AL UMBRAL: es λr·√(Fy/Fn), no λr a secas, así que depende de Fn y por tanto de la esbeltez global: un elemento puede ser esbelto por B4.1a y no necesitar reducción aquí. Y Fn se determina por E3 o E4, pero PARA ÁNGULOS SIMPLES solo por E3, textual."
+    },
+    {
+      "id": "C.E7.redondo",
+      "grupo": "Elementos esbeltos · E7",
+      "magnitud": "HSS redondo · área efectiva y su límite superior",
+      "valor": "D/t ≤ 0,11E/Fy → Ae = Ag · 0,11E/Fy < D/t < 0,45E/Fy → Ae = [0,038E/(Fy·D/t) + 2/3]·Ag",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "fuente": "AISC E7-6 y E7-7",
+      "nota": "EL 0,45·E/Fy ES UN TOPE DURO: por encima el HSS redondo queda FUERA del alcance del capítulo y no hay ecuación que aplicar. Con A36 el tope es D/t = 363."
     }
   ]
 }

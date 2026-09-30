@@ -51,7 +51,13 @@
     "C.identicas", "C.nomenclatura", "C.estados", "C.Fn.frontera",
     "C.B4a", "C.B4a.c1", "C.B4a.c2", "C.B4a.c3", "C.B4a.c4", "C.B4a.c5",
     "C.B4a.c6", "C.B4a.c7", "C.B4a.c8", "C.B4a.c9",
-    "C.E5", "C.E5.cond", "C.E5.a1", "C.E5.a2", "C.E5.b", "C.E5.divergencia"
+    "C.E5", "C.E5.cond", "C.E5.a1", "C.E5.a2", "C.E5.b", "C.E5.divergencia",
+    "MAT.G",
+    "C.E4.aplica", "C.E4.b", "C.E4.Fe2", "C.E4.Fe3", "C.E4.Fex", "C.E4.ro",
+    "C.E4.canal", "C.E4.Cw", "C.E4.divergencia",
+    "C.E6.m1", "C.E6.m2", "C.E6.Ki", "C.E6.ri", "C.E6.a", "C.E6.extremo",
+    "C.E6.espaciado", "C.E6.divergencia",
+    "C.E7", "C.E7.tabla", "C.E7.Fel", "C.E7.be", "C.E7.redondo", "C.E7.divergencia"
   ]);
 
   /* ---------- materiales ------------------------------------------------ */
@@ -526,10 +532,13 @@
       if (local.hayEsbeltos) {
         throw new Error(
           "acero: la sección tiene elementos esbeltos (" + local.esbeltos.join(", ") + ")\n" +
-          "  y su resistencia se determina por el E7, con anchos efectivos, no por\n" +
-          "  el E3. Calcularla por E3 la sobrestima.\n" +
+          "  y su resistencia se determina por el E7, con anchos efectivos, no por el E3.\n" +
           "  Con A36 el límite de un lado de ángulo simple es b/t = 12,8, así que un\n" +
-          "  L 2\"x2\"x1/8\" ya es esbelto: pasa a menudo en armaduras ligeras.");
+          "  L 2\"x2\"x1/8\" ya es esbelto: pasa a menudo en armaduras ligeras.\n" +
+          "  OJO, y no es un detalle: el E7 PUEDE no reducir nada. Su umbral es\n" +
+          "  λr·√(Fy/Fn), que depende de Fn, así que en una barra esbelta —donde Fn es\n" +
+          "  bajo— un elemento esbelto por B4.1a puede salir con be = b y dar el mismo\n" +
+          "  número que el E3. Lo que no se puede es SALTARSE el E7 y suponerlo.");
       }
     } else if (d.noEsbelta !== true) {
       throw new Error(
@@ -673,13 +682,296 @@
     };
   }
 
+  /* =====================================================================
+     E4 · PANDEO TORSIONAL Y FLEXO-TORSIONAL
+
+     Aplica a secciones simplemente simétricas y asimétricas, a algunas de
+     doble simetría —cruciformes, armadas— y a las de doble simetría cuando la
+     longitud no arriostrada a TORSIÓN supera la de flexión.  Y a los ángulos
+     simples con b/t > 0,71·√(E/Fy), donde b es el lado MÁS LARGO (fila
+     C.E4.b): tomar el corto exime de revisar flexo-torsión cuando sí hay que
+     revisarla, y el error va del lado inseguro.
+     ===================================================================== */
+
+  const G_ACERO = INV.num("MAT.G");        /* kgf/cm² · fila MAT.G */
+  const COEF_EXENCION_FTB = 0.71;         /* E4 · fila C.E4.aplica */
+
+  /* ¿Hay que revisar flexo-torsión en este ángulo simple? */
+  function exigeFTB(d) {
+    const bl = d.bLargo_cm, t = d.t_cm, Fy = d.Fy_kgcm2;
+    if (!(bl > 0) || !(t > 0)) {
+      throw new Error(
+        "acero: exigeFTB() necesita bLargo_cm y t_cm.\n" +
+        "  b es el ancho del lado MÁS LARGO del ángulo, textual del E4. En un\n" +
+        "  ángulo de lados desiguales, tomar el corto da una razón menor y exime\n" +
+        "  de revisar flexo-torsión cuando sí hay que revisarla.");
+    }
+    if (!(Fy > 0)) throw new Error("acero: exigeFTB() necesita Fy_kgcm2 > 0");
+    const razon = bl / t;
+    const limite = COEF_EXENCION_FTB * Math.sqrt(E_ACERO / Fy);
+    return { exige: razon > limite, razon: razon, limite: limite,
+      art: ART["C.E4.aplica"], artB: ART["C.E4.b"],
+      nota: razon > limite
+        ? "b/t supera el límite: hay que revisar flexo-torsión por E4"
+        : "b/t no llega al límite: basta el pandeo por flexión, E3" };
+  }
+
+  /* Fex, Fey, Fez · E4-5, E4-6 y E4-7.  Cada uno con SU longitud efectiva:
+     en un galpón Lcx, Lcy y Lcz son distintas, porque las correas arriostran
+     el eje menor y no el mayor, y la torsión casi nunca está arriostrada. */
+  function FeFlexion(d) {
+    const lr = d.Lc_cm / d.r_cm;
+    if (!(lr > 0)) throw new Error("acero: FeFlexion() necesita Lc_cm y r_cm positivos");
+    return Math.PI * Math.PI * E_ACERO / (lr * lr);
+  }
+
+  function roH(d) {
+    const xo = d.xo_cm || 0, yo = d.yo_cm || 0;
+    const Ix = d.Ix_cm4, Iy = d.Iy_cm4, Ag = d.Ag_cm2;
+    if (!(Ix > 0) || !(Iy > 0) || !(Ag > 0)) {
+      throw new Error("acero: roH() necesita Ix_cm4, Iy_cm4 y Ag_cm2 positivos");
+    }
+    const ro2 = xo * xo + yo * yo + (Ix + Iy) / Ag;        /* E4-9 */
+    const H = 1 - (xo * xo + yo * yo) / ro2;               /* E4-8 */
+    return { ro2: ro2, ro_cm: Math.sqrt(ro2), H: H, xo_cm: xo, yo_cm: yo,
+      art: ART["C.E4.ro"] };
+  }
+
+  function Fez(d) {
+    const Cw = d.Cw_cm6, J = d.J_cm4, Lcz = d.Lcz_cm, Ag = d.Ag_cm2;
+    if (!(J > 0)) throw new Error("acero: Fez() necesita J_cm4 > 0");
+    if (!(Lcz > 0)) throw new Error("acero: Fez() necesita Lcz_cm > 0");
+    const ro2 = d.ro2;
+    if (!(ro2 > 0)) throw new Error("acero: Fez() necesita ro2 (de roH())");
+    /* La User Note de E4 autoriza omitir el término con Cw en tes y 2L
+       (fila C.E4.Cw): ahí el alabeo aporta muy poco. */
+    const cw = (Cw === undefined || Cw === null) ? 0 : Cw;
+    return { Fez_kgcm2: (Math.PI * Math.PI * E_ACERO * cw / (Lcz * Lcz) + G_ACERO * J)
+      / (Ag * ro2), omitioCw: cw === 0, art: ART["C.E4.Fex"] };
+  }
+
+  /* E4-2 · doble simetría girando alrededor del centro de corte. */
+  function FeDobleSimetria(d) {
+    const Cw = d.Cw_cm6, J = d.J_cm4, Lcz = d.Lcz_cm;
+    const Ix = d.Ix_cm4, Iy = d.Iy_cm4;
+    if (!(Cw > 0)) throw new Error("acero: FeDobleSimetria() necesita Cw_cm6 > 0");
+    if (!(J > 0)) throw new Error("acero: FeDobleSimetria() necesita J_cm4 > 0");
+    if (!(Lcz > 0)) throw new Error("acero: FeDobleSimetria() necesita Lcz_cm > 0");
+    if (!(Ix > 0) || !(Iy > 0)) throw new Error("acero: FeDobleSimetria() necesita Ix_cm4 e Iy_cm4");
+    return { Fe_kgcm2: (Math.PI * Math.PI * E_ACERO * Cw / (Lcz * Lcz) + G_ACERO * J)
+      / (Ix + Iy), art: ART["C.E4.Fe2"] };
+  }
+
+  /* E4-3 · simple simetría.  El eje de simetría es Y por defecto; en un CANAL
+     el eje de simetría es X y la User Note manda sustituir Fey por Fex
+     (fila C.E4.canal).  Usar Fey en un canal aplica la ecuación al eje
+     equivocado. */
+  function FeSimpleSimetria(d) {
+    const Fe1 = d.Fey_kgcm2, fez = d.Fez_kgcm2, H = d.H;
+    if (!(Fe1 > 0)) throw new Error("acero: FeSimpleSimetria() necesita Fey_kgcm2 (o Fex en un canal)");
+    if (!(fez > 0)) throw new Error("acero: FeSimpleSimetria() necesita Fez_kgcm2");
+    if (!(H > 0) || H > 1 + 1e-12) throw new Error("acero: H tiene que estar en (0, 1]; llegó " + H);
+    const suma = Fe1 + fez;
+    const dentro = 1 - 4 * Fe1 * fez * H / (suma * suma);
+    /* El radicando no puede ser negativo con H ≤ 1, pero si el redondeo lo
+       deja en −1e-18 hay que verlo en vez de sacar NaN. */
+    if (dentro < -1e-9) {
+      throw new Error("acero: el radicando de la E4-3 salió negativo (" + dentro + "): revisa H, Fey y Fez");
+    }
+    const raiz = Math.sqrt(Math.max(0, dentro));
+    return { Fe_kgcm2: (suma / (2 * H)) * (1 - raiz), radicando: dentro,
+      art: ART["C.E4.Fe3"],
+      nota: "en un canal el eje de simetría es X: hay que pasar Fex como Fey (User Note de E4)" };
+  }
+
+  /* =====================================================================
+     E6 · ELEMENTOS ARMADOS · la diagonal 2L del tijeral
+     ===================================================================== */
+
+  const KI = { angulos: 0.50, canales: 0.75, otros: 0.86 };   /* E6-2b */
+  const A_RI_SIN_PENALIZAR = 40;        /* E6-2a */
+  const FRACCION_COMPONENTE = 0.75;     /* E6.2(a) · tres cuartos */
+
+  /* (Lc/r)m · E6-1 y E6-2.  `ri` es el radio de giro MÍNIMO del componente,
+     textual (fila C.E6.ri): en un ángulo el mínimo es rz, no rx ni ry, y usar
+     rx da una esbeltez del componente mucho menor que la real. */
+  function esbeltezModificada(d) {
+    const lr0 = d.lr0, a = d.a_cm, ri = d.ri_cm;
+    if (!(lr0 > 0)) throw new Error("acero: esbeltezModificada() necesita lr0 = (Lc/r)o > 0");
+    if (!(a > 0)) throw new Error("acero: esbeltezModificada() necesita a_cm > 0 (separación entre conectores)");
+    if (!(ri > 0)) {
+      throw new Error(
+        "acero: esbeltezModificada() necesita ri_cm, el radio de giro MÍNIMO del\n" +
+        "  componente. Textual del E6: «The minimum radius of gyration, ri, shall be\n" +
+        "  used». En un ángulo el mínimo es rz, no rx ni ry: usar rx da una esbeltez\n" +
+        "  del componente mucho menor que la real.");
+    }
+    const conexion = d.conexion;
+    if (conexion !== "apretado" && conexion !== "requintado") {
+      throw new Error(
+        "acero: la conexión intermedia es «apretado» (bolted snug-tight) o\n" +
+        "  «requintado» (soldada o con pernos pretensados, superficies Clase A o B).\n" +
+        "  No es un detalle: con pernos apretados el término entra SIEMPRE y con\n" +
+        "  requintado solo si a/ri > 40.");
+    }
+    const ari = a / ri;
+    if (conexion === "apretado") {
+      /* E6-1 · sin factor Ki y sin umbral: el término entra siempre. */
+      return { lrm: Math.sqrt(lr0 * lr0 + ari * ari), lr0: lr0, ari: ari,
+        Ki: 1, conexion: conexion, art: ART["C.E6.m1"],
+        nota: "con pernos a ajuste apretado el término entra siempre y sin Ki" };
+    }
+    if (ari <= A_RI_SIN_PENALIZAR) {
+      return { lrm: lr0, lr0: lr0, ari: ari, Ki: null, conexion: conexion,
+        art: ART["C.E6.m2"], sinPenalizar: true,
+        nota: "a/ri ≤ 40: la esbeltez no se modifica" };
+    }
+    const tipo = d.tipo || "otros";
+    const Ki = KI[tipo];
+    if (Ki === undefined) {
+      throw new Error("acero: el tipo de armado es " + Object.keys(KI).join(" · ") +
+        " (E6-2b), no «" + tipo + "»");
+    }
+    return { lrm: Math.sqrt(lr0 * lr0 + Math.pow(Ki * ari, 2)), lr0: lr0, ari: ari,
+      Ki: Ki, tipo: tipo, conexion: conexion, art: ART["C.E6.m2"], artKi: ART["C.E6.Ki"] };
+  }
+
+  /* E6.2(a) · la separación máxima entre conectores.
+     NO ES LA MISMA REGLA QUE EN TRACCIÓN: en tracción (D4) el criterio es que
+     cada componente no pase de 300; aquí es tres cuartos de la esbeltez
+     GOBERNANTE del conjunto, que casi siempre es más exigente. Una diagonal
+     que trabaja en los dos sentidos cumple la más estricta (fila C.E6.a). */
+  function separacionConectores(d) {
+    const ari = d.a_cm / d.ri_cm;
+    const lrGob = d.lrGobernante;
+    if (!(lrGob > 0)) {
+      throw new Error("acero: separacionConectores() necesita lrGobernante, la esbeltez del conjunto");
+    }
+    const tope = FRACCION_COMPONENTE * lrGob;
+    return {
+      ari: ari, tope: tope, cumple: ari <= tope,
+      aMax_cm: tope * d.ri_cm,
+      art: ART["C.E6.a"],
+      nota: "en TRACCIÓN el criterio es otro: cada componente ≤ 300 (D4). Una " +
+            "diagonal que trabaja en los dos sentidos cumple la más estricta."
+    };
+  }
+
+  /* =====================================================================
+     E7 · ELEMENTOS ESBELTOS · anchos efectivos
+     ===================================================================== */
+
+  /* Tabla E7.1.  c2 NO es un dato independiente: sale de c1 por la E7-4, y
+     los c2 tabulados son ése redondeado a tres cifras (fila C.E7.tabla).  El
+     código calcula c2 exacto y contrasta contra la tabla, que es la forma de
+     saber que la transcripción de c1 es correcta. */
+  const E7_C1 = { atiesados: 0.18, hss: 0.20, otros: 0.22 };
+  const E7_C2_TABLA = { atiesados: 1.31, hss: 1.38, otros: 1.49 };
+
+  function c2DeC1(c1) {
+    if (!(c1 > 0) || c1 >= 0.25) {
+      throw new Error("acero: c2DeC1() necesita 0 < c1 < 0,25; llegó " + c1);
+    }
+    return (1 - Math.sqrt(1 - 4 * c1)) / (2 * c1);          /* E7-4 */
+  }
+
+  function factoresE7(tipo) {
+    const c1 = E7_C1[tipo];
+    if (c1 === undefined) {
+      throw new Error("acero: el caso de la Tabla E7.1 es " + Object.keys(E7_C1).join(" · ") +
+        ", no «" + tipo + "»");
+    }
+    const c2 = c2DeC1(c1);
+    return { c1: c1, c2: c2, c2Tabla: E7_C2_TABLA[tipo], tipo: tipo,
+      art: ART["C.E7.tabla"],
+      desvioTabla: Math.abs(c2 - E7_C2_TABLA[tipo]) / E7_C2_TABLA[tipo],
+      nota: "c2 sale de c1 por la E7-4; el tabulado es ése redondeado a tres cifras" };
+  }
+
+  /* be · E7-2 y E7-3.  OJO AL UMBRAL: es λr·√(Fy/Fn), no λr a secas, así que
+     depende de Fn y por tanto de la esbeltez GLOBAL.  Un elemento puede ser
+     esbelto por B4.1a y no necesitar reducción aquí (fila C.E7.be). */
+  function anchoEfectivo(d) {
+    const lambda = d.lambda, lr = d.lambdaR, Fy = d.Fy_kgcm2, fn = d.Fn_kgcm2;
+    const b = d.b_cm;
+    for (const [k, v] of [["lambda", lambda], ["lambdaR", lr], ["Fy_kgcm2", Fy],
+                          ["Fn_kgcm2", fn], ["b_cm", b]]) {
+      if (!(v > 0)) throw new Error("acero: anchoEfectivo() necesita " + k + " > 0");
+    }
+    const umbral = lr * Math.sqrt(Fy / fn);
+    if (lambda <= umbral) {
+      return { be_cm: b, reducido: false, umbral: umbral, art: ART["C.E7.be"],
+        nota: "λ ≤ λr·√(Fy/Fn): el elemento no necesita reducción aunque sea esbelto por B4.1a" };
+    }
+    const f = factoresE7(d.tipo || "otros");
+    const Fel = Math.pow(f.c2 * lr / lambda, 2) * Fy;       /* E7-5 */
+    const raiz = Math.sqrt(Fel / fn);
+    const be = b * (1 - f.c1 * raiz) * raiz;                /* E7-3 */
+    return { be_cm: be, reducido: true, umbral: umbral, Fel_kgcm2: Fel,
+      c1: f.c1, c2: f.c2, tipo: f.tipo,
+      art: ART["C.E7.be"], artFel: ART["C.E7.Fel"], artTabla: f.art };
+  }
+
+  /* Ae = Ag − Σ(b − be)·t · User Note de E7 */
+  function areaEfectivaE7(d) {
+    const Ag = d.Ag_cm2, fn = d.Fn_kgcm2, Fy = d.Fy_kgcm2;
+    if (!(Ag > 0)) throw new Error("acero: areaEfectivaE7() necesita Ag_cm2 > 0");
+    const els = d.elementos || [];
+    if (!els.length) throw new Error("acero: areaEfectivaE7() necesita los elementos esbeltos");
+    let descuento = 0;
+    const detalle = [];
+    for (const e of els) {
+      const lr = lambdaR({ caso: e.caso, Fy_kgcm2: Fy, h_tw: e.h_tw });
+      const ae = anchoEfectivo({ lambda: e.razon, lambdaR: lr.lambdaR, Fy_kgcm2: Fy,
+        Fn_kgcm2: fn, b_cm: e.b_cm, tipo: e.tipo });
+      const d_ = (e.b_cm - ae.be_cm) * e.t_cm * (e.n || 1);
+      descuento += d_;
+      detalle.push({ nombre: e.nombre, be_cm: ae.be_cm, reducido: ae.reducido,
+        descuento_cm2: d_, lambdaR: lr.lambdaR });
+    }
+    if (descuento >= Ag) {
+      throw new Error("acero: los anchos efectivos se comen toda la sección: " +
+        descuento.toFixed(2) + " cm² sobre Ag = " + Ag.toFixed(2));
+    }
+    return { Ae_cm2: Ag - descuento, descuento_cm2: descuento, detalle: detalle,
+      art: ART["C.E7"] };
+  }
+
+  /* HSS redondo · E7-6 y E7-7, con su TOPE DURO en 0,45·E/Fy: por encima el
+     perfil queda fuera del alcance del capítulo (fila C.E7.redondo). */
+  function areaEfectivaRedondo(d) {
+    const Dt = d.D_t, Fy = d.Fy_kgcm2, Ag = d.Ag_cm2;
+    if (!(Dt > 0) || !(Fy > 0) || !(Ag > 0)) {
+      throw new Error("acero: areaEfectivaRedondo() necesita D_t, Fy_kgcm2 y Ag_cm2");
+    }
+    const bajo = 0.11 * E_ACERO / Fy, alto = 0.45 * E_ACERO / Fy;
+    if (Dt <= bajo) {
+      return { Ae_cm2: Ag, reducido: false, limiteBajo: bajo, limiteAlto: alto,
+        art: ART["C.E7.redondo"] };
+    }
+    if (Dt >= alto) {
+      throw new Error(
+        "acero: D/t = " + Dt.toFixed(1) + " alcanza el tope de 0,45·E/Fy = " +
+        alto.toFixed(1) + ".\n" +
+        "  Por encima de ese valor el HSS redondo queda FUERA del alcance del\n" +
+        "  Capítulo E: no hay ecuación que aplicar, no es que salga poco.");
+    }
+    return { Ae_cm2: (0.038 * E_ACERO / (Fy * Dt) + 2 / 3) * Ag, reducido: true,
+      limiteBajo: bajo, limiteAlto: alto, art: ART["C.E7.redondo"] };
+  }
+
   return {
-    ART, ACEROS, E_ACERO, PHI, CASOS_U, ESBELTEZ_TRACCION,
+    ART, ACEROS, E_ACERO, G_ACERO, PHI, CASOS_U, ESBELTEZ_TRACCION,
     FNT_ROSCADA, PHI_ROSCADA,
     PHI_C, PHI_C_E090, ESBELTEZ_COMPRESION, FY_FE_LIMITE, B4A, E5_CONDICIONES,
+    COEF_EXENCION_FTB, KI, A_RI_SIN_PENALIZAR, FRACCION_COMPONENTE,
+    E7_C1, E7_C2_TABLA,
     material, areaNeta, factorU, traccion, bloqueCortante,
     esbeltezTraccion, varillaRoscada,
     lambdaR, esbeltezLocal, Fe, Fn, FnE090, lrFrontera,
-    compresion, esbeltezCompresion, anguloSimpleE5
+    compresion, esbeltezCompresion, anguloSimpleE5,
+    exigeFTB, FeFlexion, roH, Fez, FeDobleSimetria, FeSimpleSimetria,
+    esbeltezModificada, separacionConectores,
+    c2DeC1, factoresE7, anchoEfectivo, areaEfectivaE7, areaEfectivaRedondo
   };
 });
