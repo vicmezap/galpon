@@ -216,7 +216,7 @@
       "estado": "verificado",
       "editable": false,
       "fuente": "AISC H1.3",
-      "nota": "Para perfiles laminados compactos de doble simetría con flexión principalmente en el eje mayor. Se verifica por separado la inestabilidad EN el plano (con H1-1a/b, Pc en el plano de flexión y Mcx por fluencia) y FUERA del plano (con H1-3). Suele dar menos conservador que la interacción única."
+      "nota": "Para perfiles laminados compactos de doble simetría con flexión principalmente en el eje mayor. Se verifica por separado la inestabilidad EN el plano (con H1-1a/b, Pc en el plano de flexión y Mcx por fluencia) y FUERA del plano (con H1-3). Suele dar menos conservador que la interacción única. MEDIDO SOBRE UNA COLUMNA DE GALPÓN, y el resultado cambia una decisión de detalle: W12X65 de 7 m con largueros cada 1,5 m, 90 tonf de compresión y 26 tonf·m de momento. Por H1.1 el ratio es 1,010 —NO cumple— y por H1.3 sale 0,702: UN 30,5 % MENOS, y la misma columna pasa. PERO LA CONDICIÓN QUE LO BLOQUEA EN UN GALPÓN NO ES LA DE Mry/Mcy, ES Lcz ≤ Lcy. El larguero sujeta lateralmente pero NO impide el giro de la sección, así que Lcz se queda en la altura entera (700 cm) contra una Lcy de 150: H1.3 no aplica. Para usarlo hay que diseñar la conexión del larguero para que TUERZA también, no solo para que empuje. Es una decisión de detalle con un 30 % de capacidad detrás, y sin esta fila no se ve."
     },
     {
       "id": "H.1_3.eq",
