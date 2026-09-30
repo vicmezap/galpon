@@ -12,10 +12,6 @@ complemento/
 # la vista del inventario la produce gen_inventario.py
 inventario/inventario.html
 
-# los catalogos se regeneran con scripts/importa_*.py desde archivos que
-# viven fuera del repositorio
-catalogos/
-
 # --- BIBLIOGRAFIA ---
 # las normas y los libros viven fuera del repositorio: pesan y no cambian
 normas/

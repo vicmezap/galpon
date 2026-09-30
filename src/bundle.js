@@ -33,6 +33,7 @@ function fuentes() {
   const dirs = [
     path.join(RAIZ, "src"),
     path.join(RAIZ, "inventario"),
+    path.join(RAIZ, "catalogos"),
     path.join(RAIZ, "scripts")
   ];
   const out = [];

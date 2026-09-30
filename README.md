@@ -21,12 +21,12 @@ No es una buena intención: está en `src/inventario.js` y la comprueba
 `pruebas/probar_inventario.js`. Pedir una magnitud que no existe **lanza**, no
 devuelve `undefined`. Un conflicto sin decisión escrita rompe la prueba.
 
-El inventario son **290 filas en `inventario/*.json`**, una por cada número,
+El inventario son **291 filas en `inventario/*.json`**, una por cada número,
 fórmula, límite y criterio que el complemento calcula, con su artículo de norma
 o su página de libro:
 
 ```
-251 verificado   ·   10 adoptado   ·   27 conflicto   ·   0 criterio propio   ·   2 pendiente
+252 verificado   ·   10 adoptado   ·   27 conflicto   ·   0 criterio propio   ·   2 pendiente
 ```
 
 *Verificado* = leído en el texto original. *Adoptado* = fuente reconocida pero
@@ -74,7 +74,7 @@ src/
   proyecto.js      guardar y abrir el proyecto .json
   bundle.js        alDiaOMuere() · ¿estoy probando lo que acabo de escribir?
 inventario/
-  *.json           las 290 filas, diez secciones
+  *.json           las 291 filas, diez secciones
 pruebas/
   correr.js        el runner
   _comun.js        comp · cerca · cierto · lanza · fin

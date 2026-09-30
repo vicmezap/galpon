@@ -25,13 +25,29 @@
     raiz.PERFILES = definir(raiz.INVENTARIO, raiz.UNIDADES, raiz.CATALOGOS_DATOS || []);
   }
 
+  /* El catálogo ES un artefacto versionado, no un generado que se pueda
+     rehacer en cualquier máquina: el .xls del AISC vive fuera del
+     repositorio y en un clon limpio no está.  Si el catálogo falta, esto
+     PARA con instrucciones en vez de devolver una lista vacía que haría
+     fallar las pruebas cien líneas más abajo con un mensaje sin sentido.
+
+     Me pasó: gitignoré catalogos/ y el CI habría salido rojo en el primer
+     push diciendo «W12X26 no está en el catálogo». */
   function cargarDeDisco() {
     const fs = require("fs"), path = require("path");
     const dir = path.join(__dirname, "..", "catalogos");
-    if (!fs.existsSync(dir)) return [];
-    return fs.readdirSync(dir)
-      .filter((f) => f.endsWith(".json")).sort()
-      .map((f) => JSON.parse(fs.readFileSync(path.join(dir, f), "utf8")));
+    if (!fs.existsSync(dir)) {
+      throw new Error(
+        "perfiles: no existe la carpeta catalogos/.\n" +
+        "  El catálogo va versionado en el repositorio porque es el artefacto\n" +
+        "  que prueban las pruebas, y su origen (.xls del AISC) vive fuera.\n" +
+        "  Si lo estás regenerando:  python scripts/importa_aisc.py");
+    }
+    const archivos = fs.readdirSync(dir).filter((f) => f.endsWith(".json")).sort();
+    if (!archivos.length) {
+      throw new Error("perfiles: la carpeta catalogos/ está vacía -> " + dir);
+    }
+    return archivos.map((f) => JSON.parse(fs.readFileSync(path.join(dir, f), "utf8")));
   }
 })(typeof self !== "undefined" ? self : this, function (INV, U, catalogos) {
   "use strict";
