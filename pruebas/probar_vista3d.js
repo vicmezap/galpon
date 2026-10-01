@@ -243,6 +243,51 @@ const gg = V3.gira(enc, 0, 500);
 cerca("la elevación se topa en 89°, no se pasa al cenit", gg.elevacion, 89, 1e-12);
 
 /* ================================================================
+   8b · LAS CUATRO VISTAS DE UN CLIC · el cubo de Revit
+
+   En una herramienta técnica casi nunca se quiere un ángulo cualquiera:
+   se quiere «desde el frente» o «desde el hastial». Y las cuatro tienen
+   que poder medirse, o no sirven para mirar un plano.
+   ================================================================ */
+comp("hay cuatro vistas", Object.keys(V3.PRESETS).sort(),
+  ["iso", "lateral", "planta", "portico"]);
+comp("la iso es la isométrica exacta", V3.PRESETS.iso.tipo, "isometrica");
+cerca("con su ángulo clavado", V3.PRESETS.iso.elevacion, V3.ISO_ELEVACION, 1e-12);
+comp("el pórtico mira a lo largo de z", [V3.PRESETS.portico.azimut,
+  V3.PRESETS.portico.elevacion], [0, 0]);
+comp("la lateral a lo largo de x", [V3.PRESETS.lateral.azimut,
+  V3.PRESETS.lateral.elevacion], [90, 0]);
+comp("y la planta desde arriba", V3.PRESETS.planta.elevacion, 89);
+cierto("89 y no 90: a 90 la base se vuelve indefinida y camara() se niega",
+  V3.PRESETS.planta.elevacion < 90);
+lanza("y a 90 se niega de verdad",
+  () => V3.camara({ tipo: "ortografica", elevacion: 90 }), "indefinida");
+
+/* LAS CUATRO SON PARALELAS, así que las cuatro SE PUEDEN MEDIR */
+for (const k of Object.keys(V3.PRESETS)) {
+  const pr = V3.PRESETS[k];
+  const c = V3.encuadra(m3, V3.camara({ tipo: pr.tipo, azimut: pr.azimut,
+    elevacion: pr.elevacion, aspecto: 16 / 9 }));
+  const dd = V3.distorsion(m3, c);
+  cierto("la vista «" + pr.nombre + "» se puede medir", dd.medible === true);
+  cerca("y no deforma nada: razón 1", dd.razon, 1, 1e-12);
+}
+lanza("una vista que no existe PARA", () => V3.preset("trasera"), "no existe");
+comp("preset() devuelve la que se pide", V3.preset("iso").nombre, "Iso");
+
+/* ───── Y LO QUE DE VERDAD FALLABA ─────
+   Girar escribía el azimut y la cámara LO TIRABA, porque la isométrica
+   tiene los ángulos clavados: es lo que la hace medible. */
+const isoFija = V3.camara({ tipo: "isometrica", azimut: 123, elevacion: 70 });
+cerca("pedirle otro azimut a una isométrica no hace nada", isoFija.azimut, 45, 1e-12);
+cerca("ni otra elevación", isoFija.elevacion, V3.ISO_ELEVACION, 1e-12);
+const ortoLibre = V3.camara({ tipo: "ortografica", azimut: 123, elevacion: 70 });
+cerca("en ortográfica sí obedece", ortoLibre.azimut, 123, 1e-12);
+cerca("los dos ángulos", ortoLibre.elevacion, 70, 1e-12);
+cierto("por eso gira() cambia el tipo: ya no se cumple el ángulo",
+  V3.gira(V3.camara({ tipo: "isometrica" }), 10, 0).tipo === "ortografica");
+
+/* ================================================================
    9 · LAS FILAS DEL INVENTARIO
    ================================================================ */
 for (const id of ["V.isometrica", "V.profundidad", "MT.ejes"]) {

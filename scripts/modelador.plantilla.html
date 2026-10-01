@@ -129,6 +129,18 @@ legend { font-family:var(--disp); font-weight:600; font-size:11px; letter-spacin
   padding:8px; flex:1; display:flex; flex-direction:column; min-height:260px;
   position:relative; }
 .zoom { position:absolute; top:10px; right:12px; display:flex; gap:2px; z-index:2; }
+.cubo { position:absolute; top:10px; left:12px; display:flex; gap:2px; z-index:2; }
+.cubo button { font-family:var(--disp); font-size:11px; font-weight:600; padding:3px 9px;
+  border:1px solid var(--linea); background:var(--papel); color:var(--tinta-2);
+  cursor:pointer; border-radius:2px; }
+.cubo button[aria-pressed="true"] { background:var(--acero); border-color:var(--acero);
+  color:#fff; }
+.cubo button:hover { border-color:var(--acero); }
+.medible { position:absolute; top:40px; left:12px; z-index:2; font-family:var(--cifra);
+  font-size:10px; padding:2px 7px; border-radius:2px; }
+.medible.si { color:var(--ok); border:1px solid var(--ok); background:var(--papel); }
+.medible.no { color:var(--alerta); border:1px solid var(--alerta); background:var(--papel);
+  cursor:pointer; }
 .zoom button { font-family:var(--cifra); font-size:13px; width:26px; height:24px;
   border:1px solid var(--linea); background:var(--papel); color:var(--tinta);
   cursor:pointer; border-radius:2px; line-height:1; }
@@ -143,7 +155,7 @@ text.marca { font-family:var(--cifra); font-size:10px; fill:var(--aviso);
   letter-spacing:.06em; }
 line.toca { stroke:transparent; stroke-width:9; cursor:pointer; }
 .marco.orbitable svg { cursor:grab; }
-.marco.orbitando svg { cursor:grabbing; }
+.marco.orbitando svg, .marco.encuadrando svg { cursor:grabbing; }
 .pista { position:absolute; bottom:12px; right:14px; font-family:var(--cifra);
   font-size:10px; color:var(--suave); }
 .marco svg { display:block; width:100%; height:auto; }
@@ -464,6 +476,7 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
      en coordenadas del modelo y se transforman con el MISMO mapa que las
      barras: si el dibujo se mueve, las cifras se mueven con él. */
   var zoom = 1, ZMIN = 0.4, ZMAX = 6;
+  var panX = 0, panY = 0;   /* encuadre, en unidades del lienzo */
 
   function dibuja(nudos, barras, px, py, orden, opacidad, anot) {
     var pos = {}, i;
@@ -483,8 +496,8 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
     if (H > 640) { k = (640 - mAb - mAr) / h; H = 640; }
     k = k * zoom;
     H = h * k + mAb + mAr;
-    var X = function (x) { return mIzq + (x - x0) * k; };
-    var Y = function (y) { return H - mAb - (y - y0) * k; };
+    var X = function (x) { return mIzq + (x - x0) * k + panX; };
+    var Y = function (y) { return H - mAb - (y - y0) * k + panY; };
     var XN = function (n) { return X(px(n)); };
     var YN = function (n) { return Y(py(n)); };
 
@@ -739,9 +752,16 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
   });
   $("cerrar-fuente").onclick = function () { $("fuente").hidden = true; };
 
-  /* ---------- el recálculo ---------- */
+  /* ---------- EL RECALCULO, EN DOS ----------
+     Cambiar un parametro obliga a rehacer el modelo; mover la camara, no.
+     Separarlo no es optimizar -monta() tarda 3,6 ms- sino no mentir: la
+     camara NO puede cambiar un numero del calculo, y la unica manera de
+     garantizarlo es que no lo vuelva a hacer. Es la misma separacion que
+     ya existe en los datos, datosModelo contra datosVista, llevada al
+     repintado. */
   var m3 = null;
-  function recalcula() {
+  function repinta() { recalcula(true); }
+  function recalcula(soloVista) {
     var paso = PASOS.filter(function (p) { return p.id === pasoActivo; })[0];
     if (!paso.listo) {
       $("metricas").innerHTML = "";
@@ -755,6 +775,7 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
     }
 
     var d = datos();
+    if (soloVista && m3) { pintaLienzo(d); return; }
     var v = VISTAS.valida(d);
     var fallo = null;
     if (!v.ok) {
@@ -779,6 +800,10 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
     }
 
     pintaMetricas(d);
+    pintaLienzo(d);
+  }
+
+  function pintaLienzo(d) {
     var vista = VISTAS.datosVista(d);
     var dj = VISTAS.dibujo(vistaActiva, m3, vista);
     var anot = VISTAS.anotaciones(vistaActiva, m3, vista);
@@ -788,6 +813,7 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
     $("centro").innerHTML = '<div class="marco' + (es3d ? " orbitable" : "") + '">' +
       '<div class="zoom"><button data-z="-">−</button>' +
       '<button data-z="0">▣</button><button data-z="+">+</button></div>' +
+      (es3d ? cubo(d) : "") +
       dibuja(dj.nudos, dj.barras,
         function (n) { return n[dj.ejeX]; },
         function (n) { return n[dj.ejeY]; }, dj.orden, dj.opacidad, anot) +
@@ -802,6 +828,27 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
       tablaPanos(m3) +
       VISTAS.fichas(vistaActiva, m3, vista).map(pintaFicha).join("");
     pintaCatalogo();
+  }
+
+  /* EL CUBO DE VISTAS · cuatro de un clic, y las cuatro se pueden medir.
+     Y el aviso de si lo que se está mirando es medible o no, que es lo
+     único que una vista «solo ver» tiene obligación de declarar. */
+  function cubo(d) {
+    var act = null;
+    for (var k in VISTA3D.PRESETS) {
+      var pr = VISTA3D.PRESETS[k];
+      if (pr.tipo === d.proy && Math.abs(pr.azimut - d.azim) < 0.6 &&
+          Math.abs(pr.elevacion - d.elev3d) < 0.6) { act = k; }
+    }
+    var b = Object.keys(VISTA3D.PRESETS).map(function (k) {
+      return '<button data-vista="' + k + '" aria-pressed="' + (k === act) + '">' +
+        esc(VISTA3D.PRESETS[k].nombre) + "</button>";
+    }).join("");
+    var medible = d.proy !== "perspectiva";
+    return '<div class="cubo">' + b + "</div>" +
+      '<div class="medible ' + (medible ? "si" : "no") + '"' +
+      (medible ? "" : ' id="a-iso" title="volver a isométrica"') + ">" +
+      (medible ? "se puede medir" : "NO se puede medir · volver a Iso") + "</div>";
   }
 
   function pintaMetricas(d) {
@@ -836,6 +883,27 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
       recalcula();
       return;
     }
+    /* el cubo de vistas */
+    var cv = ev.target.closest ? ev.target.closest("button[data-vista]") : null;
+    if (cv) {
+      var pr = VISTA3D.PRESETS[cv.getAttribute("data-vista")];
+      $("c_proy").value = pr.tipo;
+      $("c_azim").value = Math.round(pr.azimut * 10) / 10;
+      $("c_elev3d").value = Math.round(pr.elevacion * 10) / 10;
+      panX = panY = 0;
+      recalcula();
+      return;
+    }
+    if (ev.target && ev.target.id === "a-iso") {
+      var iso = VISTA3D.PRESETS.iso;
+      $("c_proy").value = iso.tipo;
+      $("c_azim").value = Math.round(iso.azimut * 10) / 10;
+      $("c_elev3d").value = Math.round(iso.elevacion * 10) / 10;
+      recalcula();
+      return;
+    }
+    /* SELECCIONAR, pero solo si fue un clic y no el final de un arrastre */
+    if (arrastre && arrastre.movido) return;
     var l = ev.target.closest ? ev.target.closest("line[data-barra]") : null;
     if (l) {
       var id = l.getAttribute("data-barra");
@@ -844,34 +912,84 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
     }
   });
 
-  /* ---------- LA 3D SE GIRA ARRASTRANDO ----------
-     Azimut y elevación como campos numéricos no es «moverla a tu gusto».
-     Se arrastra, como en cualquier visor. Los campos siguen ahí y se
-     actualizan solos: son la misma cosa y no dos. */
+  /* ---------- TODO CON EL RATON, SIN TECLAS ----------
+
+       izquierdo arrastrando   girar   (en las vistas planas, encuadrar)
+       derecho   arrastrando   encuadrar
+       central   arrastrando   encuadrar tambien, para la memoria de Revit
+       rueda                   acercar
+       izquierdo SIN mover     seleccionar la barra
+
+     EL UMBRAL ES LO QUE HACE QUE CONVIVAN clic y arrastre: por debajo de
+     4 px es un clic, por encima es un arrastre. Nadie lo nota, y es lo que
+     evita tener que pulsar una tecla para girar.
+
+     EL BOTON CENTRAL VA DE PROPINA. Dentro de un dialogo de Excel es
+     traicionero -WebView2 puede quedarse con el autoscroll, y en un
+     portatil sin raton no existe- asi que el derecho hace lo mismo. Si el
+     central pasa, se tiene; si no, no se pierde nada.
+
+     Y LO QUE DE VERDAD FALLABA: girar escribia el azimut y la camara lo
+     TIRABA, porque la proyeccion era «isometrica» y la isometrica tiene
+     los angulos clavados -45 y atan(1/raiz2)- que es lo que la hace
+     medible. vista3d.js ya sabia la regla y gira() la aplica: al girar
+     deja de ser isometrica. La plantilla no la usaba. */
+  var UMBRAL = 4;
   var arrastre = null;
+
+  function esPlana() { return vistaActiva !== "tresd"; }
+
+  $("centro").addEventListener("contextmenu", function (ev) {
+    /* el derecho encuadra, asi que su menu estorba */
+    if (ev.target.closest && ev.target.closest(".marco")) ev.preventDefault();
+  });
+
   $("centro").addEventListener("mousedown", function (ev) {
-    if (vistaActiva !== "tresd") return;
     if (ev.target.closest && ev.target.closest("button")) return;
-    arrastre = { x: ev.clientX, y: ev.clientY,
-      az: +$("c_azim").value, el: +$("c_elev3d").value };
-    var mc = $("centro").querySelector ? null : null;
+    if (!(ev.target.closest && ev.target.closest(".marco"))) return;
+    arrastre = {
+      x: ev.clientX, y: ev.clientY, boton: ev.button, movido: false,
+      az: +$("c_azim").value, el: +$("c_elev3d").value,
+      px: panX, py: panY
+    };
     ev.preventDefault();
   });
+
   document.addEventListener("mousemove", function (ev) {
     if (!arrastre) return;
     var dx = ev.clientX - arrastre.x, dy = ev.clientY - arrastre.y;
+    if (!arrastre.movido && Math.abs(dx) + Math.abs(dy) < UMBRAL) return;
+    arrastre.movido = true;
+
+    /* derecho o central: encuadrar. Izquierdo: girar en la 3D, encuadrar
+       en las planas, que no tienen nada que girar. */
+    var encuadra = (arrastre.boton !== 0) || esPlana();
+    if (encuadra) {
+      panX = arrastre.px + dx;
+      panY = arrastre.py + dy;
+      repinta();
+      return;
+    }
+    /* AL GIRAR DEJA DE SER ISOMETRICA, y hay que decirselo a la camara o
+       se queda con sus angulos clavados y no pasa nada */
+    if ($("c_proy").value === "isometrica") $("c_proy").value = "ortografica";
     $("c_azim").value = Math.round(arrastre.az - dx * 0.4);
     $("c_elev3d").value = Math.max(-89, Math.min(89,
       Math.round(arrastre.el + dy * 0.4)));
-    recalcula();
+    repinta();
   });
-  document.addEventListener("mouseup", function () { arrastre = null; });
+
+  document.addEventListener("mouseup", function () {
+    if (arrastre) arrastre.fin = true;
+    setTimeout(function () { arrastre = null; }, 0);
+  });
 
   /* la rueda acerca, en cualquier vista */
   $("centro").addEventListener("wheel", function (ev) {
+    if (!(ev.target.closest && ev.target.closest(".marco"))) return;
     ev.preventDefault();
     zoom = ev.deltaY < 0 ? Math.min(ZMAX, zoom * 1.12) : Math.max(ZMIN, zoom / 1.12);
-    recalcula();
+    repinta();
   }, { passive: false });
 
   /* ---------- VER Y AISLAR ---------- */

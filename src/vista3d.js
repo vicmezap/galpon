@@ -383,6 +383,39 @@
     };
   }
 
+  /* ---------- LAS VISTAS DE UN CLIC · el cubo de Revit -----------------
+     En una herramienta técnica casi nunca se quiere un ángulo cualquiera:
+     se quiere «desde el frente» o «desde el hastial».  En Revit se usa el
+     ViewCube muchísimo más que el orbitar libre, y aquí pasa igual.
+
+     LAS CUATRO SON PARALELAS, así que las cuatro SE PUEDEN MEDIR.  Con los
+     ejes del galpón —x transversal, y vertical, z longitudinal—:
+
+       iso       la de siempre, con sus ángulos exactos
+       portico   azimut 0  · se mira a lo largo de z y se ve el pórtico
+       lateral   azimut 90 · se mira a lo largo de x y se ve la fachada
+       planta    elevación 89 · desde arriba
+
+     La planta va a 89 y no a 90 porque a 90 la dirección de la cámara y el
+     «arriba» se alinean y la base se vuelve indefinida: camara() se niega,
+     y con razón.  Un grado de menos no se nota y no hay caso especial. */
+  const PRESETS = {
+    iso:     { nombre: "Iso",     tipo: "isometrica",  azimut: ISO_AZIMUT,
+               elevacion: ISO_ELEVACION },
+    portico: { nombre: "Pórtico", tipo: "ortografica", azimut: 0,  elevacion: 0 },
+    lateral: { nombre: "Lateral", tipo: "ortografica", azimut: 90, elevacion: 0 },
+    planta:  { nombre: "Planta",  tipo: "ortografica", azimut: 0,  elevacion: 89 }
+  };
+
+  function preset(id) {
+    const p = PRESETS[id];
+    if (!p) {
+      throw new Error("vista3d: la vista «" + id + "» no existe. Las que hay: " +
+        Object.keys(PRESETS).join(" · "));
+    }
+    return p;
+  }
+
   /* ---------- órbita ---------------------------------------------------- */
   function gira(c, dAzimut, dElevacion) {
     const e = Math.max(-89, Math.min(89, c.elevacion + (dElevacion || 0)));
@@ -395,7 +428,7 @@
   }
 
   return {
-    ART, TIPOS, ISO_AZIMUT, ISO_ELEVACION, ATENUACION_MIN,
+    ART, TIPOS, ISO_AZIMUT, ISO_ELEVACION, ATENUACION_MIN, PRESETS, preset,
     camara, proyecta, matriz, aplica, multiplica, encuadra, centro,
     ENCUADRE_PASADAS,
     escena, distorsion, gira

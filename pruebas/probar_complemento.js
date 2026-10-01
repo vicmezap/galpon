@@ -268,14 +268,41 @@ cierto("y se explica por qué: una barra de 1 px no se acierta con el ratón",
 cierto("sin nada seleccionado, el panel lo dice e invita",
   /Nada seleccionado/.test(der) && /pincha una barra/.test(der));
 
-/* ───── LA 3D SE GIRA ARRASTRANDO ───── */
-cierto("el marco de la 3D se marca como orbitable", /orbitable/.test(modeHtml));
+/* ───── TODO CON EL RATÓN, SIN TECLAS ───── */
 cierto("hay arrastre", /mousedown/.test(modeHtml) && /mousemove/.test(modeHtml));
 cierto("que mueve el azimut y la elevación",
   /c_azim/.test(modeHtml) && /c_elev3d/.test(modeHtml));
-cierto("y la rueda acerca", /"wheel"/.test(modeHtml));
-cierto("el código dice por qué no bastaban los campos numéricos",
-  /no es «moverla a tu gusto»/.test(modeHtml));
+cierto("la rueda acerca", /"wheel"/.test(modeHtml));
+cierto("el derecho encuadra, así que se le quita el menú contextual",
+  /contextmenu/.test(modeHtml));
+cierto("y el central también encuadra, de propina",
+  /boton !== 0/.test(modeHtml) && /memoria de Revit/.test(modeHtml));
+cierto("EL UMBRAL hace que convivan el clic y el arrastre",
+  /UMBRAL = 4/.test(modeHtml) && /es un clic, por encima es un arrastre/.test(modeHtml));
+cierto("y seleccionar se cancela si hubo arrastre",
+  /arrastre && arrastre\.movido/.test(modeHtml));
+
+/* LO QUE DE VERDAD FALLABA, y queda escrito en el código */
+cierto("GIRAR DESCLAVA LA ISOMÉTRICA, o la cámara tira el ángulo",
+  /c_proy"\)\.value === "isometrica"/.test(modeHtml));
+cierto("con la explicación de por qué no se movía",
+  /la camara lo\s+TIRABA/.test(modeHtml) &&
+  /angulos clavados/.test(modeHtml));
+
+/* EL CUBO DE VISTAS */
+cierto("hay cuatro vistas de un clic", /data-vista=/.test(modeHtml));
+cierto("y vienen de vista3d.js, no inventadas en la plantilla",
+  /VISTA3D\.PRESETS/.test(modeHtml));
+cierto("con el aviso de si lo que se mira se puede medir",
+  /se puede medir/.test(modeHtml) && /NO se puede medir/.test(modeHtml));
+cierto("y un atajo para volver a la isométrica", /a-iso/.test(modeHtml));
+
+/* MOVER LA CÁMARA NO TOCA EL MOTOR */
+cierto("repintar y recalcular están separados",
+  /function repinta\(\)/.test(modeHtml) && /soloVista/.test(modeHtml));
+cierto("y se dice por qué: la cámara NO puede cambiar un número del cálculo",
+  /no mentir/.test(modeHtml) &&
+  /camara NO puede cambiar un numero/.test(modeHtml));
 
 /* LOS PASOS QUE NO ESTÁN NO SE FINGEN */
 cierto("un paso sin pantalla lo dice y nombra lo que falta",
