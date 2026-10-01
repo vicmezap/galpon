@@ -29,15 +29,23 @@ const RAIZ = path.join(__dirname, "..");
 
 /* LOS DIRECTORIOS DE SALIDA, y son dos porque hoy solo existe el segundo.
    Esta guarda estuvo DORMIDA desde el primer commit: vigilaba solo
-   complemento/, que lo produciría gen_complemento.py, un script que nunca se
-   escribió. Al no haber nada generado, estado() contestaba siempre «todavía no
+   complemento/, que lo produciría gen_complemento.py, un script que entonces no
+   existía. Al no haber nada generado, estado() contestaba siempre «todavía no
    se ha generado el complemento» y la guarda no podía delatar nada.  Peor:
    cuando apareció el visor —que SÍ se genera y SÍ se puede quedar rancio—
    seguía sin verlo, así que se podía publicar una página que no corresponde al
-   código.  Justo el fallo que este archivo existe para impedir. */
+   código.  Justo el fallo que este archivo existe para impedir.
+
+   Desde E6c el script existe y las dos salidas se vigilan de verdad.  LA
+   COMPARACIÓN ES GRUESA A PROPÓSITO: el generado más viejo contra la fuente
+   más nueva, por directorios enteros.  Eso hace que tocar la plantilla del
+   complemento deje rancio también al visor, que no la usa.  Es un falso
+   positivo y cuesta un comando; el falso negativo costaría publicar una
+   página que no corresponde al código.  Por eso el comando es UNO solo:
+   scripts/hornear.py los corre los tres en orden. */
 const SALIDAS = [
-  path.join(RAIZ, "visor"),        /* gen_visor.py · el banco de cargas, hoy */
-  path.join(RAIZ, "complemento")   /* gen_complemento.py · el add-in, en E6 */
+  path.join(RAIZ, "visor"),        /* gen_visor.py · el banco de cargas */
+  path.join(RAIZ, "complemento")   /* gen_complemento.py · el add-in de Excel */
 ];
 const SALIDA = SALIDAS[0];
 
@@ -105,14 +113,14 @@ function alDiaOMuere() {
   if (!e.hayBundle) {
     throw new Error(
       "bundle: no hay nada generado todavía.\n" +
-      "  Ejecuta:  python scripts/gen_visor.py");
+      "  Ejecuta:  python scripts/hornear.py");
   }
   if (!e.alDia) {
     throw new Error(
       "bundle: LO GENERADO ESTÁ RANCIO.\n" +
       "  " + e.motivo + "\n" +
       "  Lo que estás mirando no es lo que acabas de escribir.\n" +
-      "  Ejecuta:  python scripts/gen_visor.py");
+      "  Ejecuta:  python scripts/hornear.py");
   }
   return true;
 }

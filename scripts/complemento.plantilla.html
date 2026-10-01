@@ -1,0 +1,574 @@
+<title>Galpón · MEZAP</title>
+<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+<style>
+/* =====================================================================
+   La paleta es la misma de Retícula, para que Galpón se vea de la misma
+   casa.  Lo único propio: el arriostre se dibuja en color de acento,
+   porque de todo lo que hay en planta es lo único que no se ve en obra
+   hasta que falta.
+   ===================================================================== */
+:root {
+  --tinta:#1b2430; --tinta-2:#4a5568; --papel:#f2f1ec; --papel-2:#e6e4dc;
+  --ficha:#fbfaf7; --linea:#cdcabd; --acero:#2f6f8f;
+  --presion:#1d6a4f; --succion:#b4531a; --alerta:#8c2f39; --suave:#6b6f76;
+  --disp:"IBM Plex Sans Condensed","Arial Narrow",sans-serif;
+  --cuerpo:"IBM Plex Sans",system-ui,sans-serif;
+  --cifra:"IBM Plex Mono",ui-monospace,monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --tinta:#e8e6df; --tinta-2:#b3b8c0; --papel:#14181d; --papel-2:#1c2128;
+    --ficha:#1a1f26; --linea:#343b45; --acero:#79b8d4;
+    --presion:#57c79a; --succion:#f0a35e; --alerta:#e58592; --suave:#8b929c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --tinta:#e8e6df; --tinta-2:#b3b8c0; --papel:#14181d; --papel-2:#1c2128;
+  --ficha:#1a1f26; --linea:#343b45; --acero:#79b8d4;
+  --presion:#57c79a; --succion:#f0a35e; --alerta:#e58592; --suave:#8b929c;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background:var(--papel); color:var(--tinta); font-family:var(--cuerpo);
+  font-size:14px; line-height:1.45; margin:0; padding:0 0 40px; }
+.env { max-width:1240px; margin:0 auto; padding-inline:16px; }
+
+header.tapa { border-bottom:2px solid var(--tinta); padding-block:16px 10px; }
+.marca { font-family:var(--disp); font-weight:600; font-size:clamp(22px,4vw,34px);
+  letter-spacing:-0.01em; line-height:1.05; margin:0; }
+.marca small { display:block; font-family:var(--cifra); font-size:10px; font-weight:400;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--acero); margin-bottom:4px; }
+.bajada { margin:8px 0 0; max-width:66ch; color:var(--tinta-2); font-size:13px; }
+.sellos { display:flex; flex-wrap:wrap; gap:5px; margin-top:10px; }
+.sello { font-family:var(--cifra); font-size:10px; letter-spacing:.05em; text-transform:uppercase;
+  border:1px solid var(--linea); border-radius:2px; padding:2px 6px; color:var(--tinta-2);
+  background:var(--ficha); }
+.sello b { color:var(--acero); font-weight:600; }
+
+.reja { display:grid; grid-template-columns:290px minmax(0,1fr); gap:22px; margin-top:20px; }
+@media (max-width:820px) { .reja { grid-template-columns:1fr; gap:16px; } }
+
+fieldset { border:1px solid var(--linea); border-radius:3px; background:var(--ficha);
+  margin:0 0 10px; padding:10px 11px 12px; }
+legend { font-family:var(--disp); font-weight:600; font-size:12px; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--acero); padding:0 5px; }
+.par { display:grid; grid-template-columns:1fr 92px; gap:6px 8px; align-items:center; margin-bottom:6px; }
+.par:last-child { margin-bottom:0; }
+.par label { font-size:12.5px; color:var(--tinta-2); min-width:0; }
+.par input, .par select { font-family:var(--cifra); font-size:12.5px; width:100%;
+  padding:3px 5px; border:1px solid var(--linea); border-radius:2px;
+  background:var(--papel); color:var(--tinta); }
+.par.ancho { grid-template-columns:1fr; }
+input:focus-visible, select:focus-visible, button:focus-visible {
+  outline:2px solid var(--acero); outline-offset:1px; }
+
+/* ---- pestañas ---- */
+nav.pestanas { display:flex; flex-wrap:wrap; gap:0; border-bottom:1px solid var(--linea);
+  margin-bottom:14px; }
+nav.pestanas button { font-family:var(--disp); font-size:13px; font-weight:600;
+  letter-spacing:.03em; background:none; border:0; border-bottom:2px solid transparent;
+  color:var(--suave); padding:7px 12px; cursor:pointer; }
+nav.pestanas button[aria-selected="true"] { color:var(--acero); border-bottom-color:var(--acero); }
+nav.pestanas button:disabled { color:var(--linea); cursor:not-allowed; }
+
+section.vista[hidden] { display:none; }
+
+/* ---- el dibujo ---- */
+.lienzo { border:1px solid var(--linea); border-radius:3px; background:var(--ficha);
+  padding:8px; margin-bottom:14px; }
+.lienzo svg { display:block; width:100%; height:auto; }
+.leyenda { display:flex; flex-wrap:wrap; gap:10px; margin-top:6px; font-size:11px;
+  color:var(--suave); font-family:var(--cifra); }
+.leyenda i { display:inline-block; width:16px; height:0; border-top-width:2px;
+  border-top-style:solid; vertical-align:middle; margin-right:4px; }
+
+/* ---- fichas ---- */
+.fichas { display:grid; gap:12px; min-width:0; }
+.ficha { border:1px solid var(--linea); border-left:3px solid var(--acero); border-radius:3px;
+  background:var(--ficha); padding:11px 12px 12px; min-width:0; }
+.ficha.mal { border-left-color:var(--alerta); }
+.ficha.bien { border-left-color:var(--presion); }
+.ficha > h2 { font-family:var(--disp); font-weight:600; font-size:15px; margin:0 0 2px; }
+.ficha > .sub { font-family:var(--cifra); font-size:10px; letter-spacing:.07em;
+  text-transform:uppercase; color:var(--suave); margin:0 0 10px; }
+.ln { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:3px 10px;
+  padding:6px 0; border-top:1px solid var(--papel-2); align-items:baseline; }
+.ln:first-child { border-top:0; }
+.ln .q { font-size:13px; min-width:0; }
+.ln .v { font-family:var(--cifra); font-size:13.5px; font-variant-numeric:tabular-nums;
+  white-space:nowrap; font-weight:500; }
+.ln .v.ok { color:var(--presion); } .ln .v.no { color:var(--alerta); }
+.ln p { grid-column:1/-1; margin:3px 0 0; font-size:11.5px; color:var(--suave); }
+
+/* el botón que enseña la fila del inventario · la tesis del proyecto */
+button.fte { font-family:var(--cifra); font-size:10px; letter-spacing:.05em;
+  text-transform:uppercase; background:none; border:1px solid var(--linea);
+  border-radius:2px; color:var(--suave); padding:1px 5px; cursor:pointer; margin-left:6px; }
+button.fte:hover { color:var(--acero); border-color:var(--acero); }
+
+#fuente { position:fixed; inset:auto 0 0 0; background:var(--ficha);
+  border-top:2px solid var(--acero); padding:12px 16px 14px; z-index:9;
+  box-shadow:0 -4px 18px rgba(0,0,0,.14); max-height:52vh; overflow:auto; }
+#fuente[hidden] { display:none; }
+#fuente .env { position:relative; }
+#fuente h3 { font-family:var(--disp); font-size:14px; margin:0 0 2px; }
+#fuente .id { font-family:var(--cifra); font-size:10.5px; color:var(--acero);
+  letter-spacing:.06em; }
+#fuente dl { display:grid; grid-template-columns:auto 1fr; gap:3px 12px; margin:8px 0 0;
+  font-size:12.5px; }
+#fuente dt { font-family:var(--cifra); font-size:10.5px; text-transform:uppercase;
+  letter-spacing:.05em; color:var(--suave); }
+#fuente dd { margin:0; }
+#fuente .cerrar { position:absolute; top:-2px; right:0; background:none; border:0;
+  font-size:20px; line-height:1; color:var(--suave); cursor:pointer; }
+
+/* ---- problemas · los rechazos ---- */
+#problemas[hidden] { display:none; }
+#problemas { border:1px solid var(--alerta); border-left:3px solid var(--alerta);
+  border-radius:3px; background:var(--ficha); padding:12px 13px; margin-bottom:14px; }
+#problemas h2 { font-family:var(--disp); font-size:15px; margin:0 0 6px; color:var(--alerta); }
+#problemas pre { font-family:var(--cifra); font-size:11.5px; white-space:pre-wrap;
+  margin:0; color:var(--tinta-2); }
+.nohay { color:var(--suave); font-size:13px; font-style:italic; padding:18px 2px; }
+
+.aviso { border:1px solid var(--linea); border-left:3px solid var(--succion);
+  border-radius:3px; background:var(--ficha); padding:11px 12px; font-size:12.5px;
+  color:var(--tinta-2); }
+.aviso b { color:var(--succion); }
+</style>
+
+<header class="tapa"><div class="env">
+  <h1 class="marca"><small>MEZAP · Estructuras metálicas</small>Galpón</h1>
+  <p class="bajada">Prediseño, análisis y diseño de galpones de acero.
+    Cada número de esta pantalla tiene una fila en el inventario con su fuente,
+    y se puede pedir pulsando <b>fuente</b>.</p>
+  <div class="sellos" id="sellos"></div>
+</div></header>
+
+<div class="env">
+<div class="reja">
+
+  <form class="datos" id="f" autocomplete="off" onsubmit="return false">
+    <fieldset><legend>Nave</legend>
+      <div class="par"><label for="luz">Luz del pórtico (m)</label>
+        <input type="number" id="luz" value="20" step="0.5" min="2"></div>
+      <div class="par"><label for="largo">Largo total (m)</label>
+        <input type="number" id="largo" value="60" step="1" min="2"></div>
+      <div class="par"><label for="sep">Separación de pórticos (m)</label>
+        <input type="number" id="sep" value="6" step="0.5" min="1"></div>
+      <div class="par"><label for="hcol">Altura de columna (m)</label>
+        <input type="number" id="hcol" value="6" step="0.25" min="1"></div>
+      <div class="par ancho"><label class="marca-check" style="display:flex;gap:7px;align-items:center">
+        <input type="checkbox" id="ajusta" style="width:auto">
+        <span style="font-size:12.5px;color:var(--tinta-2)">Ajustar la separación a la que cabe entera</span></label></div>
+    </fieldset>
+
+    <fieldset><legend>Tijeral</legend>
+      <div class="par ancho"><label for="cuerdas">Cuerdas</label>
+        <select id="cuerdas">
+          <option value="dos_aguas" selected>Dos aguas</option>
+          <option value="un_agua">Un agua</option>
+          <option value="paralelos">Cordones paralelos</option>
+          <option value="tijera">Tijera</option>
+        </select></div>
+      <div class="par ancho"><label for="alma">Alma</label>
+        <select id="alma">
+          <option value="howe" selected>Howe · diagonales subiendo al centro</option>
+          <option value="pratt">Pratt · diagonales bajando al centro</option>
+          <option value="warren">Warren · sin montantes</option>
+          <option value="warren_montantes">Warren con montantes</option>
+        </select></div>
+      <div class="par"><label for="pend">Pendiente del techo (%)</label>
+        <input type="number" id="pend" value="20" step="1" min="0"></div>
+      <div class="par"><label for="pendi">Pendiente inferior, tijera (%)</label>
+        <input type="number" id="pendi" value="8" step="1" min="0"></div>
+      <div class="par"><label for="pan">Paños por media luz</label>
+        <input type="number" id="pan" value="6" step="1" min="1"></div>
+      <div class="par"><label for="h0">Peralte en el apoyo (m)</label>
+        <input type="number" id="h0" value="1.2" step="0.1" min="0.1"></div>
+    </fieldset>
+
+    <fieldset><legend>Arriostres y hastiales</legend>
+      <div class="par ancho"><label for="at">Paños arriostrados · techo</label>
+        <input type="text" id="at" value="5" placeholder="p. ej. 0, 9"></div>
+      <div class="par ancho"><label for="af">Paños arriostrados · fachada</label>
+        <input type="text" id="af" value="5" placeholder="vacío = los mismos del techo"></div>
+      <div class="par ancho"><label for="ch">Columnas hastiales en x (m)</label>
+        <input type="text" id="ch" value="5, 10, 15" placeholder="vacío = ninguna"></div>
+    </fieldset>
+  </form>
+
+  <main>
+    <nav class="pestanas" id="pestanas">
+      <button type="button" data-v="portico" aria-selected="true">Pórtico</button>
+      <button type="button" data-v="planta" aria-selected="false">Planta de techo</button>
+      <button type="button" data-v="elev" aria-selected="false">Elevación longitudinal</button>
+      <button type="button" data-v="tresd" aria-selected="false">3D</button>
+    </nav>
+
+    <div id="problemas" hidden><h2 id="problemas-t"></h2><pre id="problemas-p"></pre></div>
+
+    <section class="vista" id="v-portico"></section>
+    <section class="vista" id="v-planta" hidden></section>
+    <section class="vista" id="v-elev" hidden></section>
+    <section class="vista" id="v-tresd" hidden></section>
+  </main>
+
+</div>
+</div>
+
+<aside id="fuente" hidden><div class="env">
+  <button class="cerrar" type="button" id="cerrar-fuente" aria-label="cerrar">×</button>
+  <div class="id" id="fuente-id"></div>
+  <h3 id="fuente-t"></h3>
+  <dl id="fuente-dl"></dl>
+</div></aside>
+
+<script>
+/*__MODULOS__*/
+</script>
+
+<script>
+"use strict";
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ---------- sellos ---------- */
+  (function () {
+    var r = INVENTARIO.resumen();
+    var s = [
+      ["Inventario", r.total + " filas"],
+      ["Verificado", r.verificado],
+      ["Sin fuente", r.sin_fuente],
+      ["Pendientes", r.pendiente],
+      ["Perfiles", PERFILES.resumen().total],
+      ["Calculables hoy", PERFILES.resumen().activos],
+      ["Horneado", window.GALPON_FECHA || "—"]
+    ];
+    $("sellos").innerHTML = s.map(function (x) {
+      return '<span class="sello">' + x[0] + ' <b>' + x[1] + '</b></span>';
+    }).join("");
+  })();
+
+  /* ---------- LA TESIS: cualquier número puede enseñar su fila ----------
+     No es decoración.  El proyecto entero se apoya en que ningún número
+     entra sin fila en el inventario; si eso no se puede comprobar desde la
+     pantalla, es una promesa que solo verifican las pruebas. */
+  function fuenteBtn(id) {
+    return '<button class="fte" type="button" data-fte="' + id + '">fuente</button>';
+  }
+  document.addEventListener("click", function (ev) {
+    var b = ev.target.closest ? ev.target.closest("button.fte") : null;
+    if (!b) return;
+    var t = INVENTARIO.todo(b.getAttribute("data-fte"));
+    $("fuente-id").textContent = t.id + "  ·  " + t.estado;
+    $("fuente-t").textContent = t.magnitud;
+    var filas = [["Valor", t.valor + (t.unidad && t.unidad !== "—" ? " " + t.unidad : "")],
+      ["Fuente", t.fuente], ["Sección", t.seccion]];
+    if (t.nota) filas.push(["Nota", t.nota]);
+    $("fuente-dl").innerHTML = filas.map(function (f) {
+      return "<dt>" + f[0] + "</dt><dd>" + esc(f[1]) + "</dd>";
+    }).join("");
+    $("fuente").hidden = false;
+  });
+  $("cerrar-fuente").onclick = function () { $("fuente").hidden = true; };
+
+  function esc(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+  function num(x, d) {
+    return (Math.round(x * Math.pow(10, d)) / Math.pow(10, d))
+      .toFixed(d).replace(".", ",");
+  }
+  function lista(s) {
+    return String(s || "").split(/[,;\s]+/).filter(function (x) { return x !== ""; })
+      .map(Number).filter(function (x) { return !isNaN(x); });
+  }
+
+  /* ---------- EL DIBUJO ----------
+     Una sola rutina para las tres vistas: cambia la proyección y ya.  El
+     arriostre va en color de acento porque es lo único del dibujo que no
+     se ve en obra hasta que falta. */
+  var COLOR = {
+    "columna": "var(--tinta)", "columna hastial": "var(--tinta-2)",
+    "brida superior": "var(--tinta)", "brida inferior": "var(--tinta)",
+    "diagonal": "var(--tinta-2)", "montante": "var(--tinta-2)",
+    "correa": "var(--suave)", "viga de alero": "var(--suave)",
+    "arriostre de techo": "var(--succion)", "arriostre de fachada": "var(--succion)"
+  };
+  var GRUESO = {
+    "columna": 2.2, "columna hastial": 1.6, "brida superior": 2, "brida inferior": 2,
+    "arriostre de techo": 1.8, "arriostre de fachada": 1.8
+  };
+
+  function dibuja(nudos, barras, px, py, alto) {
+    var pos = {}, i;
+    for (i = 0; i < nudos.length; i++) pos[nudos[i].id] = nudos[i];
+    var xs = [], ys = [];
+    for (i = 0; i < nudos.length; i++) { xs.push(px(nudos[i])); ys.push(py(nudos[i])); }
+    if (!xs.length) return '<p class="nohay">nada que dibujar</p>';
+    var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
+    var y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+    var w = Math.max(x1 - x0, 1e-6), h = Math.max(y1 - y0, 1e-6);
+    var W = 1000, m = 26;
+    var k = (W - 2 * m) / w;
+    var H = h * k + 2 * m;
+    if (alto && H > alto) { k = (alto - 2 * m) / h; H = alto; }
+    var X = function (n) { return m + (px(n) - x0) * k; };
+    var Y = function (n) { return H - m - (py(n) - y0) * k; };
+
+    var out = ['<svg viewBox="0 0 ' + W + ' ' + Math.round(H) +
+      '" preserveAspectRatio="xMidYMid meet" role="img">'];
+    /* el orden importa: el arriostre encima de todo */
+    var orden = barras.slice().sort(function (a, b) {
+      var pa = /arriostre/.test(a.clase) ? 1 : 0, pb = /arriostre/.test(b.clase) ? 1 : 0;
+      return pa - pb;
+    });
+    for (i = 0; i < orden.length; i++) {
+      var b = orden[i], a = pos[b.i], c = pos[b.j];
+      if (!a || !c) continue;
+      out.push('<line x1="' + X(a).toFixed(1) + '" y1="' + Y(a).toFixed(1) +
+        '" x2="' + X(c).toFixed(1) + '" y2="' + Y(c).toFixed(1) +
+        '" stroke="' + (COLOR[b.clase] || "var(--tinta-2)") +
+        '" stroke-width="' + (GRUESO[b.clase] || 1.1) + '" stroke-linecap="round"/>');
+    }
+    out.push("</svg>");
+    return out.join("");
+  }
+
+  function leyenda(pares) {
+    return '<div class="leyenda">' + pares.map(function (p) {
+      return '<span><i style="border-top-color:' + p[1] + '"></i>' + p[0] + '</span>';
+    }).join("") + "</div>";
+  }
+
+  /* ---------- fichas ---------- */
+  function ln(q, v, cls, art, nota) {
+    return '<div class="ln"><span class="q">' + q + (art ? fuenteBtn(art) : "") +
+      '</span><span class="v' + (cls ? " " + cls : "") + '">' + v + "</span>" +
+      (nota ? "<p>" + esc(nota) + "</p>" : "") + "</div>";
+  }
+  function ficha(t, sub, cuerpo, cls) {
+    return '<div class="ficha' + (cls ? " " + cls : "") + '"><h2>' + t +
+      '</h2><p class="sub">' + sub + "</p>" + cuerpo + "</div>";
+  }
+
+  /* ---------- EL CÁLCULO, Y EL RECHAZO ----------
+     Las guardas del motor LANZAN, y aquí no se ablandan: se enseña el
+     mensaje entero y NO se dibuja nada.  Pintar el galpón «de todas formas»
+     con un aviso al lado sería exactamente lo que el motor se niega a
+     hacer, y por la puerta de atrás. */
+  function datos() {
+    var at = lista($("at").value);
+    var af = lista($("af").value);
+    return {
+      luz_m: +$("luz").value, largo_m: +$("largo").value,
+      sepPorticos_m: +$("sep").value, alturaColumna_m: +$("hcol").value,
+      ajustaSeparacion: $("ajusta").checked,
+      cuerdas: $("cuerdas").value, alma: $("alma").value,
+      pendiente: +$("pend").value / 100, pendienteInferior: +$("pendi").value / 100,
+      paneles: +$("pan").value, peralteApoyo_m: +$("h0").value,
+      panosArriostradosTecho: at,
+      panosArriostradosFachada: af.length ? af : at,
+      columnasHastiales: lista($("ch").value)
+    };
+  }
+
+  function recalcula() {
+    var m3 = null, err = null;
+    try { m3 = MONTAJE.monta(datos()); }
+    catch (e) { err = e; }
+
+    if (err) {
+      $("problemas-t").textContent = "El montaje se niega, y no es un aviso";
+      $("problemas-p").textContent = err.message;
+      $("problemas").hidden = false;
+      var vacio = '<p class="nohay">No hay modelo. Mientras el motor se niegue, ' +
+        'esta vista no dibuja nada: enseñar el galpón igualmente, con una ' +
+        'advertencia al lado, sería saltarse la guarda por la puerta de atrás.</p>';
+      $("v-portico").innerHTML = vacio;
+      $("v-planta").innerHTML = vacio;
+      $("v-elev").innerHTML = vacio;
+      pintaTresD();
+      return;
+    }
+    $("problemas").hidden = true;
+    pintaPortico(m3);
+    pintaPlanta(m3);
+    pintaElev(m3);
+    pintaTresD();
+  }
+
+  /* ---------- PÓRTICO · la vista principal ---------- */
+  function pintaPortico(m3) {
+    var p = MONTAJE.planoTransversal(m3, 0);
+    var t = m3.tijeral;
+    var svg = dibuja(p.nudos, p.barras,
+      function (n) { return n.x_m; }, function (n) { return n.y_m; }, 520);
+
+    var c = t.conteo;
+    var cuerpo =
+      ln("Tipología", esc(t.nombre.split(" · ")[0] + " · " + t.alma), "", "G.alma") +
+      ln("Luz · altura de columna", num(m3.luz_m, 2) + " · " + num(m3.alturaColumna_m, 2) + " m") +
+      ln("Paños por media luz · paso", t.paneles + " · " + num(t.paso_m, 3) + " m") +
+      ln("Peralte en apoyo · en el centro",
+        num(t.peralteApoyo_m, 2) + " · " + num(t.peralteCentro_m, 2) + " m",
+        "", "G.peralte",
+        "No hay fuente para una relación peralte/luz de armadura de techo: el peralte es dato.") +
+      ln("Conteo de Maxwell · b + r − 2j",
+        c.b + " + " + c.r + " − 2·" + c.j + " = " + c.grado, "", "G.maxwell") +
+      ln("Veredicto del conteo", esc(c.veredicto), "", "G.hiperestatica", c.nota) +
+      ln("Autorizado por el RANGO", "sí", "ok", "G.rango",
+        "El conteo informa; quien autoriza es el rango de K. Es necesario y no suficiente.");
+
+    var ang = GENERADOR.angulos(t);
+    if (ang.diagonales) {
+      cuerpo += ln("Diagonales · ángulo mínimo y máximo",
+        num(ang.minGrados, 1) + "° a " + num(ang.maxGrados, 1) + "°");
+      cuerpo += ln("Diagonal más larga", num(ang.maxLongitud_m, 2) + " m");
+    }
+
+    $("v-portico").innerHTML =
+      '<div class="lienzo">' + svg + leyenda([
+        ["columna y bridas", "var(--tinta)"], ["alma", "var(--tinta-2)"],
+        ["columna hastial", "var(--tinta-2)"]]) + "</div>" +
+      '<div class="fichas">' +
+        ficha("El pórtico", "eje 0 · el hastial, con sus columnas intermedias", cuerpo) +
+      "</div>";
+  }
+
+  /* ---------- PLANTA DE TECHO · donde se ve el camino de carga ---------- */
+  function pintaPlanta(m3) {
+    var sup = {};
+    var i, n;
+    for (i = 0; i < m3.nudos.length; i++) {
+      n = m3.nudos[i];
+      if (n.clase === "superior") sup[n.id] = n;
+    }
+    var nudos = [], barras = [];
+    for (var k in sup) if (sup.hasOwnProperty(k)) nudos.push(sup[k]);
+    for (i = 0; i < m3.barras.length; i++) {
+      var b = m3.barras[i];
+      if (sup[b.i] && sup[b.j]) barras.push(b);
+    }
+    var svg = dibuja(nudos, barras,
+      function (q) { return q.z_m; }, function (q) { return q.x_m; }, 460);
+
+    var cam = m3.camino;
+    var cuerpo =
+      ln("Paños arriostrados · techo", "[" + cam.panosTecho.join(", ") + "]", "", "MT.no.diafragma",
+        "La cobertura no es diafragma rígido (E.020 Art. 18.2): el reparto lo hace esto o no lo hace nadie.") +
+      ln("Paños arriostrados · fachada", "[" + cam.panosFachada.join(", ") + "]") +
+      ln("¿En el mismo paño?", cam.alineados ? "sí" : "no",
+        cam.alineados ? "ok" : "no", "MT.mismo.pano") +
+      ln("Recorrido por el alero", num(cam.recorridoMaximoAlero_m, 2) + " m",
+        cam.recorridoMaximoAlero_m > 0 ? "no" : "ok", "", cam.nota);
+    for (var h = 0; h < cam.desdeHastiales.length; h++) {
+      var d = cam.desdeHastiales[h];
+      cuerpo += ln("Desde el " + esc(d.desde), num(d.recorrido_m, 2) + " m", "", "MT.hastial");
+    }
+
+    var techo = MONTAJE.planoTecho(m3);
+    var mk = techo.maxwell;
+    var cuerpo2 =
+      ln("Conteo del plano del techo", "grado " + mk.grado + " · " + esc(mk.veredicto),
+        "", "G.maxwell") +
+      ln("Y el rango dice", techo.esMecanismo ? "MECANISMO" : "estable",
+        techo.esMecanismo ? "no" : "ok", "G.rango", techo.apoyosNota) +
+      ln("¿Es diafragma?", "no", "no", "MT.no.diafragma",
+        "Sin el arriostre, este mismo plano da grado positivo en el conteo y MECANISMO " +
+        "en el rango. Son doce barras las que separan una cosa de la otra.");
+
+    $("v-planta").innerHTML =
+      '<div class="lienzo">' + svg + leyenda([
+        ["bridas superiores y correas", "var(--suave)"],
+        ["ARRIOSTRE DE TECHO", "var(--succion)"]]) + "</div>" +
+      '<div class="fichas">' +
+        ficha("El camino de carga", "hastial → techo → alero → fachada → suelo", cuerpo,
+          cam.alineados ? "bien" : "") +
+        ficha("El plano del techo", "la E.020 Art. 18.2 en números", cuerpo2) +
+      "</div>";
+  }
+
+  /* ---------- ELEVACIÓN LONGITUDINAL · la dilatación ---------- */
+  function pintaElev(m3) {
+    var alero = {};
+    var i, n, b;
+    for (i = 0; i < m3.nudos.length; i++) {
+      n = m3.nudos[i];
+      if (n.x_m < 1e-9) alero[n.id] = n;      /* la fachada x = 0 */
+    }
+    var nudos = [], barras = [];
+    for (var k in alero) if (alero.hasOwnProperty(k)) nudos.push(alero[k]);
+    for (i = 0; i < m3.barras.length; i++) {
+      b = m3.barras[i];
+      if (alero[b.i] && alero[b.j]) barras.push(b);
+    }
+    var svg = dibuja(nudos, barras,
+      function (q) { return q.z_m; }, function (q) { return q.y_m; }, 330);
+
+    var di = m3.dilatacion;
+    var cuerpo =
+      ln("Pórticos · separación", m3.ejes.porticos + " · " + num(m3.ejes.sepPorticos_m, 3) + " m",
+        "", "MT.ejes", m3.ejes.ajustada ?
+          "ajustada: se pidió " + num(m3.ejes.sepPedida_m, 2) + " m y no cabía entera" : "") +
+      ln("Puntos fijos", "[" + di.puntosFijos_m.map(function (x) { return num(x, 1); }).join(", ") + "] m") +
+      ln("Longitud que NO puede dilatar", num(di.longitudPresa_m, 2) + " m",
+        di.longitudPresa_m > 0 ? "no" : "ok", "MT.termica", di.nota) +
+      ln("Dilata libre hacia cada extremo",
+        num(di.libreExtremoInicial_m, 2) + " y " + num(di.libreExtremoFinal_m, 2) + " m") +
+      ln("ΔT de norma para metal", di.deltaT_C + " °C", "", "MT.deltaT") +
+      ln("Alargamiento", "no se calcula", "", "MT.alfa",
+        "α a temperatura ambiente no está en ninguna fuente del proyecto. El AISC sí da " +
+        "uno, pero es el de incendio y el texto lo condiciona a más de 66 °C.");
+
+    $("v-elev").innerHTML =
+      '<div class="lienzo">' + svg + leyenda([
+        ["columnas y vigas de alero", "var(--tinta)"],
+        ["ARRIOSTRE DE FACHADA", "var(--succion)"]]) + "</div>" +
+      '<div class="fichas">' +
+        ficha("La fachada x = 0", "y lo que cuesta decidir dónde van los arriostres", cuerpo) +
+      "</div>";
+  }
+
+  /* ---------- 3D · todavía no, y se dice ---------- */
+  function pintaTresD() {
+    $("v-tresd").innerHTML = '<div class="aviso"><b>Todavía no.</b> La vista 3D es ' +
+      '<code>vista3d.js</code>, el renderizador WebGL que se adapta del de Retícula, ' +
+      'y no está escrito. Aquí no hay una maqueta provisional a propósito: una vista ' +
+      'que parece el modelo y no lo es engaña más que una pestaña vacía. El modelo 3D ' +
+      'SÍ existe —lo monta <code>montaje.js</code> y las otras tres pestañas son ' +
+      'proyecciones suyas—; lo que falta es dibujarlo.</div>';
+  }
+
+  /* ---------- pestañas ---------- */
+  var VISTAS = ["portico", "planta", "elev", "tresd"];
+  $("pestanas").addEventListener("click", function (ev) {
+    var b = ev.target.closest ? ev.target.closest("button[data-v]") : null;
+    if (!b) return;
+    var v = b.getAttribute("data-v"), i;
+    for (i = 0; i < VISTAS.length; i++) {
+      $("v-" + VISTAS[i]).hidden = (VISTAS[i] !== v);
+    }
+    var bs = $("pestanas").querySelectorAll("button[data-v]");
+    for (i = 0; i < bs.length; i++) {
+      bs[i].setAttribute("aria-selected", bs[i] === b ? "true" : "false");
+    }
+  });
+
+  /* ---------- recálculo ---------- */
+  $("f").addEventListener("input", recalcula);
+  $("f").addEventListener("change", recalcula);
+  recalcula();
+
+  /* ---------- Office ----------
+     La página funciona igual sin Excel: Office.js solo añade poder volcar.
+     Si no hay Office, no pasa nada y no se avisa de nada, porque abrir esto
+     en un navegador es un uso legítimo y no un error. */
+  if (typeof Office !== "undefined" && Office.onReady) {
+    Office.onReady(function () { document.body.setAttribute("data-office", "1"); });
+  }
+})();
+</script>

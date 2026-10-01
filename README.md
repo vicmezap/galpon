@@ -77,15 +77,40 @@ pulgada.
 
 ---
 
+## El complemento
+
+`python scripts/hornear.py` deja en `complemento/` una página sola con todo
+dentro —los 22 módulos, las 369 filas del inventario y los 2408 perfiles—, su
+`manifest.xml` y una portada. GitHub Actions la publica en cada push a `main`,
+y **solo si las pruebas pasan**: hornear → probar → publicar, en ese orden.
+
+Para instalarlo en Excel: *Insertar › Mis complementos › Cargar mi complemento*,
+y se apunta a `https://vicmezap.github.io/galpon/manifest.xml`. Aparece una
+pestaña **Galpón** en la cinta.
+
+La misma página se abre en un navegador sin Excel, y es un uso legítimo: Office
+solo añade poder volcar a la hoja.
+
+**Cada número de la pantalla tiene un botón `fuente`** que enseña su fila del
+inventario con su artículo de norma. Es la tesis del proyecto hecha pantalla:
+369 filas no sirven de nada si no se pueden mirar desde donde se usan.
+
+---
+
 ## Cómo se corre
 
 ```bash
+python scripts/hornear.py           # hornea lo publicable: visor, inventario, complemento
 node pruebas/correr.js              # todas las pruebas, un veredicto
 node pruebas/correr.js unidades     # solo las que coincidan
 ```
 
-Sin dependencias. El motor de cálculo es JavaScript puro y se prueba con el Node
-que traiga la máquina. Las pruebas corren también en GitHub Actions en cada push.
+**Hornear primero.** Lo publicable no va versionado —es salida de un generador—,
+así que en un clon limpio no existe, y dos pruebas comprueban precisamente que
+corresponde al código. Python solo hace falta para los generadores: el motor de
+cálculo es JavaScript puro y se prueba con el Node que traiga la máquina.
+
+Las pruebas corren también en GitHub Actions en cada push, horneando antes.
 
 Y antes de cada commit, si instalas los hooks:
 
@@ -115,7 +140,7 @@ inventario/
 pruebas/
   correr.js        el runner
   _comun.js        comp · cerca · cierto · lanza · fin
-  probar_*.js      una por módulo · 1664 comprobaciones
+  probar_*.js      una por módulo · 1741 comprobaciones
 catalogos/
   aisc.json        1575 perfiles laminados    · AISC Shapes Database v13
   fam.json          391 perfiles soldados     · serie VS/CS/CVS, ABNT NBR 5884
@@ -128,7 +153,10 @@ scripts/
   importa_aisc.py      lee el .xls del AISC (fuera del repo)
   importa_fam.py       extraccion posicional del PDF de FAM (fuera del repo)
   importa_precor.py    extraccion posicional del PDF de Precor, 15 paginas
-  gen_complemento.py   genera lo publicable a GitHub Pages   (etapa E6)
+  hornear.py           LOS TRES GENERADORES, en orden. El comando que hay que recordar
+  gen_visor.py         el banco de cargas de E2
+  gen_complemento.py   el complemento de Excel: taskpane, manifiesto, iconos, portada
+  complemento.plantilla.html   la pagina, antes de hornearle los modulos dentro
 ```
 
 El inventario vive **solo aquí**. No hay copia fuera del repositorio: el JSON es
@@ -166,7 +194,7 @@ verificable en Node y en CI. Es la rebanada vertical, el primer hito real.
 | **E3** motor | modelo · solver · estabilidad · solo-tracción | ✅ |
 | **E4** AISC | caps. D, E, F, G y H con doble referencia | ✅ |
 | **E5** piezas | elemento · bucle · correas · tijeral · columnas · arriostres | ✅ |
-| **E6** interfaz | **generador · montaje** · vistas · vista3d · tablero | 🔸 en curso |
+| **E6** interfaz | **generador · montaje · el complemento** · vistas · vista3d | 🔸 en curso |
 | **E7** conexiones | placa base · Cap. J | ⬜ |
 | **E8** cimentación | pedestal · zapatas | ⬜ |
 | **E9** salida | hojas · metrado · planos | ⬜ |

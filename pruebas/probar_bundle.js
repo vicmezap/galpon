@@ -64,7 +64,7 @@ try {
   comp("con una fuente más nueva, lo declara rancio", r.alDia, false);
   cierto("y nombra la fuente que lo delata", /e020\.js/.test(r.motivo));
   lanza("y al exigirlo, para con instrucciones",
-    () => B.alDiaOMuere(), "gen_visor.py");
+    () => B.alDiaOMuere(), "hornear.py");
 } finally {
   fs.utimesSync(fuente, antes.atime, antes.mtime);
 }

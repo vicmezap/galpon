@@ -1,0 +1,64 @@
+# =====================================================================
+# Publica el complemento en GitHub Pages.
+#
+# EL ORDEN ES LA GARANTÍA: hornear → PROBAR → publicar. Si una sola
+# comprobación falla, el despliegue no llega a ejecutarse y lo que hay
+# publicado sigue siendo lo último que pasó las pruebas. No se puede
+# publicar una página rota sin que alguien lo haga a mano.
+#
+# Y entre las pruebas está probar_complemento.js, que ejecuta la página
+# entera contra un DOM de juguete: lo que se despliega está comprobado
+# que al menos dibuja.
+#
+# Lo publicable NO va versionado. Se hornea aquí, de las fuentes, en cada
+# push: así no existe la posibilidad de que el repositorio guarde una
+# versión y el sitio sirva otra.
+# =====================================================================
+name: publicar
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Un despliegue a la vez, y sin cancelar el que esté a medias.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.desplegar.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Hornear el complemento
+        run: python scripts/hornear.py
+
+      - name: Las pruebas, ANTES de publicar
+        run: node pruebas/correr.js
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: complemento
+
+      - id: desplegar
+        uses: actions/deploy-pages@v4

@@ -3,6 +3,17 @@
 #
 # Esto es lo que Retícula no tuvo: allí «todo pasa» es una creencia.
 # Aquí es un hecho con fecha, o el commit sale en rojo.
+#
+# SE HORNEA ANTES DE PROBAR, y no es un capricho del orden: lo generado
+# —el visor y el complemento— NO va versionado, porque es salida de un
+# generador y el repositorio guarda lo que escribimos nosotros. En un clon
+# limpio no existe, y probar_bundle.js y probar_complemento.js comprueban
+# precisamente eso: que lo publicable corresponde al código.
+#
+# Faltaba este paso y el CI llevaba rojo en «bundle» desde que el visor se
+# empezó a generar. Lo cazó una simulación del clon limpio (git archive a
+# un directorio aparte), no el navegador: en la máquina de desarrollo
+# siempre hay un visor horneado de antes y la falta no se nota.
 # =====================================================================
 name: pruebas
 
@@ -20,6 +31,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+
+      # Python solo para los generadores. El motor de cálculo no lo necesita.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Hornear lo publicable
+        run: python scripts/hornear.py
 
       # Sin dependencias a propósito: el motor de cálculo es JavaScript
       # puro y se prueba con el Node que trae la máquina. Nada que
