@@ -155,12 +155,12 @@
       "id": "T.U.c4",
       "grupo": "Tabla D3.1",
       "magnitud": "Caso 4 · plancha con soldadura longitudinal solamente",
-      "valor": "l ≥ 2w → 1,00 · 2w > l ≥ 1,5w → 0,87 · 1,5w > l ≥ w → 0,75",
+      "valor": "AISC 360-22: U = 3l²/(3l² + w²)·(1 − x̄/l), l = (l₁ + l₂)/2  ·  E.090: l ≥ 2w → 1,00 · 2w > l ≥ 1,5w → 0,87 · 1,5w > l ≥ w → 0,75",
       "unidad": "—",
-      "estado": "verificado",
+      "estado": "conflicto",
       "editable": false,
-      "fuente": "AISC Tabla D3.1, caso 4 · E.090 2.3 d)",
-      "nota": "Las dos normas dan los MISMOS tres valores. w = ancho de la plancha, l = longitud de la soldadura."
+      "fuente": "AISC Tabla D3.1, caso 4 y nota [a] · E.090 §2.3 d)",
+      "nota": "ESTABA MAL, Y DOS VECES. La fila daba los tres escalones 1,00 / 0,87 / 0,75 como del AISC 360-22 y decía «las dos normas dan los MISMOS tres valores»: esos escalones son del AISC 2010 —los que usa McCormac en el Ejemplo 14-2— y la edición de 2022 los cambió por una fórmula continua. Y el código ni siquiera usaba la fila: devolvía U = 1,0 para el caso 4, lo que sobrestimaba la rotura de una plancha soldada solo por los lados hasta un 33 % (con l = w). Salió al escribir conexiones.js, al intentar reproducir el Ejemplo 14-2. LA FÓRMULA, leída en la página 16.1-34: U = 3l²/(3l² + w²)·(1 − x̄/l), con w el ancho de la plancha, x̄ la excentricidad (0 en una plancha) y l = (l₁ + l₂)/2, donde l₁ y l₂ son las dos soldaduras y ninguna puede ser menor que 4 veces el tamaño del filete (nota [a]). MEDIDO, plancha con x̄ = 0: l = w → 0,750 las dos; l = 1,5w → 0,871 contra 0,87; l = 2w → 0,923 contra 1,00, el AISC un 7,7 % por debajo; con l grande las dos tienden a 1. La E.090 exige además l ≥ w. DECISIÓN: manda el AISC 360-22, y el código da la E.090 al lado."
     },
     {
       "id": "T.U.c7",

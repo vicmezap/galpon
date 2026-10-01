@@ -81,6 +81,23 @@ lanza("con agujeros hace falta el espesor",
 
 /* ---------- Tabla D3.1 · el factor U ----------------------------------- */
 comp("caso 1 · carga por todos los elementos → U = 1", A.factorU({ caso: "1" }).U, 1.0);
+
+/* CASO 4 · ESTABA MAL: devolvía 1,0 siempre, y la fila tenía los escalones
+   del AISC 2010. En el 360-22 es U = 3l²/(3l² + w²)·(1 − x̄/l). */
+cerca("caso 4 · l = w → 0,75, como McCormac 14-2 (PL 3/4 × 10 con 10 plg de filete)",
+  A.factorU({ caso: "4", l_cm: 25.4, w_cm: 25.4 }).U, 0.75, 1e-12);
+cerca("caso 4 · l = 1,5w → 0,871", A.factorU({ caso: "4", l_cm: 15, w_cm: 10 }).U,
+  3 * 225 / (3 * 225 + 100), 1e-12);
+cerca("caso 4 · l = 2w → 12/13, un 7,7 % por debajo del 1,00 de la E.090",
+  A.factorU({ caso: "4", l_cm: 20, w_cm: 10 }).U, 12 / 13, 1e-12);
+comp("y la E.090 al lado, con sus escalones",
+  [10, 15, 20].map((l) => A.factorU({ caso: "4", l_cm: l, w_cm: 10 }).U_E090), [0.75, 0.87, 1.00]);
+comp("la E.090 no admite l < w", A.factorU({ caso: "4", l_cm: 8, w_cm: 10 }).U_E090, null);
+cerca("con filetes distintos se toma el promedio", A.factorU({ caso: "4", l1_cm: 10, l2_cm: 20, w_cm: 10 }).U,
+  3 * 225 / (3 * 225 + 100), 1e-12);
+lanza("SIN l ni w SE NIEGA, en vez de devolver 1,0 como antes", () => A.factorU({ caso: "4" }), "w_cm");
+lanza("un filete más corto que 4 veces su tamaño no vale (nota [a])",
+  () => A.factorU({ caso: "4", l_cm: 2, w_cm: 10, filete_cm: 0.8 }), "4 veces");
 cerca("caso 2 · U = 1 − x̄/l",
   A.factorU({ caso: "2", xbar_cm: 2.5, l_cm: 20 }).U, 1 - 2.5 / 20, 1e-12);
 lanza("caso 2 con la conexión más corta que la excentricidad PARA",

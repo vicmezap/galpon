@@ -159,10 +159,11 @@ src/
   vistas.js        las 4 pestañas como DATOS · ninguna cifra sin procedencia
   vista3d.js       cámara y proyección · isométrica, que sí se puede medir
   placabase.js     placa de apoyo, pernos y llave de corte · AISC J8 y Zapata 9.7-9.8
+  conexiones.js    Cap. J · filetes, pernos, elementos de conexión, extremos empernados y soldados
   libro.js         el modelo en el libro · serializa, trocea, y las capas de edición
   panel.js         lo que enseña el panel de tareas · es un lanzador, no la aplicación
 inventario/
-  *.json           las 390 filas, trece secciones
+  *.json           las filas del inventario, trece secciones (el total lo da inventario.html)
 pruebas/
   correr.js        el runner
   _comun.js        comp · cerca · cierto · lanza · fin
@@ -223,7 +224,7 @@ juguete en cada corrida.
 | **E4** AISC | caps. D, E, F, G y H con doble referencia | ✅ |
 | **E5** piezas | elemento · bucle · correas · tijeral · columnas · arriostres | ✅ |
 | **E6** interfaz | generador · montaje · complemento · vistas · vista3d | ✅ |
-| **E7** conexiones | **placa base** · Cap. J | 🔸 en curso |
+| **E7** conexiones | placa base · Cap. J: filetes, pernos, elementos, extremos | ✅ |
 | **E8** cimentación | pedestal · zapatas | ⬜ |
 | **E9** salida | hojas · metrado · planos | ⬜ |
 | **E10** control | puente a SAP2000 | ⬜ |

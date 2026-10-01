@@ -727,7 +727,7 @@
     { id: "conex", grupo: "Paso 5", nombre: "Conexiones", listo: false,
       vistas: false, lados: [],
       hara: "una pantalla de conexiones",
-      motor: "placabase.js escrito; conexiones.js (Cap. J) pendiente",
+      motor: "placabase.js y conexiones.js (Cap. J), escritos y probados",
       que: "placa de apoyo, pernos de anclaje y llave de corte" },
 
     { id: "cimen", grupo: "Paso 6", nombre: "Cimentación", listo: false,

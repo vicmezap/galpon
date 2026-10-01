@@ -141,6 +141,7 @@
   function factorU(d) {
     const caso = String(d.caso);
     let U, art, nota;
+    let u4E090 = null;   /* solo el caso 4 lo usa: los escalones de la E.090 */
 
     if (caso === "1") {
       U = 1.0; art = ART["T.U.c1"];
@@ -161,7 +162,30 @@
       U = 1.0; art = ART["T.U.c3"];
       nota = "solo soldadura transversal: U = 1 pero An se toma como el área de los elementos conectados";
     } else if (caso === "4") {
-      U = 1.0; art = ART["T.U.c4"];
+      /* ESTABA MAL: devolvía U = 1,0. El caso 4 —plancha soldada solo con
+         filetes longitudinales— es una fórmula en el 360-22, no un 1, y con
+         l = w da 0,75: el 1,0 sobrestimaba la rotura un 33 %. Fila T.U.c4. */
+      const w = d.w_cm;
+      const l1 = (d.l1_cm !== undefined) ? d.l1_cm : d.l_cm;
+      const l2 = (d.l2_cm !== undefined) ? d.l2_cm : d.l_cm;
+      if (!(w > 0)) {
+        throw new Error("acero: el caso 4 necesita w_cm, el ancho de la plancha (o la distancia entre los filetes)");
+      }
+      if (!(l1 > 0) || !(l2 > 0)) {
+        throw new Error("acero: el caso 4 necesita l_cm, o l1_cm y l2_cm si los dos filetes miden distinto");
+      }
+      if (d.filete_cm !== undefined && Math.min(l1, l2) < 4 * d.filete_cm - 1e-9) {
+        throw new Error(
+          "acero: en el caso 4 ningún filete puede medir menos de 4 veces su tamaño (nota [a]\n" +
+          "  de la Tabla D3.1): llegan " + Math.min(l1, l2) + " cm con un filete de " + d.filete_cm + " cm.");
+      }
+      const l = (l1 + l2) / 2;
+      const x4 = d.xbar_cm || 0;
+      U = 3 * l * l / (3 * l * l + w * w) * (1 - x4 / l);
+      art = ART["T.U.c4"];
+      nota = "plancha soldada solo por los lados: con l = w, U = 0,75";
+      /* la E.090 · §2.3 d): tres escalones, y exige l ≥ w */
+      u4E090 = (l >= 2 * w) ? 1.00 : (l >= 1.5 * w) ? 0.87 : (l >= w) ? 0.75 : null;
     } else if (caso === "7") {
       U = d.Uc7;
       if (!(U > 0)) {
@@ -208,8 +232,9 @@
     return {
       U: U, caso: caso, art: art, nota: nota, mejorado: mejorado,
       /* LA DIVERGENCIA, mostrada al lado y no escondida · fila T.U.divergencia */
-      U_E090: (d.xbar_cm !== undefined && d.l_cm > 0)
-        ? Math.min(0.90, 1 - d.xbar_cm / d.l_cm) : null,
+      U_E090: (caso === "4") ? u4E090
+        : (d.xbar_cm !== undefined && d.l_cm > 0)
+          ? Math.min(0.90, 1 - d.xbar_cm / d.l_cm) : null,
       artDivergencia: ART["T.U.divergencia"],
       notaDivergencia: "la E.090 usa una sola fórmula 1 − x̄/L con tope 0,90; el AISC " +
         "tiene ocho casos sin tope en el general y con valores fijos para ángulos. " +

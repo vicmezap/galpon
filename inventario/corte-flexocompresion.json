@@ -37,7 +37,7 @@
       "editable": false,
       "clave": true,
       "fuente": "AISC G2.1(a) · la E.090 no la tiene",
-      "nota": "DIVERGENCIA. Es el ÚNICO φ = 1,00 de toda la especificación: el AISC considera que la fluencia por corte del alma es tan dúctil y predecible que no necesita castigo. Con A36 el umbral es h/tw ≤ 63,6, que cumple casi cualquier perfil laminado. La E.090 mantiene 0,90 siempre → 11 % de diferencia en capacidad a corte. DECISIÓN: manda el AISC."
+      "nota": "DIVERGENCIA. No es el único φ = 1,00 de la especificación —también lo lleva J4-3, la fluencia en corte de los elementos de conexión (fila J.elem.corte)—: el AISC considera que la fluencia por corte del alma es tan dúctil y predecible que no necesita castigo. Con A36 el umbral es h/tw ≤ 63,6, que cumple casi cualquier perfil laminado. La E.090 mantiene 0,90 siempre → 11 % de diferencia en capacidad a corte. DECISIÓN: manda el AISC."
     },
     {
       "id": "V.Vn",
