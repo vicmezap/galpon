@@ -73,6 +73,7 @@ MODULOS = [
     "tijeral.js",        # lee MODELO, SOLVER, ACERO, ELEMENTO
     "columnas.js",
     "arriostres.js",     # lee ACERO y RIOSTRAS
+    "placabase.js",      # lee ACERO · E7
     "generador.js",      # lee MODELO y SOLVER
     "montaje.js",        # lee GENERADOR
     "vista3d.js",       # funciones puras de camara y proyeccion

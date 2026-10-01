@@ -360,6 +360,102 @@
       "editable": false,
       "fuente": "AISC J9, User Note",
       "nota": "MATIZO LO QUE DIJE ANTES: descarté el DG1 porque E.090 §10.9-10.10 y Zapata 9.7-9.8 cubren el método. Sigue siendo cierto que no es obligatorio, pero el propio J9 lo recomienda por nombre para el diseño de bases de columna. Queda como deseable, no como bloqueante."
+    },
+    {
+      "id": "J.base.cantilever",
+      "grupo": "Espesor de la placa base",
+      "magnitud": "Los voladizos de la placa",
+      "valor": "m = (N − 0,95·d)/2   ·   n = (B − 0,80·bf)/2",
+      "unidad": "cm",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "Zapata 9.7.1 p. 9-28 y Ejemplo 9.4 p. 9-30",
+      "nota": "El AISC 360-22 NO trae el espesor de la placa base: J8 solo cubre el aplastamiento del concreto, y el método del voladizo vive en el Manual y en el Design Guide 1 (fila J.dg1), que no están en la carpeta. Zapata sí lo trae entero y con dos ejemplos resueltos, así que es la fuente. El 0,95·d y el 0,80·bf no son redondeos: son los que el AISC fija para situar la sección crítica un poco DENTRO del perfil, porque la placa no empieza a flexionar en la cara del ala sino algo adentro. GOBIERNA EL MAYOR de los dos, no el que corresponda a la dirección que uno mire: en el Ejemplo 9.4, m = (30−19)/2 = 5,5 y n = (30−16)/2 = 7, y manda n."
+    },
+    {
+      "id": "J.base.t",
+      "grupo": "Espesor de la placa base",
+      "magnitud": "Espesor por fluencia de la placa",
+      "valor": "t = √( 2·Pu·ℓ² / (φb·B·N·Fy) )   con ℓ = max(m, n)",
+      "unidad": "cm",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "Zapata 9.7.1 p. 9-28",
+      "nota": "Sale de igualar φb·Mp = φb·Z·Fy = 0,9·(B·t²/4)·Fy al momento del voladizo uniformemente cargado Mu = (Pu/(B·N))·(B·ℓ²/2). Se usa el módulo PLÁSTICO t²/4 y no el elástico t²/6: el estado límite es la fluencia de la sección entera de la placa, no la de la fibra extrema. φb = 0,90. VERIFICADO contra el Ejemplo 9.4 de Zapata: Pu = 88 t, B = N = 30 cm, n = 7 cm, Fy = 2530 → t = 2,05 cm."
+    },
+    {
+      "id": "J.base.lineas",
+      "grupo": "Espesor de la placa base",
+      "magnitud": "Placa poco cargada · líneas de fluencia",
+      "valor": "c = ¼·( d + bf − tf − √( (d + bf − tf)² − 4·(Ah − bf·tf) ) )",
+      "unidad": "cm",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "Zapata 9.7.1 p. 9-29 y Ejemplo 9.5 p. 9-30, citando el Manual LRFD del AISC",
+      "nota": "CUÁNDO: cuando la carga es pequeña, B y N salen del orden de bf y d, y el voladizo m o n se vuelve nulo o negativo —no hay voladizo que flexionar—. Entonces la placa no trabaja como ménsula sino como una placa apoyada en un área en forma de H bajo el perfil, y el AISC sustituye el voladizo por un c semiempírico, método de líneas de fluencia. Además Pu se sustituye por la porción de carga directamente bajo la columna, Po = Pu·(bf·d)/(B·N), y B·N por el área Ah de esa H. VERIFICADO contra el Ejemplo 9.5: d = bf = 20, tf = 1,25, Ah = 115 → c = 1,24 cm y t = 0,54 cm, los dos exactos."
+    },
+    {
+      "id": "J.base.metodo",
+      "grupo": "Espesor de la placa base",
+      "magnitud": "Cuál de los dos métodos aplica",
+      "valor": "voladizo si m > 0 y n > 0  ·  líneas de fluencia si alguno se anula",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "Zapata 9.7.1, incisos b) y c) de p. 9-27 y 9-28",
+      "nota": "Zapata lo plantea como dos situaciones físicas distintas, no como dos fórmulas intercambiables: «cuando las dimensiones B y N son relativamente grandes con relación a las dimensiones exteriores del perfil b y d, existe el enfoque tradicional de los voladizos m y n», y «para aquellas planchas que reciben cargas relativamente pequeñas, las dimensiones B y N pueden resultar menores de b y d, por lo que se deben tratar como planchas cuyas mínimas dimensiones serán B = b y N = d, cargadas uniformemente sobre un área de forma H». APLICAR EL DEL VOLADIZO CON m O n NEGATIVO da un espesor que sale de elevar al cuadrado un número negativo: sale un espesor, parece razonable y no significa nada."
+    },
+    {
+      "id": "J.anclaje.solo.traccion",
+      "grupo": "Transferencia del cortante",
+      "magnitud": "Los pernos de anclaje se disenan SOLO a tracción",
+      "valor": "el cortante lo toma la llave de corte",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": true,
+      "clave": true,
+      "fuente": "Zapata 9.8 p. 9-31, textual",
+      "nota": "«Los pernos de anclaje, entonces, solamente son diseñados para Tracción, ya que la Llave de Corte se encarga de Hu.» NO ES UNA SIMPLIFICACIÓN CÓMODA, es la consecuencia de la fila J.anclaje.horiz: los agujeros de la placa base son mucho mayores que los normales, para absorber la tolerancia de obra, así que el perno NO está en contacto con el borde del agujero y no puede tomar cortante por aplastamiento hasta que la columna se haya movido. Si se quiere contar con los pernos para el cortante hay que soldar arandelas-plancha que puenteen el agujero (J.anclaje.horiz) o aceptar el desplazamiento. Zapata trata el caso sin llave aparte, en 9.8.1, con interacción tracción-corte."
+    },
+    {
+      "id": "J.llave.aplast",
+      "grupo": "Transferencia del cortante",
+      "magnitud": "Llave de corte · aplastamiento del concreto",
+      "valor": "fcu = Hu / (l·h) ≤ φp·f'c   con φp = 0,60",
+      "unidad": "kgf/cm²",
+      "estado": "adoptado",
+      "editable": true,
+      "clave": true,
+      "fuente": "Zapata 9.8 p. 9-31",
+      "nota": "l es el ancho de la llave y h su altura embebida bajo la cara inferior de la placa. OJO: aquí el 0,85 del aplastamiento NO aparece —la comparación es contra φp·f'c pelado— y φp = 0,60 es el del LRFD de 1986, no el 0,65 del AISC 360-22 (fila J.base.phi). Se conserva el 0,60 de Zapata porque la expresión entera es suya: mezclar su fórmula con el φ de otra norma es exactamente la costura que la fila Z.tres.phi advierte. VERIFICADO contra el Ejemplo 9.6: Hu = 32,6 t, f'c = 210 → l·h = 259 cm²."
+    },
+    {
+      "id": "J.llave.flexion",
+      "grupo": "Transferencia del cortante",
+      "magnitud": "Llave de corte · flexión de la plancha",
+      "valor": "Hu ≤ φb·Fy·l·t² / ( 4·(g + h/2) )",
+      "unidad": "kgf",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "Zapata 9.8 p. 9-31",
+      "nota": "La llave es una ménsula soldada bajo la placa: el cortante Hu, repartido en su altura embebida, le mete un momento Hu·(g + h/2), donde g es el espesor del grout entre la placa y el concreto. EL GROUT CUENTA Y NO ES DETALLE: alarga el brazo del momento sin aportar nada, así que un grout de 5 cm en vez de 2,5 sube el momento un 25 % en el Ejemplo 9.6. VERIFICADO contra ese ejemplo: t = 4,375 cm, l = 25, h = 10, g = 2,5 → Hu = 36,3 t."
+    },
+    {
+      "id": "J.anclaje.geometria",
+      "grupo": "Pernos de anclaje",
+      "magnitud": "Reglas geométricas que hacen fiable el anclaje",
+      "valor": "separación ≥ 15d  ·  al borde ≥ 12d con cortante sin llave  ·  al borde ≥ 5d y ≥ 10 cm  ·  Ld = 12d  ·  f'c ≥ 210",
+      "unidad": "cm",
+      "estado": "adoptado",
+      "editable": true,
+      "clave": true,
+      "fuente": "Zapata 9.8 p. 9-32, para pernos A36 o A307 con tuerca embebida",
+      "nota": "Las cuatro primeras existen por una sola razón y la dice el libro: NO RECORTAR NI SOLAPAR LOS CONOS DE ARRANCAMIENTO. 15d entre pernos «para evitar la interferencia entre los conos»; 5d y 10 cm al borde «para no recortar el cono que se opone a la tracción»; 12d al borde cuando el cortante va por los pernos. ES LA SEGUNDA RUTA DOCUMENTADA MIENTRAS NO ESTÉ EL ACI 318 Cap. 17 (fila J.anclaje.concreto), y hay que decir qué es y qué no: cumplirlas hace el anclaje PLAUSIBLE, no verificado. Son reglas prescriptivas de 1983 —Zapata cita a Shipp y Haninger, AISC Engineering Journal, 2.º trimestre de 1983— anteriores al Apéndice D del ACI 318-02, y no sustituyen sus ecuaciones. Cumplirlas y declarar que el cono está verificado sería mentir; cumplirlas y declarar que el cono sigue pendiente es lo honesto, y es lo que hace placabase.js."
     }
   ]
 }

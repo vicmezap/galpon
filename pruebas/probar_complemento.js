@@ -69,8 +69,8 @@ cierto("el paquete carga en el camino del navegador" + (cargo ? "" : ": " + errC
 const ESPERADOS = ["INVENTARIO", "UNIDADES", "PROPIEDADES", "PERFILES", "E020",
   "VIENTO", "E030", "COMBINACIONES", "MODELO", "SOLVER", "ESTABILIDAD", "RIOSTRAS",
   "ACERO", "ELEMENTO", "BUCLE", "CORREAS", "TIJERAL", "COLUMNAS", "ARRIOSTRES",
-  "GENERADOR", "MONTAJE", "VISTA3D", "VISTAS", "PROYECTO"];
-comp("los 24 módulos quedan colgados de window",
+  "GENERADOR", "MONTAJE", "VISTA3D", "VISTAS", "PLACABASE", "PROYECTO"];
+comp("los 25 módulos quedan colgados de window",
   ESPERADOS.filter((k) => !win[k]), []);
 comp("y el orden de dependencia es correcto, o alguno habría recibido undefined",
   ESPERADOS.filter((k) => win[k] && typeof win[k] !== "object"), []);
@@ -180,7 +180,7 @@ cierto("y las tres tienen líneas dibujadas, no un SVG vacío",
 cierto("no hay problemas que mostrar con los datos por omisión",
   pinto(dom, "problemas").hidden === true);
 cierto("los sellos dicen cuántas filas tiene el inventario",
-  /374/.test(pinto(dom, "sellos").innerHTML));
+  /382/.test(pinto(dom, "sellos").innerHTML));
 cierto("y cuántos perfiles hay",
   /2408/.test(pinto(dom, "sellos").innerHTML));
 
@@ -297,7 +297,7 @@ cierto("la portada enlaza el complemento", /href="taskpane\.html"/.test(portada)
 cierto("y el manifiesto, con las instrucciones para instalarlo",
   /href="manifest\.xml"/.test(portada) && /Cargar mi complemento/.test(portada));
 cierto("y el inventario", /href="inventario\.html"/.test(portada));
-cierto("y dice cuántas filas tiene", /374 filas/.test(portada));
+cierto("y dice cuántas filas tiene", /382 filas/.test(portada));
 
 /* NINGÚN MÓDULO SE QUEDA FUERA POR OLVIDO: el generador lleva la lista a
    mano porque el orden importa, y por eso comprueba que no falte ninguno. */
@@ -316,6 +316,6 @@ const enSrc = fs.readdirSync(path.join(__dirname, "..", "src"))
 comp("todo módulo de src/ está en la lista o declarado fuera con su motivo",
   enSrc.filter((f) => enLista.indexOf(f) < 0 && enFuera.indexOf(f) < 0), []);
 comp("el único que se queda fuera es la guarda de Node", enFuera, ["bundle.js"]);
-comp("y los 24 que entran son los que la página necesita", enLista.length, 24);
+comp("y los 25 que entran son los que la página necesita", enLista.length, 25);
 
 fin();
