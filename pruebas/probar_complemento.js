@@ -353,7 +353,9 @@ const cargas = pinto(M.dom, "centro").innerHTML;
 cierto("Cargas dice QUE ensenara", /E\.020/.test(cargas) && /Tabla 5/.test(cargas));
 cierto("y que su motor ya esta escrito", /e020\.js/.test(cargas));
 cierto("no se pone una maqueta, y se dice por que",
-  /Todavia no hay pantalla/.test(cargas) && /engana mas que una que avisa/.test(cargas));
+  /Todavía no hay pantalla/.test(cargas) && /engaña más que una que avisa/.test(cargas));
+cierto("y con tildes: el texto es para el proyectista, no para el compilador",
+  !/Todavia no hay|ensenara|La hara |Ve a Geometria|ningun aviso/.test(modeHtml));
 cierto("ya no queda ni una capa de barras a la vista",
   cargas.indexOf("data-capa=") < 0);
 
@@ -407,6 +409,12 @@ for (const pp of M.win.VISTAS.PASOS) {
     "lado-ver": a.lados.indexOf("ver") < 0,
     "lado-parametros": a.lados.indexOf("parametros") < 0
   };
+  /* LA REJA. Ocultar los lados no basta: con tres columnas fijas el
+     centro caia en la primera, la de 210 px, y todo salia apretado a la
+     izquierda. Visto en Excel, no aqui: aqui el atributo estaba bien. */
+  const cls = pinto(M.dom, "obra").className || "";
+  if (/sin-izq/.test(cls) !== !a.lados.length) mal.push(pp.id + " · la reja no quita la columna izquierda");
+  if (/sin-der/.test(cls) !== !a.vistas) mal.push(pp.id + " · la reja no quita la columna derecha");
   for (const id of Object.keys(debe)) {
     if (pinto(M.dom, id).hidden !== debe[id]) {
       mal.push(pp.id + " · " + id + " deberia estar " +
@@ -415,6 +423,36 @@ for (const pp of M.win.VISTAS.PASOS) {
   }
 }
 comp("LOS ONCE PASOS montan exactamente el armazon que declaran", mal, []);
+
+/* OCULTO ES OCULTO. El DOM de juguete no aplica CSS, y por eso esto paso:
+   nav.vistas y .metricas llevan display:flex, que le gana al [hidden] del
+   navegador. La barra de vistas se seguia viendo en Datos CON EL ATRIBUTO
+   PUESTO. Lo unico que lo impide es esta regla, asi que se exige. */
+cierto("hay una regla que hace que hidden oculte DE VERDAD",
+  /\[hidden\]\s*\{\s*display:\s*none\s*!important;?\s*\}/.test(modeHtml));
+cierto("y la reja tiene una forma para cada armazon",
+  /\.obra\.sin-izq\s*\{/.test(modeHtml) && /\.obra\.sin-der\s*\{/.test(modeHtml) &&
+  /\.obra\.sin-izq\.sin-der\s*\{\s*grid-template-columns:\s*minmax\(0,\s*1fr\);/.test(modeHtml));
+
+/* ABRIR DIRECTAMENTE EN INICIO O EN COMPROBACION. El galpon solo se
+   montaba al pasar por Geometria; abriendo en otro paso, Inicio decia «no
+   hay geometria montada» con los parametros puestos y Comprobacion salia
+   en blanco. Se carga la pagina OTRA VEZ empezando en cada uno. */
+for (const [id, que, re] of [
+  ["inicio", "el tablero trae el galpon", /1200 m²/],
+  ["comprob", "la comprobacion trae sus avisos", /sin perfil asignado/],
+  ["cargas", "el paso sin pantalla dice lo que hara", /E\.020/]
+]) {
+  const html = modeHtml.replace('var pasoActivo = "geom";', 'var pasoActivo = "' + id + '";');
+  cierto("se puede arrancar en " + id, html !== modeHtml);
+  const X = carga(html, true);
+  cierto("arrancando en " + id + " la pagina no revienta" +
+    (X.errApp ? ": " + X.errApp.message : ""), !X.errApp);
+  cierto("arrancando en " + id + ", " + que + " sin pasar por Geometria",
+    re.test(pinto(X.dom, "centro").innerHTML));
+  cierto("y la insignia ya esta en la pestana",
+    /class="ins"/.test(pinto(X.dom, "pasos").innerHTML));
+}
 
 /* y el boton de «ir a» vuelve a Geometria con su armazon entero */
 pulsa(M.dom, "centro", "data-ir", "geom");

@@ -811,10 +811,11 @@
       ln("En conflicto, con decisión escrita", String(r.conflicto), "conteo"),
       ln("Sin fuente", String(r.sin_fuente), "conteo",
         { estado: r.sin_fuente === 0 ? "ok" : "no" }),
-      ln("Pendientes", pend.join(" · ") || "ninguno", "conteo",
+      ln("Pendientes", String(r.pendiente), "conteo",
         { estado: r.pendiente ? "no" : "ok",
           nota: r.pendiente
-            ? "son documentos que faltan, no cálculos sin hacer" : null })
+            ? pend.join(" · ") + " — son documentos que faltan, no cálculos sin hacer"
+            : null })
     ], r.sin_fuente === 0 ? "bien" : null));
 
     return fichas;

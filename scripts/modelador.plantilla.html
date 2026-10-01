@@ -38,6 +38,12 @@ button.h.pri { background:var(--acero); border-color:var(--acero); color:#fff;
   font-weight:600; }
 button.h:hover { border-color:var(--acero); }
 
+/* OCULTO ES OCULTO. Una regla de autor con display:flex le gana al
+   [hidden] del navegador, y la barra de vistas se seguia viendo en Cargas
+   con el atributo puesto. Esta regla va primero y con !important a
+   proposito: es la unica manera de que hidden signifique lo que dice. */
+[hidden] { display:none !important; }
+
 /* ---- barra de pasos ---- */
 nav.pasos { border-bottom:1px solid var(--linea); padding:7px 16px 0;
   display:flex; gap:18px; align-items:flex-end; flex-wrap:wrap; }
@@ -76,8 +82,15 @@ nav.vistas button[aria-selected="true"] { color:var(--tinta); border-bottom-colo
 /* ---- la reja de trabajo ---- */
 .obra { flex:1; display:grid; grid-template-columns:210px minmax(0,1fr) 300px;
   min-height:0; }
+/* LA REJA LA ELIGE EL PASO. Con tres columnas fijas, ocultar los lados
+   dejaba el centro en la primera -la de 210 px- y todo salia apretado a la
+   izquierda con la pantalla vacia al lado. Sin lado, sin su columna. */
+.obra.sin-izq { grid-template-columns:minmax(0,1fr) 300px; }
+.obra.sin-der { grid-template-columns:210px minmax(0,1fr); }
+.obra.sin-izq.sin-der { grid-template-columns:minmax(0,1fr); }
 @media (max-width:1100px) { .obra { grid-template-columns:180px minmax(0,1fr); }
-  .obra > aside.der { display:none; } }
+  .obra > aside.der { display:none; }
+  .obra.sin-izq { grid-template-columns:minmax(0,1fr); } }
 .obra > * { overflow:auto; min-width:0; }
 aside.izq { border-right:1px solid var(--linea); padding:10px 11px 24px; }
 aside.der { border-left:1px solid var(--linea); padding:10px 12px 24px;
@@ -219,7 +232,11 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
 .todavia b { color:var(--aviso); }
 /* ---- EL TABLERO Y LA LISTA DE AVISOS · los pasos que no llevan dibujo
    no llevan lienzo: llevan pagina, y una pagina quiere ancho ---- */
-.hoja { padding:20px 26px 40px; overflow:auto; }
+.hoja { padding:20px 26px 40px; overflow:auto; max-width:1180px; width:100%;
+  margin:0 auto; box-sizing:border-box; }
+/* una pagina sin lados NO se pega a la izquierda: va centrada, y el aviso de
+   «todavia no» ocupa su ancho en vez de quedarse en una columna estrecha */
+.hoja .todavia { max-width:none; }
 .hoja > h2 { font-family:var(--disp); font-size:19px; font-weight:600;
   margin:0 0 3px; letter-spacing:-.01em; }
 .hoja > p.lead { color:var(--suave); font-size:12.5px; margin:0 0 18px; }
@@ -283,7 +300,7 @@ ol.avisos .ir:hover { border-color:var(--acero); }
 <nav class="vistas" id="vistas"></nav>
 <div class="metricas" id="metricas"></div>
 
-<div class="obra">
+<div class="obra" id="obra">
   <aside class="izq" id="izquierda">
     <div id="lado-ver">
       <h3 class="sec">Ver</h3>
@@ -391,18 +408,21 @@ ol.avisos .ir:hover { border-color:var(--acero); }
     $("lado-parametros").hidden = !par;
     $("izquierda").hidden = !a.lados.length;
     $("derecha").hidden = !a.vistas;
+    $("obra").className = "obra" + (a.lados.length ? "" : " sin-izq") +
+      (a.vistas ? "" : " sin-der");
     return a;
   }
 
   /* ---------- INICIO · el tablero -----------------------------------
      El primer paso puede estar lleno hoy porque no calcula nada nuevo:
      dice que hay en el libro y que falta. */
-  function pintaInicio() {
+  function pintaInicio(fallo) {
     var f = VISTAS.inicio(m3, modelo);
-    $("centro").innerHTML = '<div class="hoja"><h2>Galpon</h2>' +
+    $("centro").innerHTML = '<div class="hoja"><h2>Galpón</h2>' +
       '<p class="lead">' + (m3
-        ? "lo que hay en este libro, y en que paso esta"
-        : "todavia no hay geometria montada: ve a Geometria") + "</p>" +
+        ? "lo que hay en este libro, y en qué paso está"
+        : "el galpón no se puede montar con los datos de ahora: " +
+          esc(fallo ? fallo.titulo : "—") + ". Se corrige en Geometría.") + "</p>" +
       '<div class="rejilla">' + f.map(pintaFicha).join("") + "</div></div>";
   }
 
@@ -410,11 +430,16 @@ ol.avisos .ir:hover { border-color:var(--acero); }
      Las guardas de los modulos LANZAN cuando algo es imposible, y eso se
      ve enseguida. Lo que no se ve es lo que es legal pero cuesta: el alero
      a axial, los metros que no dilatan, las clases sin perfil. */
-  function pintaComprobacion() {
+  function pintaComprobacion(fallo) {
     if (!m3) {
-      $("centro").innerHTML = '<div class="hoja"><h2>Comprobacion</h2>' +
-        '<p class="lead">no hay nada que comprobar todavia: el galpon no esta ' +
-        'montado. Ve a Geometria.</p></div>';
+      /* si el galpon no se monta, ESO es lo primero que hay que comprobar */
+      insignia = 1; pintaPasos();
+      $("centro").innerHTML = '<div class="hoja"><h2>Comprobación</h2>' +
+        '<p class="lead">hay 1 cosa que impide seguir</p>' +
+        '<ol class="avisos"><li class="error"><span class="niv">error</span><b>' +
+        esc(fallo ? fallo.titulo : "el galpón no se puede montar") + "</b>" +
+        (fallo ? "<p>" + esc(fallo.mensaje) + "</p>" : "") +
+        '<button class="ir" data-ir="geom">ir a Geometría</button></li></ol></div>';
       return;
     }
     var c = VISTAS.comprobacion(m3, modelo);
@@ -423,9 +448,9 @@ ol.avisos .ir:hover { border-color:var(--acero); }
     var cu = '<div class="cuenta">' +
       (c.cuenta.error ? '<span class="e">' + c.cuenta.error + " error(es)</span>" : "") +
       (c.cuenta.aviso ? '<span class="a">' + c.cuenta.aviso + " aviso(s)</span>"
-        : '<span class="ok">ningun aviso</span>') +
+        : '<span class="ok">ningún aviso</span>') +
       '<span>' + c.cuenta.nota + " nota(s)</span></div>";
-    $("centro").innerHTML = '<div class="hoja"><h2>Comprobacion</h2>' +
+    $("centro").innerHTML = '<div class="hoja"><h2>Comprobación</h2>' +
       '<p class="lead">' + esc(c.nota) + "</p>" + cu +
       '<ol class="avisos">' + c.lista.map(function (a) {
         return '<li class="' + a.nivel + '"><span class="niv">' + a.nivel +
@@ -452,12 +477,12 @@ ol.avisos .ir:hover { border-color:var(--acero); }
   function pintaTodavia(paso) {
     $("centro").innerHTML = '<div class="hoja"><h2>' + esc(paso.nombre) +
       "</h2><p class=\"lead\">" + esc(paso.grupo) + "</p>" +
-      '<div class="todavia"><b>Todavia no hay pantalla para este paso.</b>' +
-      "<br><br>Lo que ensenara: " + esc(paso.que || "—") +
-      ".<br>La hara <code>" + esc(paso.hara || "—") + "</code>." +
+      '<div class="todavia"><b>Todavía no hay pantalla para este paso.</b>' +
+      "<br><br>Lo que enseñará: " + esc(paso.que || "—") +
+      ".<br>La hará <code>" + esc(paso.hara || "—") + "</code>." +
       "<br>El motor: " + esc(paso.motor || "—") + ".<br><br>" +
-      "No se pone una maqueta: una pestana que parece hecha y esta vacia " +
-      "engana mas que una que avisa.</div></div>";
+      "No se pone una maqueta: una pestaña que parece hecha y está vacía " +
+      "engaña más que una que avisa.</div></div>";
   }
 
   /* ---------- VER Y AISLAR · lo que estaba mal y por qué -------------
@@ -872,12 +897,39 @@ ol.avisos .ir:hover { border-color:var(--acero); }
   function recalcula(soloVista) {
     var paso = VISTAS.paso(pasoActivo);
     armaChrome();
-    if (pasoActivo === "inicio") { pintaInicio(); return; }
-    if (pasoActivo === "comprob") { pintaComprobacion(); return; }
-    if (!paso.listo) { pintaTodavia(paso); return; }
 
     var d = datos();
     if (soloVista && m3) { pintaLienzo(d); return; }
+    var fallo = montaGalpon(d);
+    /* la insignia de Comprobacion, como en Reticula: el numero de avisos en
+       la propia pestana, desde el paso que sea, para no tener que entrar a
+       mirar si hay */
+    var ins = m3 ? (VISTAS.comprobacion(m3, modelo).insignia || null) : 1;
+    if (ins !== insignia) { insignia = ins; pintaPasos(); }
+    if (!paso.listo) { pintaTodavia(paso); return; }
+    /* EL GALPON SE MONTA EN CUALQUIER PASO. Antes solo se montaba al pasar
+       por Geometria, y abrir en Inicio o en Comprobacion decia «no hay
+       geometria montada» con los parametros puestos. Los campos siguen en
+       la pagina aunque esten ocultos, asi que se pueden leer siempre. */
+    if (pasoActivo === "inicio") { pintaInicio(fallo); return; }
+    if (pasoActivo === "comprob") { pintaComprobacion(fallo); return; }
+
+    if (fallo) {
+      $("metricas").innerHTML = "";
+      $("centro").innerHTML = '<div class="guarda"><b>' + esc(fallo.titulo) +
+        "</b><pre>" + esc(fallo.mensaje) + "\n\n" + esc(fallo.porQue) + "</pre></div>";
+      $("derecha").innerHTML = '<p class="nohay">' + esc(fallo.porQue) + "</p>";
+      return;
+    }
+
+    pintaMetricas(d);
+    pintaLienzo(d);
+  }
+
+  /* Monta el galpon con lo que digan los campos. Devuelve el fallo, o
+     null si se pudo; deja m3 en null si no se pudo, para que ningun paso
+     ensene un galpon viejo como si fuera el de ahora. */
+  function montaGalpon(d) {
     var v = VISTAS.valida(d);
     var fallo = null;
     if (!v.ok) {
@@ -892,21 +944,8 @@ ol.avisos .ir:hover { border-color:var(--acero); }
       try { m3 = MONTAJE.monta(paraElMotor(VISTAS.datosModelo(d))); }
       catch (e) { m3 = null; fallo = VISTAS.problema(e); fallo.porQue = fallo.porQueNoSeDibuja; }
     }
-
-    if (fallo) {
-      $("metricas").innerHTML = "";
-      $("centro").innerHTML = '<div class="guarda"><b>' + esc(fallo.titulo) +
-        "</b><pre>" + esc(fallo.mensaje) + "\n\n" + esc(fallo.porQue) + "</pre></div>";
-      $("derecha").innerHTML = '<p class="nohay">' + esc(fallo.porQue) + "</p>";
-      return;
-    }
-
-    pintaMetricas(d);
-    pintaLienzo(d);
-    /* la insignia de Comprobacion, como en Reticula: el numero de avisos
-       en la propia pestana, para no tener que entrar a mirar si hay */
-    var ins = VISTAS.comprobacion(m3, modelo).insignia || null;
-    if (ins !== insignia) { insignia = ins; pintaPasos(); }
+    if (fallo) m3 = null;
+    return fallo;
   }
 
   function pintaLienzo(d) {
