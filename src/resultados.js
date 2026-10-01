@@ -18,12 +18,12 @@
     module.exports = definir(require("./inventario.js"), require("./vistas.js"),
       require("./e020.js"), require("./viento.js"), require("./combinaciones.js"),
       require("./analisis.js"), require("./libro.js"), require("./e030.js"),
-      require("./diseno.js"));
+      require("./diseno.js"), require("./zapatas.js"));
   } else {
     raiz.RESULTADOS = definir(raiz.INVENTARIO, raiz.VISTAS, raiz.E020, raiz.VIENTO,
-      raiz.COMBINACIONES, raiz.ANALISIS, raiz.LIBRO, raiz.E030, raiz.DISENO);
+      raiz.COMBINACIONES, raiz.ANALISIS, raiz.LIBRO, raiz.E030, raiz.DISENO, raiz.ZAPATAS);
   }
-})(typeof self !== "undefined" ? self : this, function (INV, V, E020, VI, CB, AN, LIBRO, E030, DI) {
+})(typeof self !== "undefined" ? self : this, function (INV, V, E020, VI, CB, AN, LIBRO, E030, DI, ZA) {
   "use strict";
 
   const ART = INV.declara("resultados.js", [
@@ -33,7 +33,10 @@
     "S.Z", "S.U", "S.perfil", "S.R0", "S.pendulo", "S.T.rayleigh", "S.C.estatico", "S.V", "S.CR",
     "S.vertical", "S.despl", "S.deriva", "S.deriva.industrial", "A.sismo.sistema", "A.sismo.periodo",
     "D.DIS.longitudes", "D.DIS.cartela", "D.DIS.E5", "E.C3.arriostre", "C.E6.a", "C.E5.cond",
-    "T.U.c2", "T.U.c8", "C.E4.2L"
+    "T.U.c2", "T.U.c8", "C.E4.2L",
+    "Z.sigma.neta", "Z.inc30", "Z.levantamiento", "Z.deslizamiento", "Z.punzon.momento", "Z.Vc.viga",
+    "Z.As.min", "Z.s.max", "Z.rec", "Z.peralte.min", "Z.vuelco", "Z.servicio",
+    "Z.bloque", "Z.franja", "Z.peso"
   ]);
   const ln = V.ln, ficha = V.ficha;
   const n2 = (x, d) => (Math.round(x * Math.pow(10, d)) / Math.pow(10, d))
@@ -664,7 +667,7 @@
 
   /* Lo que el análisis y el diseño tienen que contarle a Comprobación.  Solo
      lo que ya está calculado: Comprobación no corre nada por su cuenta. */
-  function avisosResultados(a, d) {
+  function avisosResultados(a, d, cz) {
     const L = [];
     if (a && a.ok) {
       const r = a.r;
@@ -701,11 +704,178 @@
           cuales: falta.map((x) => x.id), paso: "diseno" });
       }
     }
+    if (cz && cz.ok && !cz.z.cumple) {
+      L.push({ nivel: "error", que: "La zapata no cumple: " + cz.z.fallas.join(", "),
+        porque: cz.z.auto ? "ni con las medidas buscadas: revisa el suelo, el desplante o el pedestal"
+          : "con las medidas dadas. Borra B, L y h para que se busquen.", paso: "cimen" });
+    }
     return L;
+  }
+
+  /* =====================================================================
+     EL PASO CIMENTACIÓN · E8
+     ===================================================================== */
+  const CAMPOS_CIMENTACION = [
+    { grupo: "Suelo", campos: [
+      { id: "sigma", clave: "sigmaAdm_kgfcm2", etiqueta: "Presión admisible del estudio de suelos",
+        unidad: "kgf/cm²", tipo: "numero", fuente: "Z.sigma.neta" },
+      { id: "neta", clave: "esNeta", etiqueta: "Esa presión es", tipo: "opcion", fuente: "Z.sigma.neta",
+        opciones: [ELEGIR, ["bruta", "bruta: se descuenta el relleno y la sobrecarga"], ["neta", "neta: ya descontada"]] },
+      { id: "df", clave: "Df_cm", etiqueta: "Profundidad de desplante", unidad: "cm", tipo: "numero",
+        fuente: "Z.sigma.neta" },
+      { id: "gr", clave: "gammaRelleno_kgfm3", etiqueta: "Peso específico del relleno", unidad: "kgf/m³",
+        tipo: "numero", fuente: "Z.peso" },
+      { id: "sc", clave: "sc_kgfm2", etiqueta: "Sobrecarga sobre el piso", unidad: "kgf/m²", tipo: "numero",
+        fuente: "Z.sigma.neta" },
+      { id: "mu", clave: "mu", etiqueta: "Coeficiente de rozamiento μ (opcional)", tipo: "numero",
+        fuente: "Z.deslizamiento" }] },
+    { grupo: "Concreto y acero", campos: [
+      { id: "fc", clave: "fc_kgcm2", etiqueta: "f'c del concreto", tipo: "opcion", fuente: "Z.bloque",
+        opciones: [ELEGIR, ["210", "210 kgf/cm²"], ["280", "280 kgf/cm²"], ["350", "350 kgf/cm²"]] },
+      { id: "grado", clave: "grado", etiqueta: "Acero de refuerzo", tipo: "opcion", fuente: "Z.As.min",
+        opciones: [ELEGIR, ["60", "Grado 60 · fy 420 MPa"], ["40", "Grado 40 · fy 280 MPa"]] },
+      { id: "rec", clave: "rec_cm", etiqueta: "Recubrimiento (mín. 7 cm)", unidad: "cm", tipo: "numero",
+        fuente: "Z.rec" },
+      { id: "barra", clave: "barra", etiqueta: "Barra de la parrilla", tipo: "opcion", fuente: "Z.s.max",
+        opciones: [ELEGIR, ["1/2", "1/2\""], ["5/8", "5/8\""], ["3/4", "3/4\""], ["1", "1\""]] }] },
+    { grupo: "Pedestal", campos: [
+      { id: "pedb", clave: "pedB_cm", etiqueta: "Ancho del pedestal (fuera del plano)", unidad: "cm", tipo: "numero" },
+      { id: "pedl", clave: "pedL_cm", etiqueta: "Largo del pedestal (en el plano del pórtico)", unidad: "cm",
+        tipo: "numero" },
+      { id: "sobre", clave: "sobreTerreno_cm", etiqueta: "Cuánto sobresale del terreno", unidad: "cm",
+        tipo: "numero" }] },
+    { grupo: "Zapata (vacío: se buscan las medidas)", campos: [
+      { id: "zb", clave: "B_cm", etiqueta: "B", unidad: "cm", tipo: "numero" },
+      { id: "zl", clave: "L_cm", etiqueta: "L (en el plano del pórtico)", unidad: "cm", tipo: "numero" },
+      { id: "zh", clave: "h_cm", etiqueta: "Peralte h", unidad: "cm", tipo: "numero", fuente: "Z.peralte.min" }] }
+  ];
+
+  function leeCimentacion(val) {
+    const c = {};
+    const num = (x) => (x === "" || x === undefined || x === null || isNaN(+x)) ? undefined : +x;
+    const pon = (k, v) => { if (v !== undefined) c[k] = v; };
+    pon("sigmaAdm_kgfcm2", num(val.sigma));
+    if (val.neta === "neta" || val.neta === "bruta") c.esNeta = val.neta === "neta";
+    pon("Df_cm", num(val.df)); pon("gammaRelleno_kgfm3", num(val.gr)); pon("sc_kgfm2", num(val.sc));
+    pon("mu", num(val.mu)); pon("fc_kgcm2", num(val.fc));
+    if (val.grado === "60" || val.grado === "40") c.grado = val.grado;
+    pon("rec_cm", num(val.rec));
+    if (val.barra) c.barra = val.barra;
+    pon("pedB_cm", num(val.pedb)); pon("pedL_cm", num(val.pedl)); pon("sobreTerreno_cm", num(val.sobre));
+    pon("B_cm", num(val.zb)); pon("L_cm", num(val.zl)); pon("h_cm", num(val.zh));
+    return c;
+  }
+  function valoresDeCimentacion(cz) {
+    const c = cz || {}, v = {};
+    const s = (k, x) => { if (x !== undefined) v[k] = String(x); };
+    s("sigma", c.sigmaAdm_kgfcm2);
+    if (typeof c.esNeta === "boolean") v.neta = c.esNeta ? "neta" : "bruta";
+    s("df", c.Df_cm); s("gr", c.gammaRelleno_kgfm3); s("sc", c.sc_kgfm2); s("mu", c.mu); s("fc", c.fc_kgcm2);
+    s("grado", c.grado); s("rec", c.rec_cm); s("barra", c.barra);
+    s("pedb", c.pedB_cm); s("pedl", c.pedL_cm); s("sobre", c.sobreTerreno_cm);
+    s("zb", c.B_cm); s("zl", c.L_cm); s("zh", c.h_cm);
+    return v;
+  }
+
+  /* La zapata: necesita el análisis, porque lo que le llega son sus casos */
+  function cimentacion(m3, modelo, perfiles, an) {
+    const a = an || analisis(m3, modelo, perfiles);
+    if (!a.ok) {
+      return { ok: false, faltas: [{ paso: "analisis",
+        que: "la cimentación necesita las reacciones del análisis, y el análisis todavía no corre" }].concat(a.faltas) };
+    }
+    const c = modelo.cimentacion || {};
+    const d = { casos: a.r.casos,
+      suelo: { sigmaAdm_kgfcm2: c.sigmaAdm_kgfcm2, esNeta: c.esNeta, Df_cm: c.Df_cm,
+        gammaRelleno_kgfm3: c.gammaRelleno_kgfm3, sc_kgfm2: c.sc_kgfm2, mu: c.mu },
+      concreto: { fc_kgcm2: c.fc_kgcm2, grado: c.grado, rec_cm: c.rec_cm, barra: c.barra },
+      pedestal: { b_cm: c.pedB_cm, l_cm: c.pedL_cm, sobreTerreno_cm: c.sobreTerreno_cm },
+      zapata: (c.B_cm > 0 && c.L_cm > 0 && c.h_cm > 0) ? { B_cm: c.B_cm, L_cm: c.L_cm, h_cm: c.h_cm } : null };
+    const z = ZA.disena(d);
+    if (!z.ok) {
+      /* el pedestal tiene dos campos: se manda al primero */
+      return { ok: false, faltas: z.faltan.map((f) => ({ paso: "cimen", que: f.que,
+        campo: f.campo === "ci_ped" ? "ci_pedb" : f.campo })) };
+    }
+    return { ok: true, z: z, r: a.r, datos: c, fichas: fichasCimentacion(z) };
+  }
+
+  /* El dibujo de la zapata en cm: la sección en el plano del pórtico con la
+     presión de la combinación de servicio que manda, y la planta con las barras.
+     La plantilla solo lo escala. */
+  function dibujoCimentacion(cz) {
+    const z = cz.z, p = z.servicio.peor, c = z.concreto;
+    const d = cz.datos;
+    const pr = ZA.presion(p.N, p.e, z.zapata.B_cm, z.zapata.L_cm);
+    const L = z.zapata.L_cm, puntos = [];
+    if (pr.q) for (let i = 0; i <= 40; i++) { const x = -L / 2 + L * i / 40; puntos.push([x, pr.q(x)]); }
+    return {
+      B: z.zapata.B_cm, L: L, h: z.zapata.h_cm, Df: d.Df_cm, sobre: d.sobreTerreno_cm,
+      pedB: d.pedB_cm, pedL: d.pedL_cm,
+      presion: { puntos: puntos, qmax: p.qmax, admisible: p.admisible, combo: p.combo, base: p.base,
+        forma: p.forma || (p.vuelca ? "vuelca: la resultante cae fuera" : "se levanta"), cumple: p.ratio <= 1 },
+      barrasL: c.aceroL && !c.aceroL.insuficiente ? c.aceroL.n : 0,
+      barrasB: c.aceroB && !c.aceroB.insuficiente ? c.aceroB.n : 0,
+      barrasSup: c.aceroSup && !c.aceroSup.insuficiente ? c.aceroSup.n : 0,
+      rec: d.rec_cm, cumple: z.cumple
+    };
+  }
+
+  const cm2 = (x) => n2(x, 2) + " cm²";
+  function fichasCimentacion(z) {
+    const s = z.servicio.peor, l = z.levantamiento, c = z.concreto;
+    const F = [];
+    F.push(ficha("La zapata", z.auto ? "medidas buscadas: las mínimas que cumplen" : "medidas dadas", [
+      ln("B × L × h", n2(z.zapata.B_cm, 0) + " × " + n2(z.zapata.L_cm, 0) + " × " + n2(z.zapata.h_cm, 0) + " cm",
+        z.auto ? "medido" : "entrada"),
+      ln("Peso de zapata + pedestal", t2(z.pesos.zapata + z.pesos.pedestal), "medido"),
+      ln("Peso del relleno encima", t2(z.pesos.relleno), "medido",
+        { nota: "contra el levantamiento, y cargando los volados" })
+    /* lo largo va en la etiqueta y la palabra corta en el valor: el valor no parte línea */
+    ].concat(z.cumple ? [] : [ln(z.fallas.join(" · "), "NO CUMPLE", "medido", { estado: "no" })]),
+    z.cumple ? "bien" : null));
+    F.push(ficha("El suelo, en servicio", "sin tracción · +30 % con viento o sismo", [
+      ln("Presión admisible neta", n2(z.sigmaN, 3) + " kgf/cm²", "norma", { fuente: "Z.sigma.neta" }),
+      ln("Presión máxima", s.qmax ? n2(s.qmax, 3) + " kgf/cm²" : "—", "medido",
+        { nota: s.combo + " · base " + s.base + " · " + (s.forma || (s.vuelca ? "VUELCA" : "se levanta")) }),
+      ln("Contra la admisible", n2(s.admisible, 3) + " kgf/cm²", "norma",
+        { fuente: "Z.inc30", estado: s.ratio <= 1 ? "ok" : "no" }),
+      ln("Excentricidad e/L", n2(Math.abs(s.eL), 3), "medido",
+        { nota: s.vuelca ? "más de L/2: la resultante cae fuera de la base, la zapata vuelca"
+          : (Math.abs(s.eL) > 1 / 6 ? "más de L/6: presión triangular, parte de la base no apoya"
+            : "dentro del tercio central") }),
+      ln("Deslizamiento μ·N/H", z.servicio.deslizamiento ? n2(z.servicio.deslizamiento.deslizamiento, 2) : "sin μ",
+        "medido", { nota: "la E.060 no fija factor: lo decide el estudio de suelos (fila Z.deslizamiento)" })
+    ]));
+    F.push(ficha("Levantamiento", "0,9·(D + zapata + pedestal + relleno) contra el viento y el sismo", [
+      ln("Lo que tira hacia arriba / lo que sujeta", l.combo ? n2(l.ratio, 3) : "nada tira", "norma",
+        { fuente: "Z.levantamiento", estado: l.ratio <= 1 ? "ok" : "no", nota: l.combo || null }),
+      ln("Resultante amplificada dentro de la base", z.vuelcoAmplificado.length ? "cae fuera en " +
+        z.vuelcoAmplificado.length : "en todas", "norma", { fuente: "Z.vuelco",
+        estado: z.vuelcoAmplificado.length ? "no" : "ok",
+        nota: z.vuelcoAmplificado.length ? z.vuelcoAmplificado[0].combo + " · base " + z.vuelcoAmplificado[0].base : null })
+    ]));
+    const ac = (a, nom) => a.insuficiente ? ln("Acero " + nom, "peralte insuficiente", "medido", { estado: "no" })
+      : ln("Acero " + nom, a.n + " Ø" + a.barra + "\" @ " + n2(a.s, 0) + " cm", "norma",
+        { fuente: { "mínimo": "Z.As.min", "separación": "Z.s.max", "flexión": "Z.bloque" }[a.manda],
+          nota: "As " + cm2(a.As) + " · manda " + { "mínimo": "el mínimo", "separación": "la separación máxima",
+            "flexión": "la flexión" }[a.manda] + " (hacen falta " + cm2(Math.max(a.As_req, a.As_min)) + ") · Mu " + tm(a.Mu) });
+    F.push(ficha("El concreto, con cargas amplificadas", "E.060 · secciones críticas en la cara del pedestal", [
+      ln("Cortante como viga, L", n2(c.cortL.ratio, 3), "norma", { fuente: "Z.Vc.viga", estado: c.cortL.ratio <= 1 ? "ok" : "no" }),
+      ln("Cortante como viga, B", n2(c.cortB.ratio, 3), "norma", { fuente: "Z.Vc.viga", estado: c.cortB.ratio <= 1 ? "ok" : "no" }),
+      ln("Punzonamiento con momento", n2(c.punz.ratio, 3), "norma", { fuente: "Z.punzon.momento",
+        estado: c.punz.ratio <= 1 ? "ok" : "no", nota: "γv = " + n2(c.punz.gv, 3) + " · momento transferido " + tm(c.punz.Mt) }),
+      ac(c.aceroL, "en L"), ac(c.aceroB, "en B")].concat(c.aceroSup ? [ac(c.aceroSup, "arriba, en L")] : []).concat([
+      ln("Peralte mínimo", n2(c.hMin, 1) + " cm", "norma", { fuente: "Z.peralte.min",
+        estado: z.zapata.h_cm >= c.hMin - 1e-9 ? "ok" : "no" })
+    ]).concat(c.franja ? [ln("Franja central (lado corto)", n2(c.franja.gs, 3) + " del acero", "norma",
+      { fuente: "Z.franja", nota: c.franja.nota })] : [])));
+    return F;
   }
 
   return {
     ART, DIRECCIONES, ACEROS, MODOS, CAMPOS_CARGAS, CAMPOS_ANALISIS, CAMPOS_DISENO, avisosResultados,
+    CAMPOS_CIMENTACION, leeCimentacion, valoresDeCimentacion, cimentacion, fichasCimentacion, dibujoCimentacion,
     leeSitio, valoresDeSitio, leeSistema, leeDiseno, valoresDeDiseno,
     diseno, fichasDiseno, dibujoDiseno, tablaDiseno, lineasDiseno, nivelRatio,
     forma, cargas, seccionDesde, analisis, fichasAnalisis, tablaReacciones, dibujo, lineasFuerzas

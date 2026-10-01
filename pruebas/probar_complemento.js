@@ -407,6 +407,21 @@ cierto("la soldadura y los pernos solo salen según la unión", /data-solo="un=s
 cierto("sin datos no verifica, y lo dice", /todavía no se puede verificar/.test(pinto(M.dom, "centro").innerHTML));
 cierto("guardar lleva los datos de diseño", /m\.diseno = modelo\.diseno/.test(modeHtml));
 
+/* ───── CIMENTACIÓN · su panel, y sin datos dice qué falta ───── */
+pulsa(M.dom, "pasos", "data-paso", "cimen");
+comp("en Cimentación va SU panel a la izquierda", pinto(M.dom, "lado-cimen").hidden, false);
+comp("y no el de Diseño", pinto(M.dom, "lado-diseno").hidden, true);
+const fci = pinto(M.dom, "fci").innerHTML;
+cierto("el formulario pide el suelo, el concreto y el pedestal",
+  /ci_sigma/.test(fci) && /ci_neta/.test(fci) && /ci_fc/.test(fci) && /ci_grado/.test(fci) && /ci_pedb/.test(fci));
+cierto("NINGÚN dato de cimentación trae valor", !/selected/.test(fci) && !/<input[^>]*value="[^"]/.test(fci));
+cierto("sin análisis no diseña, y manda al análisis",
+  /todavía no se puede diseñar/.test(pinto(M.dom, "centro").innerHTML) &&
+  /data-ir="analisis"/.test(pinto(M.dom, "centro").innerHTML));
+cierto("guardar y abrir llevan la cimentación",
+  /m\.cimentacion = modelo\.cimentacion/.test(modeHtml) && /modelo\.cimentacion = m\.cimentacion/.test(modeHtml));
+cierto("y Comprobación oye a la zapata", /avisosResultados\(analisisVigente\(\), disenoVigente\(\), cimenVigente\(\)\)/.test(modeHtml));
+
 /* INICIO · un tablero de verdad, no una pestana vacia */
 pulsa(M.dom, "pasos", "data-paso", "inicio");
 const inicio = pinto(M.dom, "centro").innerHTML;
@@ -458,7 +473,9 @@ for (const pp of M.win.VISTAS.PASOS) {
     "lado-ver": a.lados.indexOf("ver") < 0,
     "lado-parametros": a.lados.indexOf("parametros") < 0,
     "lado-cargas": a.lados.indexOf("cargas") < 0,
-    "lado-analisis": a.lados.indexOf("analisis") < 0
+    "lado-analisis": a.lados.indexOf("analisis") < 0,
+    "lado-diseno": a.lados.indexOf("diseno") < 0,
+    "lado-cimen": a.lados.indexOf("cimen") < 0
   };
   /* LA REJA. Ocultar los lados no basta: con tres columnas fijas el
      centro caia en la primera, la de 210 px, y todo salia apretado a la

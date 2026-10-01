@@ -722,11 +722,9 @@
       motor: "placabase.js y conexiones.js (Cap. J), escritos y probados",
       que: "placa de apoyo, pernos de anclaje y llave de corte" },
 
-    { id: "cimen", grupo: "Paso 6", nombre: "Cimentación", listo: false,
-      vistas: false, lados: [],
-      hara: "pedestal.js y zapatas.js",
-      motor: "no escrito todavía · etapa E8",
-      que: "pedestal y zapata por E.060, con el levantamiento que un galpón sí tiene" },
+    { id: "cimen", grupo: "Paso 6", nombre: "Cimentación", listo: true,
+      vistas: false, lados: ["cimen"], derecha: true,
+      sub: "la zapata por E.060, con el levantamiento que un galpón sí tiene" },
 
     { id: "comprob", grupo: "Paso 7", nombre: "Comprobación", listo: true,
       vistas: false, lados: [],

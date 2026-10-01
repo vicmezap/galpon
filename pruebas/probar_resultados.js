@@ -195,4 +195,63 @@ comp("NI UNA línea de Diseño sin procedencia válida",
   ldd.lineas.concat(lsin.lineas).concat(dd.fichas[0].lineas)
     .filter((l) => V.ORIGENES.indexOf(l.origen) < 0).map((l) => l.q), []);
 
+/* ================================================================
+   6 · CIMENTACIÓN · E8
+   ================================================================ */
+const CZ = { sigmaAdm_kgfcm2: 1.5, esNeta: false, Df_cm: 150, gammaRelleno_kgfm3: 1800, sc_kgfm2: 500,
+  fc_kgcm2: 210, grado: "60", rec_cm: 7.5, barra: "5/8", pedB_cm: 40, pedL_cm: 60, sobreTerreno_cm: 20 };
+comp("de los datos a los campos y de vuelta, idéntico",
+  R.leeCimentacion(R.valoresDeCimentacion(CZ)), CZ);
+comp("un campo vacío NO se guarda como cero", R.leeCimentacion({ sigma: "", df: "", neta: "" }), {});
+comp("cada dato de cimentación que guarda el libro tiene su campo",
+  L.CIMENTACION.filter((k) => !R.CAMPOS_CIMENTACION.some((g) => g.campos.some((c2) => c2.clave === k))), []);
+comp("y cada campo, su dato en el libro",
+  R.CAMPOS_CIMENTACION.reduce((a, g) => a.concat(g.campos), []).filter((c2) => L.CIMENTACION.indexOf(c2.clave) < 0)
+    .map((c2) => c2.id), []);
+comp("ningún campo de cimentación trae valor de partida",
+  R.CAMPOS_CIMENTACION.reduce((a, g) => a.concat(g.campos), [])
+    .filter((c2) => c2.tipo === "opcion" && c2.opciones[0][0] !== "").map((c2) => c2.id), []);
+const cz0 = R.cimentacion(m3, L.nuevo({}), P);
+comp("sin análisis no corre, y manda primero al análisis", [cz0.ok, cz0.faltas[0].paso], [false, "analisis"]);
+const cz1 = R.cimentacion(m3, mok, P);
+comp("con análisis y sin datos, todo lo que falta es del paso Cimentación",
+  cz1.faltas.every((f) => f.paso === "cimen"), true);
+const idsCz = R.CAMPOS_CIMENTACION.reduce((a, g) => a.concat(g.campos), []).map((c2) => "ci_" + c2.id);
+comp("y cada falta lleva a un campo que existe", cz1.faltas.filter((f) => idsCz.indexOf(f.campo) < 0)
+  .map((f) => f.campo), []);
+const mcz = Object.assign({}, mok, { cimentacion: CZ });
+const cz = R.cimentacion(m3, mcz, P, ok);
+comp("con todo, corre", cz.ok, true);
+cierto("y busca las medidas", cz.z.auto === true && cz.z.zapata.B_cm > 0 && cz.z.zapata.h_cm > 0);
+cierto("usa los casos del análisis que se le da", cz.r === ok.r);
+const czm = R.cimentacion(m3, Object.assign({}, mok, { cimentacion: Object.assign({}, CZ,
+  { B_cm: 120, L_cm: 140, h_cm: 50 }) }), P, ok);
+comp("con medidas dadas, las verifica tal cual", [czm.z.auto, czm.z.zapata], [false, { B_cm: 120, L_cm: 140, h_cm: 50 }]);
+const czIncompleta = R.cimentacion(m3, Object.assign({}, mok, { cimentacion: Object.assign({}, CZ,
+  { B_cm: 120 }) }), P, ok);
+comp("con solo una medida, no verifica a medias: las busca", czIncompleta.z.auto, true);
+comp("el libro guarda la cimentación", L.nuevo({ cimentacion: CZ }).cimentacion, CZ);
+lanza("y rechaza una clave que no es de cimentación",
+  () => L.paraGuardar(Object.assign(L.nuevo({}), { cimentacion: { fc: 210 } })), ["cimentación desconocidos"]);
+const dcz = R.dibujoCimentacion(cz);
+comp("el dibujo trae las medidas de la zapata y del pedestal",
+  [dcz.B, dcz.L, dcz.h, dcz.pedB, dcz.pedL, dcz.Df], [cz.z.zapata.B_cm, cz.z.zapata.L_cm, cz.z.zapata.h_cm, 40, 60, 150]);
+cierto("la presión dibujada es la de servicio que manda, y su pico es qmax",
+  dcz.presion.combo === cz.z.servicio.peor.combo &&
+  Math.abs(Math.max.apply(null, dcz.presion.puntos.map((q) => q[1])) - cz.z.servicio.peor.qmax) < 1e-9);
+cierto("con presión triangular, un borde queda sin apoyo (q = 0)",
+  cz.z.servicio.peor.forma !== "triángulo" || dcz.presion.puntos.some((q) => q[1] === 0));
+comp("las barras dibujadas son las calculadas", [dcz.barrasL, dcz.barrasB],
+  [cz.z.concreto.aceroL.n, cz.z.concreto.aceroB.n]);
+comp("si la zapata cumple, Comprobación no dice nada de ella",
+  R.avisosResultados(null, null, cz).length, cz.z.cumple ? 0 : 1);
+const czMal = R.cimentacion(m3, Object.assign({}, mok, { cimentacion: Object.assign({}, CZ,
+  { B_cm: 80, L_cm: 80, h_cm: 40 }) }), P, ok);
+const avMal = R.avisosResultados(null, null, czMal);
+cierto("una zapata dada que no cumple es un ERROR en Comprobación, con su paso",
+  avMal.length === 1 && avMal[0].nivel === "error" && avMal[0].paso === "cimen" && /no cumple/.test(avMal[0].que));
+comp("NI UNA línea de Cimentación sin procedencia válida",
+  cz.fichas.reduce((a, f) => a.concat(f.lineas), []).concat(czm.fichas.reduce((a, f) => a.concat(f.lineas), []))
+    .filter((l) => V.ORIGENES.indexOf(l.origen) < 0).map((l) => l.q), []);
+
 fin();

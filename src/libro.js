@@ -113,7 +113,11 @@
 
   /* ---------- LO QUE SE GUARDA, Y NADA MÁS · fila L.solo.entradas ------ */
   const CLAVES = ["formato", "nombre", "parametros", "secciones", "ediciones",
-    "sitio", "sistema", "diseno", "vista", "guardado"];
+    "sitio", "sistema", "diseno", "cimentacion", "vista", "guardado"];
+
+  /* Los datos de la cimentación · misma regla. */
+  const CIMENTACION = ["sigmaAdm_kgfcm2", "esNeta", "Df_cm", "gammaRelleno_kgfm3", "sc_kgfm2", "mu",
+    "fc_kgcm2", "grado", "rec_cm", "barra", "pedB_cm", "pedL_cm", "sobreTerreno_cm", "B_cm", "L_cm", "h_cm"];
 
   /* Los datos de diseño · misma regla: lo que no está en la lista PARA. */
   const DISENO = ["arriostreInferior_m", "separacionLargueros_m", "LbColumna_m", "cartela",
@@ -160,6 +164,7 @@
       sitio: o.sitio || {},
       sistema: o.sistema || null,
       diseno: o.diseno || {},
+      cimentacion: o.cimentacion || {},
       vista: o.vista || {},
       guardado: null
     };
@@ -398,6 +403,11 @@
       throw new Error("libro: datos de diseño desconocidos: " + sobranD.join(", ") +
         ". Añádelos a DISENO si son de verdad datos de diseño.");
     }
+    const sobranC = Object.keys(modelo.cimentacion || {}).filter((k) => CIMENTACION.indexOf(k) < 0);
+    if (sobranC.length) {
+      throw new Error("libro: datos de cimentación desconocidos: " + sobranC.join(", ") +
+        ". Añádelos a CIMENTACION si son de verdad datos de cimentación.");
+    }
     if (modelo.sistema) {
       for (const k of Object.keys(SISTEMA)) {
         exige(SISTEMA[k].indexOf(modelo.sistema[k]) >= 0,
@@ -535,7 +545,7 @@
   return {
     ART, HOJA_MODELO, HOJA_RESULTADOS, HOJAS, VISIBILIDAD,
     TROZO, MAX_FILAS, TROZO_MSG, RANGO, MARCA, FORMATO,
-    CLAVES, PARAMETROS, TIPOS, SITIO, SISTEMA, DISENO,
+    CLAVES, PARAMETROS, TIPOS, SITIO, SISTEMA, DISENO, CIMENTACION,
     nuevo, valida, clona, edita, validaEdicion, aplica, olvidaEdiciones,
     parametrosEditables, asignaPerfil, perfilDe, perfilesHuerfanos,
     paraGuardar, serializa, deserializa,

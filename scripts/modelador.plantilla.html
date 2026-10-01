@@ -291,6 +291,16 @@ svg.fz .ok { stroke:var(--ok); } svg.fz .no { stroke:var(--alerta); }
 svg.fz .falta { stroke:var(--aviso); stroke-dasharray:6 4; }
 svg.fz text { font-family:var(--cifra); font-size:10px; fill:var(--tinta-2); }
 svg.fz .apoyo { fill:none; stroke:var(--tinta-2); stroke-width:1.4; }
+svg.zp { width:100%; height:auto; display:block; background:var(--papel);
+  border:1px solid var(--linea); border-radius:4px; margin:10px 0 6px; }
+svg.zp .conc { fill:var(--papel-2); stroke:var(--tinta-2); stroke-width:1.2; }
+svg.zp .ped { fill:var(--ficha); stroke:var(--tinta); stroke-width:1.4; }
+svg.zp .terreno { stroke:var(--suave); stroke-width:1; stroke-dasharray:8 5; }
+svg.zp .barra { stroke:var(--acero); stroke-width:2.4; }
+svg.zp .barra.fina { stroke-width:1; }
+svg.zp .pres { fill:var(--aviso); fill-opacity:.18; stroke:var(--aviso); stroke-width:1.4; }
+svg.zp .pres.no { fill:var(--alerta); stroke:var(--alerta); }
+svg.zp text { font-family:var(--cifra); font-size:14px; fill:var(--tinta-2); }
 .ley { display:flex; gap:14px; flex-wrap:wrap; font-family:var(--cifra); font-size:10px;
   color:var(--suave); margin-top:6px; }
 .ley i { display:inline-block; width:18px; height:0; border-top:3px solid; vertical-align:middle;
@@ -354,6 +364,10 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     <div id="lado-diseno">
       <h3 class="sec">Datos de diseño</h3>
       <form id="fd" autocomplete="off" onsubmit="return false"></form>
+    </div>
+    <div id="lado-cimen">
+      <h3 class="sec">Datos de la cimentación</h3>
+      <form id="fci" autocomplete="off" onsubmit="return false"></form>
     </div>
   </aside>
   <main class="lienzo" id="centro"></main>
@@ -453,6 +467,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     $("lado-cargas").hidden = a.lados.indexOf("cargas") < 0;
     $("lado-analisis").hidden = a.lados.indexOf("analisis") < 0;
     $("lado-diseno").hidden = a.lados.indexOf("diseno") < 0;
+    $("lado-cimen").hidden = a.lados.indexOf("cimen") < 0;
     $("izquierda").hidden = !a.lados.length;
     $("derecha").hidden = !a.derecha;
     $("obra").className = "obra" + (a.lados.length ? "" : " sin-izq") +
@@ -479,7 +494,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
      a axial, los metros que no dilatan, las clases sin perfil. */
   /* lo que el análisis y el diseño VIGENTES tienen que decir, sumado a la lista */
   function conResultados(c) {
-    var extra = RESULTADOS.avisosResultados(analisisVigente(), disenoVigente());
+    var extra = RESULTADOS.avisosResultados(analisisVigente(), disenoVigente(), cimenVigente());
     if (!extra.length) return c;
     var lista = extra.concat(c.lista);
     var cuenta = { error: 0, aviso: 0, nota: 0 };
@@ -571,6 +586,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
   pintaForm("fc", RESULTADOS.CAMPOS_CARGAS, "ca_");
   pintaForm("fa", RESULTADOS.CAMPOS_ANALISIS, "an_");
   pintaForm("fd", RESULTADOS.CAMPOS_DISENO, "di_");
+  pintaForm("fci", RESULTADOS.CAMPOS_CIMENTACION, "ci_");
 
   /* LOS CAMPOS QUE DEPENDEN DE OTRO · soloSi: "campo=valor".  El de la nieve
      básica solo con nieve; el de la soldadura solo con uniones soldadas. */
@@ -591,6 +607,10 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     actualizaSolos();
     recalcula();
   });
+  $("fci").addEventListener("change", function () {
+    modelo.cimentacion = RESULTADOS.leeCimentacion(valoresForm(RESULTADOS.CAMPOS_CIMENTACION, "ci_"));
+    recalcula();
+  });
   $("fc").addEventListener("change", function () {
     modelo.sitio = RESULTADOS.leeSitio(valoresForm(RESULTADOS.CAMPOS_CARGAS, "ca_"));
     actualizaSolos();
@@ -604,6 +624,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     ponValores(RESULTADOS.CAMPOS_CARGAS, "ca_", RESULTADOS.valoresDeSitio(modelo.sitio));
     ponValores(RESULTADOS.CAMPOS_ANALISIS, "an_", modelo.sistema || {});
     ponValores(RESULTADOS.CAMPOS_DISENO, "di_", RESULTADOS.valoresDeDiseno(modelo.diseno));
+    ponValores(RESULTADOS.CAMPOS_CIMENTACION, "ci_", RESULTADOS.valoresDeCimentacion(modelo.cimentacion));
     actualizaSolos();
   }
 
@@ -846,6 +867,119 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
       sel = '<div class="tarj"><h4>Nada seleccionado</h4><p class="sub">pincha una barra del dibujo</p></div>';
     }
     $("derecha").innerHTML = sel + d.fichas.map(pintaFicha).join("");
+  }
+
+  /* ---------- CIMENTACIÓN · E8 ----------
+     Usa los casos del análisis vigente. La zapata se dibuja en sección, en el
+     plano del pórtico, con la presión de servicio que manda, y en planta con
+     las barras. */
+  var cimenCache = { clave: null, res: null };
+  function claveCimen() { return claveAnalisis() + JSON.stringify(modelo.cimentacion || {}); }
+  function cimenActual() {
+    var k = claveCimen();
+    if (cimenCache.clave !== k) {
+      cimenCache = { clave: k, res: RESULTADOS.cimentacion(m3, modelo, PERFILES, analisisActual()) };
+    }
+    return cimenCache.res;
+  }
+  function cimenVigente() {
+    return cimenCache.clave === claveCimen() && cimenCache.res && cimenCache.res.ok ? cimenCache.res : null;
+  }
+
+  function svgCimen(dc) {
+    var W = 1000, m = 60, gap = 130;
+    /* las dos vistas a la misma escala: la sección a la izquierda, la planta a la derecha */
+    var arriba = dc.sobre + 10, abajo = dc.Df;
+    var qmax = Math.max.apply(null, dc.presion.puntos.map(function (p) { return p[1]; }).concat([1e-9]));
+    var k = (W - 2 * m - gap) / (dc.L + dc.L);
+    var hq = 0.35 * dc.L * k;                       /* alto de la presión dibujada, en px */
+    var H = (arriba + abajo) * k + hq + 2 * m;
+    if (H > 560) { k = k * (560 - 2 * m - hq) / ((arriba + abajo) * k); H = 560; }
+    var f = function (x) { return x.toFixed(1); };
+    var x0 = m + dc.L * k / 2, y0 = m + arriba * k;  /* origen de la sección: eje, nivel del terreno */
+    var X = function (x) { return x0 + x * k; }, Y = function (y) { return y0 + y * k; };
+    var h = '<svg class="zp" viewBox="0 0 ' + W + " " + f(H) + '">';
+    /* el terreno */
+    h += '<line class="terreno" x1="' + f(X(-dc.L / 2 - 30)) + '" y1="' + f(Y(0)) + '" x2="' + f(X(dc.L / 2 + 30)) +
+      '" y2="' + f(Y(0)) + '"/>';
+    /* el pedestal y la zapata */
+    h += '<rect class="conc" x="' + f(X(-dc.pedL / 2)) + '" y="' + f(Y(-dc.sobre)) + '" width="' + f(dc.pedL * k) +
+      '" height="' + f((dc.sobre + dc.Df - dc.h) * k) + '"/>';
+    h += '<rect class="conc" x="' + f(X(-dc.L / 2)) + '" y="' + f(Y(dc.Df - dc.h)) + '" width="' + f(dc.L * k) +
+      '" height="' + f(dc.h * k) + '"/>';
+    /* la parrilla de abajo, y la de arriba si hace falta */
+    var yb = Y(dc.Df - dc.rec);
+    h += '<line class="barra" x1="' + f(X(-dc.L / 2 + dc.rec)) + '" y1="' + f(yb) + '" x2="' + f(X(dc.L / 2 - dc.rec)) +
+      '" y2="' + f(yb) + '"/>';
+    if (dc.barrasSup) {
+      var ys = Y(dc.Df - dc.h + dc.rec);
+      h += '<line class="barra" x1="' + f(X(-dc.L / 2 + dc.rec)) + '" y1="' + f(ys) + '" x2="' + f(X(dc.L / 2 - dc.rec)) +
+        '" y2="' + f(ys) + '"/>';
+    }
+    /* la presión, colgada debajo de la zapata */
+    var yq = Y(dc.Df);
+    if (dc.presion.puntos.length) {
+      var pts = dc.presion.puntos.map(function (p) { return f(X(p[0])) + "," + f(yq + p[1] / qmax * hq); });
+      h += '<polygon class="pres' + (dc.presion.cumple ? "" : " no") + '" points="' + f(X(-dc.L / 2)) + "," + f(yq) +
+        " " + pts.join(" ") + " " + f(X(dc.L / 2)) + "," + f(yq) + '"/>';
+      var pm = dc.presion.puntos.reduce(function (a, p) { return p[1] > a[1] ? p : a; });
+      h += '<text x="' + f(X(pm[0]) + (pm[0] > 0 ? -6 : 6)) + '" y="' + f(yq + hq + 16) + '" text-anchor="' +
+        (pm[0] > 0 ? "end" : "start") + '">' + n2(dc.presion.qmax, 3) + " kgf/cm²</text>";
+    }
+    /* las cotas de la sección */
+    h += '<text x="' + f(X(0)) + '" y="' + f(Y(-dc.sobre) - 8) + '" text-anchor="middle">L = ' + n2(dc.L, 0) +
+      " cm · h = " + n2(dc.h, 0) + " cm</text>";
+    h += '<text x="' + f(X(dc.L / 2 + 8)) + '" y="' + f(Y(0) - 7) + '">terreno</text>';
+    h += '<text x="' + f(X(dc.L / 2 + 8)) + '" y="' + f(Y(dc.Df) - 4) + '">Df = ' + n2(dc.Df, 0) + "</text>";
+    /* la planta */
+    var px = m + dc.L * k + gap, py = Y(dc.Df - dc.h) - (dc.B * k - dc.h * k) / 2;
+    if (py < m) py = m;
+    h += '<rect class="conc" x="' + f(px) + '" y="' + f(py) + '" width="' + f(dc.L * k) + '" height="' + f(dc.B * k) + '"/>';
+    var r = dc.rec * k;
+    for (var i = 0; i < dc.barrasL; i++) {          /* las de L van a lo largo de L, repartidas en B */
+      var yy = py + r + (dc.B * k - 2 * r) * (dc.barrasL > 1 ? i / (dc.barrasL - 1) : 0.5);
+      h += '<line class="barra fina" x1="' + f(px + r) + '" y1="' + f(yy) + '" x2="' + f(px + dc.L * k - r) +
+        '" y2="' + f(yy) + '"/>';
+    }
+    for (var j = 0; j < dc.barrasB; j++) {
+      var xx = px + r + (dc.L * k - 2 * r) * (dc.barrasB > 1 ? j / (dc.barrasB - 1) : 0.5);
+      h += '<line class="barra fina" x1="' + f(xx) + '" y1="' + f(py + r) + '" x2="' + f(xx) + '" y2="' +
+        f(py + dc.B * k - r) + '"/>';
+    }
+    h += '<rect class="ped" x="' + f(px + (dc.L - dc.pedL) / 2 * k) + '" y="' + f(py + (dc.B - dc.pedB) / 2 * k) +
+      '" width="' + f(dc.pedL * k) + '" height="' + f(dc.pedB * k) + '"/>';
+    h += '<text x="' + f(px + dc.L * k / 2) + '" y="' + f(py - 8) + '" text-anchor="middle">planta · B = ' +
+      n2(dc.B, 0) + " cm</text>";
+    return h + "</svg>";
+  }
+
+  function pintaCimentacion(fallo) {
+    if (!m3) {
+      $("centro").innerHTML = '<div class="hoja"><h2>Cimentación</h2><p class="lead">el galpón no ' +
+        "se puede montar: " + esc(fallo ? fallo.titulo : "—") + ". Se corrige en Geometría.</p></div>";
+      $("derecha").innerHTML = "";
+      return;
+    }
+    var c = cimenActual();
+    if (!c.ok) {
+      $("centro").innerHTML = '<div class="hoja"><h2>Cimentación</h2><p class="lead">todavía no se ' +
+        "puede diseñar: falta lo que sigue</p>" + listaFaltas(c.faltas, true) + "</div>";
+      $("derecha").innerHTML = '<p class="nohay">La zapata se dimensiona dos veces con la misma ' +
+        "pieza: el área con las cargas de servicio contra el suelo, y el concreto con las " +
+        "amplificadas de la E.060. Le llegan los casos del análisis, no sus combinaciones.</p>";
+      return;
+    }
+    var z = c.z, dc = RESULTADOS.dibujoCimentacion(c);
+    var ley = '<div class="ley"><span><i style="border-top-color:var(--aviso)"></i>presión de servicio · ' +
+      esc(dc.presion.combo) + " · base " + esc(dc.presion.base) + " · " + esc(dc.presion.forma || "—") + "</span>" +
+      '<span><i style="border-top-color:var(--acero)"></i>parrilla</span></div>';
+    $("centro").innerHTML = '<div class="hoja"><h2>Cimentación</h2><p class="lead">zapata ' +
+      n2(z.zapata.B_cm, 0) + " × " + n2(z.zapata.L_cm, 0) + " × " + n2(z.zapata.h_cm, 0) + " cm · " +
+      (z.auto ? "las medidas mínimas que cumplen" : "las medidas dadas") + " · " +
+      (z.cumple ? "cumple" : "NO cumple: " + esc(z.fallas.join(", "))) + "</p>" + svgCimen(dc) + ley +
+      '<div class="tarj"><h4>Lo que esta cimentación todavía no cubre</h4>' +
+      z.avisos.map(function (x) { return '<p class="pie">' + esc(x) + "</p>"; }).join("") + "</div></div>";
+    $("derecha").innerHTML = c.fichas.map(pintaFicha).join("");
   }
 
   /* ---------- LO QUE TODAVIA NO TIENE PANTALLA ----------
@@ -1310,6 +1444,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     if (pasoActivo === "cargas") { pintaCargas(fallo); return; }
     if (pasoActivo === "analisis") { pintaAnalisis(fallo); return; }
     if (pasoActivo === "diseno") { pintaDiseno(fallo); return; }
+    if (pasoActivo === "cimen") { pintaCimentacion(fallo); return; }
 
     if (fallo) {
       $("metricas").innerHTML = "";
@@ -1621,6 +1756,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     m.sitio = modelo.sitio || {};
     m.sistema = modelo.sistema || null;
     m.diseno = modelo.diseno || {};
+    m.cimentacion = modelo.cimentacion || {};
     return m;
   }
   $("b-guardar").onclick = function () {
@@ -1672,6 +1808,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     if (m.sitio) modelo.sitio = m.sitio;
     if (m.sistema) modelo.sistema = m.sistema;
     if (m.diseno) modelo.diseno = m.diseno;
+    if (m.cimentacion) modelo.cimentacion = m.cimentacion;
     ponSitioEnFormularios();
     recalcula();
   }
