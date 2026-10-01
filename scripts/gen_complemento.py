@@ -88,6 +88,7 @@ MODULOS = [
     "analisis.js",       # lee MODELO, SOLVER, ESTABILIDAD, VIENTO, COMBINACIONES y MONTAJE
     "diseno.js",         # lee ELEMENTO, TIJERAL, COLUMNAS, ANALISIS, CONEXIONES y PERFILES
     "zapatas.js",        # lee UNIDADES, E020 y COMBINACIONES · E8
+    "pedestal.js",       # lee UNIDADES y E020 · E8
     "vista3d.js",       # funciones puras de camara y proyeccion
     "vistas.js",        # lee GENERADOR, MONTAJE y VISTA3D
     "libro.js",         # el modelo dentro del libro de Excel

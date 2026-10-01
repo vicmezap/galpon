@@ -2,7 +2,8 @@
   "seccion": "cimentacion",
   "titulo": "Pedestal y zapata · E.060",
   "modulos": [
-    "zapatas.js"
+    "zapatas.js",
+    "pedestal.js"
   ],
   "version": 1,
   "fecha": "2026-10-01",
@@ -157,12 +158,12 @@
       "id": "Z.phi.compresion",
       "grupo": "Factores de resistencia",
       "magnitud": "φ compresión axial · el pedestal",
-      "valor": "estribos 0,70 · espiral 0,75 · puede subir linealmente hasta 0,90 según Pn baja desde el menor de 0,1·f'c·Ag ó Pb hasta cero",
+      "valor": "estribos 0,70 · espiral 0,75 · en flexocompresión puede subir linealmente hasta 0,90 según φPn baja desde el menor de 0,1·f'c·Ag ó φPb hasta cero",
       "unidad": "—",
       "estado": "verificado",
       "editable": false,
       "fuente": "E.060 §9.3.2.2",
-      "nota": "En un galpón el pedestal suele tener poca carga axial y momento apreciable, así que ese incremento lineal hacia 0,90 sí llega a actuar."
+      "nota": "Leído en la página 66 renderizada: «en la medida que φPn disminuye desde 0,1 f'c Ag ó φPb». La fila decía Pn: el texto extraído pierde los φ. Con la transición escrita en φPn, φ sale de φ = 0,9 − 0,2·φPn/Plim, o sea φ = 0,9/(1 + 0,2·Pn/Plim), que vale 0,70 justo en φPn = Plim y 0,90 en Pn = 0. En un galpón el pedestal suele tener poca carga axial y momento apreciable, así que esa transición sí actúa. Con tracción axial, 0,90 (§9.3.2.2 a)."
     },
     {
       "id": "Z.phi.aplast",
@@ -457,6 +458,210 @@
       "clave": true,
       "fuente": "E.060 §15.6 y Cap. 12",
       "nota": "§15.6 manda desarrollar el refuerzo a cada lado de la sección crítica según el Capítulo 12. La longitud de desarrollo depende del diámetro, la separación y el recubrimiento, y no está conectada en este módulo: se avisa para que se compruebe, normalmente con gancho en el extremo."
+    },
+    {
+      "id": "PD.definicion",
+      "grupo": "El pedestal",
+      "magnitud": "Qué es un pedestal",
+      "valor": "elemento vertical en compresión con altura sin apoyo / menor dimensión lateral ≤ 3",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.060 §2.2, Definiciones",
+      "nota": "Textual: «Pedestal — Elemento vertical en compresión que tiene una relación entre la altura sin apoyo y el promedio de la menor dimensión lateral no mayor a 3». Dentro de ese límite la esbeltez no se mira; fuera, el pedestal es una columna corta y se comprueba con PD.esbeltez."
+    },
+    {
+      "id": "PD.esbeltez",
+      "grupo": "El pedestal",
+      "magnitud": "Esbeltez cuando el pedestal pasa de 3",
+      "valor": "se desprecia si k·ℓu/r < 22 · r = 0,3·h en la dirección considerada · k = 2",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.060 §10.13.2 y §10.11.2 · k = 2 por decisión",
+      "nota": "§10.13.2: «Para elementos en compresión no arriostrados contra desplazamientos laterales, pueden despreciarse los efectos de la esbeltez cuando kℓu/r es menor que 22». §10.11.2: r = 0,3 veces la dimensión en la dirección en que se considera la estabilidad. k = 2 es el voladizo: empotrado en la zapata y libre de desplazarse arriba, porque la placa base no lo arriostra. Es lo seguro. Si no cumple, el módulo NO amplifica momentos (§10.13.4, no está escrito): pide agrandar el pedestal."
+    },
+    {
+      "id": "PD.rho",
+      "grupo": "El pedestal",
+      "magnitud": "Cuantía del refuerzo longitudinal",
+      "valor": "0,01·Ag ≤ Ast ≤ 0,06·Ag · al menos 4 barras",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.060 §10.9.1 y §10.9.2",
+      "nota": "§10.9.1: «no debe ser menor que 0,01 ni mayor que 0,06 veces el área total, Ag». §10.9.2: cuatro barras dentro de estribos rectangulares. §10.8.3 permitiría usar un área reducida, no menor que la mitad, para el mínimo Y para la resistencia; no se usa: el pedestal se diseña con su sección entera y el 1 %, del lado seguro."
+    },
+    {
+      "id": "PD.Pnmax",
+      "grupo": "El pedestal",
+      "magnitud": "Tope de la carga axial con estribos",
+      "valor": "φPn,max = 0,80·φ·[0,85·f'c·(Ag − Ast) + fy·Ast]",
+      "unidad": "kgf",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.060 §10.3.6.2, ec. 10-2",
+      "nota": "Leído en la página renderizada. Con estribos según 7.10.5. φ = 0,70."
+    },
+    {
+      "id": "PD.compatibilidad",
+      "grupo": "El pedestal",
+      "magnitud": "Cómo se calcula la resistencia a flexocompresión",
+      "valor": "εcu = 0,003 · fs = Es·εs ≤ fy · bloque de 0,85·f'c en a = β1·c · sin tracción en el concreto",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.060 §10.2.3, §10.2.4, §10.2.5 y §10.2.7",
+      "nota": "Las hipótesis de §10.2: deformación máxima del concreto 0,003 (§10.2.3); el acero, Es veces su deformación y no más de fy (§10.2.4, textual); el concreto no resiste tracción (§10.2.5); bloque rectangular equivalente (§10.2.7, fila Z.bloque). La curva de interacción se arma barriendo la profundidad del eje neutro, y el ratio es la distancia al origen de la demanda entre la de la curva por el mismo rayo."
+    },
+    {
+      "id": "PD.Vc",
+      "grupo": "El pedestal",
+      "magnitud": "Cortante que resiste el concreto del pedestal",
+      "valor": "compresión: Vc = 0,17·√f'c·(1 + Nu/(14·Ag))·bw·d · tracción: Vc = 0,17·(1 + 0,29·Nu/Ag)·√f'c·bw·d ≥ 0",
+      "unidad": "kgf",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.060 ec. 11-4 (§11.3.1.2) y ec. 11-8 (§11.3.2.3)",
+      "nota": "Nu/Ag en MPa. Con tracción significativa §11.3.1.3 manda Vc = 0 «a menos que se haga un análisis más detallado usando 11.3.2.3», y eso es lo que se hace: la 11-8, con Nu negativo, que no baja de cero. En el galpón la tracción es la de 0,9·CM + 1,25·CVi."
+    },
+    {
+      "id": "PD.Vs",
+      "grupo": "El pedestal",
+      "magnitud": "El refuerzo por cortante",
+      "valor": "Vs = Av·fyt·d/s ≤ 0,66·√f'c·bw·d · s ≤ d/2 y 600 mm (a la mitad si Vs > 0,33·√f'c·bw·d) · Av,min = máx(0,062·√f'c, 0,35)·bw·s/fyt si Vu > 0,5·φVc · fyt ≤ 420 MPa",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.060 ec. 11-15, §11.5.5.1, §11.5.5.3, §11.5.6.1, ec. 11-13, §11.5.7.9 y §11.5.2",
+      "nota": "Leído en las páginas 91 y 92 renderizadas. Av son las dos ramas del estribo paralelas al cortante."
+    },
+    {
+      "id": "PD.estribos",
+      "grupo": "El pedestal",
+      "magnitud": "Estribos de un elemento en compresión",
+      "valor": "diámetro ≥ 8 mm con barras hasta 5/8\" · ≥ 3/8\" con barras de más de 5/8\" hasta 1\" · s ≤ 16·db, 48·dest y la menor dimensión",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.060 §7.10.5.1 y §7.10.5.2",
+      "nota": "Leído en la página 57 renderizada. Y arriba, los de los pernos de anclaje: al menos 2 de 1/2\" o 3 de 3/8\" en los 125 mm superiores (fila J.anclaje.E060.confinamiento)."
+    },
+    {
+      "id": "PD.rec",
+      "grupo": "El pedestal",
+      "magnitud": "Recubrimiento del pedestal",
+      "valor": "en contacto permanente con el suelo: 40 mm con barras de 5/8\" o menores · 50 mm con 3/4\" o mayores",
+      "unidad": "mm",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.060 §7.7.1 (b)",
+      "nota": "El pedestal se encofra y luego se rellena: está en contacto con el suelo pero no se vacía contra él, así que es el inciso (b) y no los 70 mm del (a). Se comprueba en el estribo (40 mm, son de 1/2\" o menos) y en la barra longitudinal, que queda a recubrimiento + estribo."
+    },
+    {
+      "id": "PD.separacion",
+      "grupo": "El pedestal",
+      "magnitud": "Distancia libre entre barras longitudinales",
+      "valor": "≥ 1,5·db y ≥ 40 mm",
+      "unidad": "mm",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.060 §7.6.3",
+      "nota": "Textual: «En elementos a compresión reforzados transversalmente con espirales o estribos, la distancia libre entre barras longitudinales no debe ser menor de 1,5 db ni de 40 mm». Si las barras no caben, el pedestal no se puede armar así."
+    },
+    {
+      "id": "PD.friccion",
+      "grupo": "El pedestal",
+      "magnitud": "El cortante en la junta con la zapata",
+      "valor": "φVn = φ·μ·Avf·fy ≤ φ·mín(0,2·f'c·Ac, 5,5·Ac) · μ = 1,4 monolítico, 1,0 junta rugosa, 0,6 junta lisa · fy ≤ 420 MPa · la tracción neta con acero adicional",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.060 §15.8.1.4, ec. 11-25, §11.7.4.3, §11.7.5, §11.7.6 y §11.7.7",
+      "nota": "§15.8.1.4 manda transferir la fuerza lateral por cortante-fricción. μ depende de cómo se vacíe: el pedestal con la zapata a la vez (1,4λ), o después sobre la zapata endurecida con la junta rugosa de 6 mm (1,0λ, §11.7.9) o sin hacerla rugosa (0,6λ). Es dato del proyecto. La tracción neta (§11.7.7) se resta del acero disponible: Avf,eficaz = Avf − Nt/(φ·fy). La compresión permanente que §11.7.7 deja sumar no se suma."
+    },
+    {
+      "id": "PD.friccion.Avf",
+      "grupo": "El pedestal",
+      "magnitud": "Qué barras cuentan como acero de cortante-fricción",
+      "valor": "todas menos las de la cara traccionada",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "decisión: E.060 §11.7.7 y §11.7.8",
+      "nota": "Las barras de la cara que el momento tracciona ya están trabajando a flexión en la junta, así que no se cuentan dos veces. Las demás cruzan el plano y se anclan en la zapata (§11.7.8). Es lo seguro."
+    },
+    {
+      "id": "PD.ldc",
+      "grupo": "El pedestal",
+      "magnitud": "Desarrollo de las barras del pedestal en compresión",
+      "valor": "ℓdc = máx(0,24·fy/√f'c, 0,043·fy)·db ≥ 200 mm",
+      "unidad": "mm",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.060 §12.3.1 y §12.3.2",
+      "nota": "Leído en la página 111 renderizada. fy y √f'c en MPa; 0,043 en mm²/N. No se usa el factor 0,75 de §12.3.3(b) por confinamiento."
+    },
+    {
+      "id": "PD.ldg",
+      "grupo": "El pedestal",
+      "magnitud": "Desarrollo con gancho estándar en tracción",
+      "valor": "ℓdg = 0,24·ψe·λ·fy/√f'c·db, con ψe = λ = 1 · no menos que máx(8·db, 150 mm)",
+      "unidad": "mm",
+      "estado": "conflicto",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.060 §12.5.1 y §12.5.2",
+      "nota": "§12.5.2 leído en la página 112: ψe = 1,2 con recubrimiento epóxico, λ = 1,3 con concreto liviano, y 1,0 en los demás casos. CONFLICTO EN EL MÍNIMO: la E.060 escribe «no debe ser menor que el MENOR valor entre 8 db y 150 mm», y el ACI 318, de donde viene, dice el MAYOR. Se toma el mayor: es lo seguro, y en la práctica no muerde, porque 0,24·fy/√f'c sale cerca de 22·db. No se usan los factores 0,7 y 0,8 de §12.5.3."
+    },
+    {
+      "id": "PD.anclaje.zapata",
+      "grupo": "El pedestal",
+      "magnitud": "El peralte de zapata que piden las barras del pedestal",
+      "valor": "h ≥ ℓ + recubrimiento + 2·db de la parrilla · ℓ = ℓdg si alguna combinación tracciona las barras en la junta, si no ℓdc",
+      "unidad": "cm",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "filas PD.ldc, PD.ldg, Z.dowels.traccion y Z.dowels.min",
+      "nota": "Las barras del pedestal siguen dentro de la zapata como dowels (§15.8.2.1 pide 0,005·Ag y el pedestal ya lleva 0,01·Ag) y terminan en gancho apoyado sobre la parrilla de abajo. Lo que tienen para desarrollarse es el peralte menos el recubrimiento y las dos capas de la parrilla. EN UN GALPÓN EMPOTRADO LAS BARRAS TRACCIONAN casi siempre (el momento, y 0,9·CM + 1,25·CVi), así que manda ℓdg, y eso puede pedir una zapata más peralta que la que pide el concreto: se le pasa a zapatas.js como peralte mínimo."
+    },
+    {
+      "id": "PD.cargas",
+      "grupo": "El pedestal",
+      "magnitud": "Con qué cargas se diseña el pedestal",
+      "valor": "las combinaciones de la E.060 desde los casos sin factorizar · momento en la base = M − H·altura · su peso con el factor de la muerta",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "filas A.reacciones.casos, Z.combos.E060 y Z.signo",
+      "nota": "Igual que la zapata: el concreto combina con los factores de la E.060 (fila J.costura) y le llegan los casos de primer orden. El segundo orden del pórtico de acero (B2) no entra en estas combinaciones; se avisa. Se comprueban dos secciones: arriba, con lo que da la placa, y abajo, en la junta, con el cortante llevado por la altura del pedestal."
+    },
+    {
+      "id": "PD.cap21",
+      "grupo": "El pedestal",
+      "magnitud": "Las disposiciones sísmicas del Capítulo 21",
+      "valor": "no se comprueban · se avisa",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "decisión de alcance",
+      "nota": "El sistema sismorresistente del galpón es el pórtico de acero, pero el pedestal le lleva las fuerzas sísmicas a la cimentación. Las exigencias del Capítulo 21 para elementos de concreto (confinamiento, diseño por capacidad) no están escritas aquí: se avisa en vez de callarlo."
     }
   ]
 }
