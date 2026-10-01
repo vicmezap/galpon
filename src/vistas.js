@@ -484,6 +484,201 @@
     return [ficha("La fachada x = 0", pestana("elev").sub, L)];
   }
 
+  /* ---------- ANOTACIONES · lo que convierte un croquis en un dibujo ----
+     Cotas, etiquetas y apoyos salen de aquí COMO DATOS, en coordenadas del
+     modelo, y la plantilla los transforma con el mismo mapa que usa para
+     las barras.  Dibujarlos a mano en el HTML habría sido más corto y no
+     se podría comprobar ni uno.
+
+     UN DIBUJO ESTRUCTURAL SIN CIFRAS NO ES UN DIBUJO, ES UN CROQUIS: no se
+     puede señalar una barra y hablar de ella, ni medir nada, ni llevarlo a
+     obra.  Y las etiquetas no son decoración: el panel derecho dice
+     «DIAGONAL D7» y si el dibujo no pone D7 en ninguna parte, el que mira
+     tiene que adivinar cuál es. */
+
+  /* Una cota: del punto 1 al 2, con su texto y a qué lado se aparta. El
+     `nivel` separa las cotas paralelas para que no se pisen. */
+  function cota(x1, y1, x2, y2, texto, lado, nivel) {
+    return { x1: x1, y1: y1, x2: x2, y2: y2, texto: texto,
+      lado: lado || "abajo", nivel: nivel || 1 };
+  }
+
+  function anotaciones(id, m3, vista) {
+    const p = pestana(id);
+    if (!p.real) return vacio();
+    if (id === "portico") return anotaPortico(m3);
+    if (id === "planta") return anotaPlanta(m3);
+    if (id === "elev") return anotaElevacion(m3);
+    return vacio();
+  }
+  function vacio() { return { cotas: [], etiquetas: [], apoyos: [], ejes: [] }; }
+
+  /* ---------- el pórtico ---------- */
+  function anotaPortico(m3) {
+    const t = m3.tijeral, h = m3.alturaColumna_m, L = m3.luz_m;
+    const sup = t.nudos.filter((n) => n.clase === "superior")
+      .slice().sort((a, b) => a.x_m - b.x_m);
+    const inf = t.nudos.filter((n) => n.clase === "inferior")
+      .slice().sort((a, b) => a.x_m - b.x_m);
+    const cotas = [], etiquetas = [], ejes = [];
+
+    /* los paños, abajo, uno a uno */
+    for (let i = 0; i + 1 < inf.length; i++) {
+      cotas.push(cota(inf[i].x_m, 0, inf[i + 1].x_m, 0,
+        n2(inf[i + 1].x_m - inf[i].x_m, 3), "abajo", 1));
+    }
+    /* y la luz entera, debajo de las anteriores */
+    cotas.push(cota(0, 0, L, 0, n2(L, 2) + " m", "abajo", 2));
+
+    /* las alturas, a la izquierda */
+    cotas.push(cota(0, 0, 0, h, n2(h, 2) + " m", "izq", 1));
+    cotas.push(cota(0, h, 0, h + t.peralteApoyo_m,
+      n2(t.peralteApoyo_m, 2), "izq", 1));
+    cotas.push(cota(0, 0, 0, h + t.peralteMaximo_m,
+      n2(h + t.peralteMaximo_m, 2) + " m", "izq", 2));
+
+    /* el peralte en el centro, donde se ve */
+    const c = L / 2;
+    cotas.push(cota(c, h + (t.peralteCentro_m ? 0 : 0), c, h + t.peralteCentro_m,
+      n2(t.peralteCentro_m, 2), "der", 1));
+
+    /* los nudos de paño: los de abajo todos, los de arriba uno sí uno no
+       cuando son muchos, o se tapan entre ellos */
+    const saltoSup = sup.length > 9 ? 2 : 1;
+    for (let i = 0; i < inf.length; i++) {
+      etiquetas.push({ x: inf[i].x_m, y: 0 + (m3.alturaColumna_m * 0),
+        yModelo: inf[i].y_m + m3.alturaColumna_m, texto: inf[i].id,
+        forma: "nada", donde: "debajo" });
+    }
+    for (let i = 0; i < sup.length; i += saltoSup) {
+      etiquetas.push({ x: sup[i].x_m, yModelo: sup[i].y_m + m3.alturaColumna_m,
+        texto: sup[i].id, forma: "nada", donde: "encima" });
+    }
+    /* los ejes de columna, discontinuos y rotulados en círculo */
+    for (const x of [0, L]) {
+      ejes.push({ x1: x, y1: 0, x2: x, y2: m3.alturaColumna_m + t.peralteMaximo_m });
+    }
+    etiquetas.push({ x: 0, yModelo: 0, texto: "A", forma: "circulo", donde: "debajo" });
+    etiquetas.push({ x: L, yModelo: 0, texto: "B", forma: "circulo", donde: "debajo" });
+
+    return { cotas: cotas, etiquetas: etiquetas, ejes: ejes,
+      apoyos: [{ x: 0, y: 0, tipo: "fijo" }, { x: L, y: 0, tipo: "movil" }],
+      art: ART["MT.ejes"] };
+  }
+
+  /* ---------- la planta de techo · (z, x) ---------- */
+  function anotaPlanta(m3) {
+    const ej = m3.ejes, L = m3.luz_m;
+    const cotas = [], etiquetas = [], ejes = [];
+    /* los paños a lo largo */
+    for (let k = 0; k + 1 < ej.z_m.length; k++) {
+      cotas.push(cota(ej.z_m[k], 0, ej.z_m[k + 1], 0,
+        n2(ej.sepPorticos_m, 2), "abajo", 1));
+    }
+    cotas.push(cota(0, 0, ej.largo_m, 0, n2(ej.largo_m, 2) + " m", "abajo", 2));
+    cotas.push(cota(0, 0, 0, L, n2(L, 2) + " m", "izq", 1));
+
+    /* los pórticos, numerados, con su línea de eje */
+    for (let k = 0; k < ej.porticos; k++) {
+      ejes.push({ x1: ej.z_m[k], y1: 0, x2: ej.z_m[k], y2: L });
+      etiquetas.push({ x: ej.z_m[k], yModelo: L, texto: String(k + 1),
+        forma: "circulo", donde: "encima" });
+    }
+    /* los paños arriostrados, rotulados donde están */
+    for (const k of m3.panosArriostradosTecho) {
+      etiquetas.push({ x: (ej.z_m[k] + ej.z_m[k + 1]) / 2, yModelo: L / 2,
+        texto: "arriostrado", forma: "marca", donde: "centro" });
+    }
+    return { cotas: cotas, etiquetas: etiquetas, ejes: ejes, apoyos: [],
+      art: ART["MT.ejes"] };
+  }
+
+  /* ---------- la elevación longitudinal · (z, y) ---------- */
+  function anotaElevacion(m3) {
+    const ej = m3.ejes, h = m3.alturaColumna_m;
+    const cotas = [], etiquetas = [], ejes = [];
+    for (let k = 0; k + 1 < ej.z_m.length; k++) {
+      cotas.push(cota(ej.z_m[k], 0, ej.z_m[k + 1], 0,
+        n2(ej.sepPorticos_m, 2), "abajo", 1));
+    }
+    cotas.push(cota(0, 0, ej.largo_m, 0, n2(ej.largo_m, 2) + " m", "abajo", 2));
+    cotas.push(cota(0, 0, 0, h, n2(h, 2) + " m", "izq", 1));
+    const apoyos = [];
+    for (let k = 0; k < ej.porticos; k++) {
+      ejes.push({ x1: ej.z_m[k], y1: 0, x2: ej.z_m[k], y2: h });
+      etiquetas.push({ x: ej.z_m[k], yModelo: 0, texto: String(k + 1),
+        forma: "circulo", donde: "debajo" });
+      apoyos.push({ x: ej.z_m[k], y: 0, tipo: "fijo" });
+    }
+    /* los puntos fijos de la dilatación, que es lo que esta vista enseña */
+    for (const z of m3.dilatacion.puntosFijos_m) {
+      etiquetas.push({ x: z, yModelo: h, texto: "punto fijo", forma: "marca",
+        donde: "encima" });
+    }
+    return { cotas: cotas, etiquetas: etiquetas, ejes: ejes, apoyos: apoyos,
+      art: ART["MT.termica"] };
+  }
+
+  /* ---------- LAS TABLAS DEL PANEL DERECHO -----------------------------
+     Retícula tiene su tabla de ejes editable; estas son las de Galpón, y
+     la primera es la que faltaba para poder trabajar: SIN ELLA NO SE
+     PUEDEN ASIGNAR PERFILES, que es lo principal que hace la herramienta. */
+
+  /* Las clases de barra que hay en el modelo, con su perfil y su cuenta. */
+  function tablaPerfiles(m3, modelo) {
+    const cuenta = m3.conteo.porClase;
+    const filas = [];
+    for (const clase of Object.keys(cuenta)) {
+      const asignado = modelo && modelo.secciones
+        ? modelo.secciones.porClase[clase] : undefined;
+      filas.push({
+        clase: clase,
+        barras: cuenta[clase],
+        perfil: asignado === undefined ? null : asignado,
+        sinPerfil: asignado === undefined
+      });
+    }
+    filas.sort((a, b) => b.barras - a.barras);
+    const faltan = filas.filter((f) => f.sinPerfil).length;
+    return {
+      filas: filas, clases: filas.length, sinPerfil: faltan,
+      art: ART["L.secciones"],
+      nota: faltan
+        ? faltan + " clase(s) de barra sin perfil. Hasta que lo tengan no hay " +
+          "nada que verificar: el análisis necesita A e I para correr."
+        : "todas las clases tienen perfil asignado"
+    };
+  }
+
+  /* Los paños, con su arriostre. Sustituye al campo de texto «5, 9», que
+     obligaba a contar paños de cabeza mirando el dibujo. */
+  function tablaPanos(m3) {
+    const ej = m3.ejes;
+    const techo = {}, fachada = {};
+    for (const k of m3.panosArriostradosTecho) techo[k] = true;
+    for (const k of m3.panosArriostradosFachada) fachada[k] = true;
+    const filas = [];
+    for (let k = 0; k < ej.panos; k++) {
+      filas.push({
+        pano: k,
+        entre: (k + 1) + " – " + (k + 2),
+        z1_m: ej.z_m[k], z2_m: ej.z_m[k + 1],
+        techo: !!techo[k], fachada: !!fachada[k],
+        alineado: !!techo[k] === !!fachada[k]
+      });
+    }
+    return {
+      filas: filas, panos: ej.panos,
+      conTecho: m3.panosArriostradosTecho.length,
+      conFachada: m3.panosArriostradosFachada.length,
+      art: ART["MT.mismo.pano"],
+      nota: m3.camino.alineados
+        ? "techo y fachada en los mismos paños: la viga de alero solo amarra"
+        : "techo y fachada en paños distintos: " +
+          n2(m3.camino.recorridoMaximoAlero_m, 2) + " m de alero a AXIAL"
+    };
+  }
+
   /* ---------- lo que la prueba necesita para barrerlo todo -------------- */
   function todasLasLineas(m3, vista) {
     const out = [];
@@ -499,6 +694,7 @@
   return {
     ART, ORIGENES, ENTRADAS, PESTANAS,
     ln, ficha, grupos, valida, problema, pestana, dibujo, fichas, todasLasLineas,
-    datosModelo, datosVista, camaraDe
+    datosModelo, datosVista, camaraDe,
+    anotaciones, cota, tablaPerfiles, tablaPanos
   };
 });

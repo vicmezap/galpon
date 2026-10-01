@@ -117,12 +117,45 @@ legend { font-family:var(--disp); font-weight:600; font-size:11px; letter-spacin
 
 /* lienzo */
 .marco { border:1px solid var(--linea); border-radius:3px; background:var(--ficha);
-  padding:8px; flex:1; display:flex; flex-direction:column; min-height:260px; }
+  padding:8px; flex:1; display:flex; flex-direction:column; min-height:260px;
+  position:relative; }
+.zoom { position:absolute; top:10px; right:12px; display:flex; gap:2px; z-index:2; }
+.zoom button { font-family:var(--cifra); font-size:13px; width:26px; height:24px;
+  border:1px solid var(--linea); background:var(--papel); color:var(--tinta);
+  cursor:pointer; border-radius:2px; line-height:1; }
+.zoom button:hover { border-color:var(--acero); color:var(--acero); }
+.escala { position:absolute; bottom:12px; left:14px; font-family:var(--cifra);
+  font-size:10px; color:var(--suave); }
+text.cota { font-family:var(--cifra); font-size:11px; fill:var(--tinta-2); }
+text.etiq { font-family:var(--cifra); font-size:10px; fill:var(--suave); }
+text.ejeN { font-family:var(--cifra); font-size:11px; fill:var(--acero);
+  font-weight:600; }
+text.marca { font-family:var(--cifra); font-size:10px; fill:var(--aviso);
+  letter-spacing:.06em; }
 .marco svg { display:block; width:100%; height:auto; }
 .leyenda { display:flex; flex-wrap:wrap; gap:11px; margin-top:7px; font-size:10.5px;
   color:var(--suave); font-family:var(--cifra); }
 .leyenda i { display:inline-block; width:15px; border-top-width:2px;
   border-top-style:solid; vertical-align:middle; margin-right:4px; }
+
+/* tablas del panel derecho */
+table.t { width:100%; border-collapse:collapse; font-size:11.5px; margin-bottom:4px; }
+table.t th { font-family:var(--cifra); font-size:9px; letter-spacing:.07em;
+  text-transform:uppercase; color:var(--suave); font-weight:500; text-align:left;
+  padding:3px 4px; border-bottom:1px solid var(--linea); }
+table.t td { padding:2px 4px; border-bottom:1px solid var(--papel-2);
+  vertical-align:middle; }
+table.t td.n { font-family:var(--cifra); text-align:right;
+  font-variant-numeric:tabular-nums; color:var(--suave); }
+table.t td.c { text-align:center; }
+table.t input[type=text] { width:100%; font-family:var(--cifra); font-size:11px;
+  padding:1px 3px; border:1px solid var(--linea); border-radius:2px;
+  background:var(--papel); color:var(--tinta); }
+table.t input.malo { border-color:var(--alerta); color:var(--alerta); }
+table.t input.vacio { border-style:dashed; }
+table.t tr.sel td { background:var(--papel-2); }
+.pie { font-size:10.5px; color:var(--suave); margin:2px 0 12px; }
+.pie.mal { color:var(--aviso); }
 
 /* panel derecho */
 .ln { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:2px 9px;
@@ -416,7 +449,12 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
   var TINTA = { tinta:"var(--tinta)", "tinta-2":"var(--tinta-2)",
     suave:"var(--suave)", succion:"var(--aviso)", linea:"var(--linea)" };
 
-  function dibuja(nudos, barras, px, py, orden, opacidad) {
+  /* EL DIBUJO.  Las cotas, las etiquetas y los apoyos llegan de vistas.js
+     en coordenadas del modelo y se transforman con el MISMO mapa que las
+     barras: si el dibujo se mueve, las cifras se mueven con él. */
+  var zoom = 1, ZMIN = 0.4, ZMAX = 6;
+
+  function dibuja(nudos, barras, px, py, orden, opacidad, anot) {
     var pos = {}, i;
     for (i = 0; i < nudos.length; i++) pos[nudos[i].id] = nudos[i];
     var xs = [], ys = [];
@@ -425,11 +463,34 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
     var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
     var y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
     var w = Math.max(x1 - x0, 1e-6), h = Math.max(y1 - y0, 1e-6);
-    var W = 1000, m = 24, k = (W - 2 * m) / w, H = h * k + 2 * m;
-    if (H > 620) { k = (620 - 2 * m) / h; H = 620; }
-    var X = function (n) { return m + (px(n) - x0) * k; };
-    var Y = function (n) { return H - m - (py(n) - y0) * k; };
 
+    /* margen generoso: las cotas viven fuera del dibujo y si no se les deja
+       sitio salen cortadas, que es peor que no ponerlas */
+    var W = 1000, mIzq = 86, mDer = 40, mAb = 74, mAr = 34;
+    var k = (W - mIzq - mDer) / w;
+    var H = h * k + mAb + mAr;
+    if (H > 640) { k = (640 - mAb - mAr) / h; H = 640; }
+    k = k * zoom;
+    H = h * k + mAb + mAr;
+    var X = function (x) { return mIzq + (x - x0) * k; };
+    var Y = function (y) { return H - mAb - (y - y0) * k; };
+    var XN = function (n) { return X(px(n)); };
+    var YN = function (n) { return Y(py(n)); };
+
+    var o = ['<svg viewBox="0 0 ' + Math.round(W * zoom) + " " + Math.round(H) +
+      '" preserveAspectRatio="xMidYMid meet" role="img">'];
+
+    /* 1 · los ejes, detrás de todo */
+    if (anot) {
+      for (i = 0; i < anot.ejes.length; i++) {
+        var e = anot.ejes[i];
+        o.push('<line x1="' + X(e.x1).toFixed(1) + '" y1="' + Y(e.y1).toFixed(1) +
+          '" x2="' + X(e.x2).toFixed(1) + '" y2="' + Y(e.y2).toFixed(1) +
+          '" stroke="var(--linea)" stroke-width="0.8" stroke-dasharray="7 4 2 4"/>');
+      }
+    }
+
+    /* 2 · las barras */
     var cola;
     if (orden && orden.length) {
       var porId = {};
@@ -441,20 +502,104 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
         return (/arriostre/.test(a.clase) ? 1 : 0) - (/arriostre/.test(b.clase) ? 1 : 0);
       });
     }
-    var out = ['<svg viewBox="0 0 ' + W + " " + Math.round(H) +
-      '" preserveAspectRatio="xMidYMid meet" role="img">'];
     for (i = 0; i < cola.length; i++) {
       var b = cola[i], a = pos[b.i], c = pos[b.j];
       if (!a || !c) continue;
       var op = (opacidad && opacidad[b.id] !== undefined) ? opacidad[b.id] : 1;
-      out.push('<line x1="' + X(a).toFixed(1) + '" y1="' + Y(a).toFixed(1) +
-        '" x2="' + X(c).toFixed(1) + '" y2="' + Y(c).toFixed(1) +
-        '" stroke="' + (COLOR[b.clase] || "var(--tinta-2)") +
-        '" stroke-width="' + (GRUESO[b.clase] || 1.1) + '"' +
+      var sel = (b.clase === claseSel);
+      o.push('<line x1="' + XN(a).toFixed(1) + '" y1="' + YN(a).toFixed(1) +
+        '" x2="' + XN(c).toFixed(1) + '" y2="' + YN(c).toFixed(1) +
+        '" stroke="' + (sel ? "var(--acero)" : (COLOR[b.clase] || "var(--tinta-2)")) +
+        '" stroke-width="' + ((GRUESO[b.clase] || 1.1) * (sel ? 2.2 : 1)) + '"' +
         (op < 1 ? ' stroke-opacity="' + op.toFixed(3) + '"' : "") +
         ' stroke-linecap="round"/>');
     }
-    return out.join("") + "</svg>";
+
+    if (!anot) return o.join("") + "</svg>";
+
+    /* 3 · los apoyos, con su símbolo */
+    for (i = 0; i < anot.apoyos.length; i++) {
+      var ap = anot.apoyos[i], ax = X(ap.x), ay = Y(ap.y), t = 9;
+      o.push('<path d="M' + ax.toFixed(1) + " " + ay.toFixed(1) +
+        " L" + (ax - t).toFixed(1) + " " + (ay + t * 1.5).toFixed(1) +
+        " L" + (ax + t).toFixed(1) + " " + (ay + t * 1.5).toFixed(1) +
+        'Z" fill="none" stroke="var(--tinta)" stroke-width="1.4"/>');
+      for (var q = -1; q <= 1; q++) {
+        o.push('<line x1="' + (ax + q * 6 - 4).toFixed(1) + '" y1="' +
+          (ay + t * 1.5 + 6).toFixed(1) + '" x2="' + (ax + q * 6 + 1).toFixed(1) +
+          '" y2="' + (ay + t * 1.5).toFixed(1) +
+          '" stroke="var(--tinta-2)" stroke-width="1"/>');
+      }
+      if (ap.tipo === "movil") {
+        o.push('<line x1="' + (ax - t - 2).toFixed(1) + '" y1="' +
+          (ay + t * 1.5 + 3).toFixed(1) + '" x2="' + (ax + t + 2).toFixed(1) +
+          '" y2="' + (ay + t * 1.5 + 3).toFixed(1) +
+          '" stroke="var(--tinta)" stroke-width="1.4"/>');
+      }
+    }
+
+    /* 4 · las cotas */
+    var SEP = 20;
+    for (i = 0; i < anot.cotas.length; i++) {
+      var ct = anot.cotas[i];
+      var ax1 = X(ct.x1), ay1 = Y(ct.y1), ax2 = X(ct.x2), ay2 = Y(ct.y2);
+      var d = SEP * ct.nivel, lx1, ly1, lx2, ly2, tx, ty, rot = "", anc = "middle";
+      if (ct.lado === "abajo") {
+        ly1 = ly2 = H - mAb + d; lx1 = ax1; lx2 = ax2;
+        tx = (lx1 + lx2) / 2; ty = ly1 - 4;
+      } else if (ct.lado === "izq") {
+        lx1 = lx2 = mIzq - d; ly1 = ay1; ly2 = ay2;
+        tx = lx1 - 5; ty = (ly1 + ly2) / 2;
+        rot = ' transform="rotate(-90 ' + tx.toFixed(1) + " " + ty.toFixed(1) + ')"';
+      } else {
+        lx1 = lx2 = ax1 + d; ly1 = ay1; ly2 = ay2;
+        tx = lx1 + 5; ty = (ly1 + ly2) / 2;
+        rot = ' transform="rotate(-90 ' + tx.toFixed(1) + " " + ty.toFixed(1) + ')"';
+      }
+      /* líneas de referencia, de la pieza a la línea de cota */
+      o.push('<line x1="' + ax1.toFixed(1) + '" y1="' + ay1.toFixed(1) + '" x2="' +
+        lx1.toFixed(1) + '" y2="' + ly1.toFixed(1) +
+        '" stroke="var(--linea)" stroke-width="0.6"/>');
+      o.push('<line x1="' + ax2.toFixed(1) + '" y1="' + ay2.toFixed(1) + '" x2="' +
+        lx2.toFixed(1) + '" y2="' + ly2.toFixed(1) +
+        '" stroke="var(--linea)" stroke-width="0.6"/>');
+      /* la línea de cota con sus marcas inclinadas, como en un plano */
+      o.push('<line x1="' + lx1.toFixed(1) + '" y1="' + ly1.toFixed(1) + '" x2="' +
+        lx2.toFixed(1) + '" y2="' + ly2.toFixed(1) +
+        '" stroke="var(--tinta-2)" stroke-width="0.8"/>');
+      [[lx1, ly1], [lx2, ly2]].forEach(function (q2) {
+        o.push('<line x1="' + (q2[0] - 3).toFixed(1) + '" y1="' + (q2[1] + 3).toFixed(1) +
+          '" x2="' + (q2[0] + 3).toFixed(1) + '" y2="' + (q2[1] - 3).toFixed(1) +
+          '" stroke="var(--tinta-2)" stroke-width="1"/>');
+      });
+      o.push('<text class="cota" x="' + tx.toFixed(1) + '" y="' + ty.toFixed(1) +
+        '" text-anchor="' + anc + '"' + rot + ">" + esc(ct.texto) + "</text>");
+    }
+
+    /* 5 · las etiquetas */
+    for (i = 0; i < anot.etiquetas.length; i++) {
+      var et = anot.etiquetas[i];
+      var ex = X(et.x), ey = Y(et.yModelo !== undefined ? et.yModelo : et.y);
+      if (et.forma === "circulo") {
+        var cy = et.donde === "debajo" ? ey + 26 : ey - 26;
+        o.push('<circle cx="' + ex.toFixed(1) + '" cy="' + cy.toFixed(1) +
+          '" r="10" fill="var(--ficha)" stroke="var(--acero)" stroke-width="1.1"/>');
+        o.push('<text class="ejeN" x="' + ex.toFixed(1) + '" y="' + (cy + 4).toFixed(1) +
+          '" text-anchor="middle">' + esc(et.texto) + "</text>");
+        o.push('<line x1="' + ex.toFixed(1) + '" y1="' + ey.toFixed(1) + '" x2="' +
+          ex.toFixed(1) + '" y2="' + (cy + (et.donde === "debajo" ? -10 : 10)).toFixed(1) +
+          '" stroke="var(--linea)" stroke-width="0.6"/>');
+      } else if (et.forma === "marca") {
+        o.push('<text class="marca" x="' + ex.toFixed(1) + '" y="' +
+          (ey + (et.donde === "encima" ? -7 : 13)).toFixed(1) +
+          '" text-anchor="middle">' + esc(et.texto) + "</text>");
+      } else if (zoom >= 0.9) {
+        o.push('<text class="etiq" x="' + ex.toFixed(1) + '" y="' +
+          (ey + (et.donde === "encima" ? -7 : 13)).toFixed(1) +
+          '" text-anchor="middle">' + esc(et.texto) + "</text>");
+      }
+    }
+    return o.join("") + "</svg>";
   }
 
   /* ---------- panel derecho ---------- */
@@ -471,6 +616,74 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
     return '<div class="tarj' + (f.estado === "bien" ? " bien" : "") + '"><h4>' +
       esc(f.titulo) + '</h4><p class="sub">' + esc(f.sub) + "</p>" +
       f.lineas.map(pintaLinea).join("") + "</div>";
+  }
+
+  /* ---------- LAS TABLAS · lo que faltaba para poder trabajar ----------
+     Sin la de perfiles no se pueden asignar secciones, que es lo principal
+     que hace esta herramienta: sin A ni I el analisis no corre. */
+  var modelo = LIBRO.nuevo({});
+  var claseSel = null;
+
+  function tablaPerfiles(m3) {
+    var t = VISTAS.tablaPerfiles(m3, modelo);
+    var f = t.filas.map(function (r) {
+      var v = r.perfil === null ? "" : r.perfil;
+      var malo = v && !existePerfil(v);
+      return '<tr' + (r.clase === claseSel ? ' class="sel"' : "") +
+        ' data-clase="' + esc(r.clase) + '"><td>' + esc(r.clase) +
+        '</td><td class="n">' + r.barras + '</td><td>' +
+        '<input type="text" list="catalogo" data-perfil="' + esc(r.clase) +
+        '" value="' + esc(v) + '" placeholder="— sin asignar —" class="' +
+        (malo ? "malo" : (v ? "" : "vacio")) + '"></td></tr>';
+    }).join("");
+    return '<div class="tarj"><h4>Perfiles</h4><p class="sub">por clase de barra · ' +
+      t.clases + " clases</p>" +
+      '<table class="t"><thead><tr><th>Clase</th><th style="text-align:right">n</th>' +
+      "<th>Perfil</th></tr></thead><tbody>" + f + "</tbody></table>" +
+      '<p class="pie' + (t.sinPerfil ? " mal" : "") + '">' + esc(t.nota) + "</p></div>";
+  }
+
+  function tablaPanos(m3) {
+    var t = VISTAS.tablaPanos(m3);
+    var f = t.filas.map(function (r) {
+      return "<tr><td>" + r.pano + '</td><td class="n">' + esc(r.entre) +
+        '</td><td class="c"><input type="checkbox" data-at="' + r.pano + '"' +
+        (r.techo ? " checked" : "") + '></td><td class="c">' +
+        '<input type="checkbox" data-af="' + r.pano + '"' +
+        (r.fachada ? " checked" : "") + "></td></tr>";
+    }).join("");
+    return '<div class="tarj"><h4>Paños</h4><p class="sub">' + t.panos +
+      " paños · arriostre por plano</p>" +
+      '<table class="t"><thead><tr><th>#</th><th style="text-align:right">entre</th>' +
+      '<th class="c">techo</th><th class="c">fachada</th></tr></thead><tbody>' +
+      f + "</tbody></table>" +
+      '<p class="pie' + (t.filas.some(function (r) { return !r.alineado; }) ? " mal" : "") +
+      '">' + esc(t.nota) + "</p></div>";
+  }
+
+  var CATALOGO = null;
+  function existePerfil(id) {
+    if (!CATALOGO) {
+      CATALOGO = {};
+      PERFILES.activos().forEach(function (x) { CATALOGO[x.id] = true; });
+    }
+    return !!CATALOGO[id];
+  }
+  function pintaCatalogo() {
+    if (document.getElementById("catalogo")) return;
+    var a = PERFILES.activos(), por = {}, i;
+    for (i = 0; i < a.length; i++) {
+      (por[a[i].grupo] = por[a[i].grupo] || []).push(a[i].id);
+    }
+    var o = ['<datalist id="catalogo">'];
+    Object.keys(por).sort().forEach(function (g) {
+      por[g].forEach(function (id) {
+        o.push('<option value="' + esc(id) + '">' + esc(g) + "</option>");
+      });
+    });
+    var d = document.createElement("div");
+    d.innerHTML = o.join("") + "</datalist>";
+    document.body.appendChild(d);
   }
 
   document.addEventListener("click", function (ev) {
@@ -531,16 +744,22 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
     pintaMetricas(d);
     var vista = VISTAS.datosVista(d);
     var dj = VISTAS.dibujo(vistaActiva, m3, vista);
+    var anot = VISTAS.anotaciones(vistaActiva, m3, vista);
     $("centro").innerHTML = '<div class="marco">' +
+      '<div class="zoom"><button data-z="-">−</button>' +
+      '<button data-z="0">▣</button><button data-z="+">+</button></div>' +
       dibuja(dj.nudos, dj.barras,
         function (n) { return n[dj.ejeX]; },
-        function (n) { return n[dj.ejeY]; }, dj.orden, dj.opacidad) +
+        function (n) { return n[dj.ejeY]; }, dj.orden, dj.opacidad, anot) +
+      '<div class="escala">zoom ×' + n2(zoom, 2) + "  ·  " +
+      anot.cotas.length + " cotas</div>" +
       '<div class="leyenda">' + dj.leyenda.map(function (x) {
         return '<span><i style="border-top-color:' + (TINTA[x[1]] || x[1]) + '"></i>' +
           esc(x[0]) + "</span>";
       }).join("") + "</div></div>";
-    $("derecha").innerHTML = VISTAS.fichas(vistaActiva, m3, vista)
-      .map(pintaFicha).join("");
+    $("derecha").innerHTML = tablaPerfiles(m3) + tablaPanos(m3) +
+      VISTAS.fichas(vistaActiva, m3, vista).map(pintaFicha).join("");
+    pintaCatalogo();
   }
 
   function pintaMetricas(d) {
@@ -563,6 +782,63 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
 
   $("f").addEventListener("input", recalcula);
   $("f").addEventListener("change", recalcula);
+
+  /* zoom */
+  $("centro").addEventListener("click", function (ev) {
+    var b = ev.target.closest ? ev.target.closest("button[data-z]") : null;
+    if (!b) return;
+    var z = b.getAttribute("data-z");
+    if (z === "+") zoom = Math.min(ZMAX, zoom * 1.35);
+    else if (z === "-") zoom = Math.max(ZMIN, zoom / 1.35);
+    else zoom = 1;
+    recalcula();
+  });
+
+  /* LAS TABLAS EDITAN · asignar perfil y arriostrar paños */
+  $("derecha").addEventListener("change", function (ev) {
+    var t = ev.target;
+    if (t.getAttribute && t.getAttribute("data-perfil")) {
+      var clase = t.getAttribute("data-perfil"), v = t.value.trim();
+      if (v === "") {
+        delete modelo.secciones.porClase[clase];
+      } else if (!existePerfil(v)) {
+        t.className = "malo";
+        return;   /* no se guarda un perfil que no está en el catálogo */
+      } else {
+        modelo = LIBRO.asignaPerfil(modelo, { clase: clase }, v).modelo;
+      }
+      recalcula();
+      return;
+    }
+    var at = t.getAttribute && t.getAttribute("data-at");
+    var af = t.getAttribute && t.getAttribute("data-af");
+    if (at !== null && at !== undefined) { marca("c_at", +at, t.checked); return; }
+    if (af !== null && af !== undefined) { marca("c_af", +af, t.checked); return; }
+  });
+
+  /* la casilla de la tabla y el campo de texto son la MISMA cosa: se
+     escribe en el campo para que no haya dos verdades */
+  function marca(campo, pano, on) {
+    var el = $(campo);
+    if (!el) return;
+    var v = lista(el.value);
+    var i = v.indexOf(pano);
+    if (on && i < 0) v.push(pano);
+    if (!on && i >= 0) v.splice(i, 1);
+    v.sort(function (a, b) { return a - b; });
+    el.value = v.join(", ");
+    recalcula();
+  }
+
+  /* pinchar una fila de perfiles resalta esa clase en el dibujo */
+  $("derecha").addEventListener("click", function (ev) {
+    var tr = ev.target.closest ? ev.target.closest("tr[data-clase]") : null;
+    if (!tr) return;
+    var c = tr.getAttribute("data-clase");
+    claseSel = (claseSel === c) ? null : c;
+    recalcula();
+  });
+
   recalcula();
 
   /* ---------- EL CANAL CON EL PANEL ---------- */
@@ -578,6 +854,8 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
     var m = LIBRO.nuevo(Object.assign({ nombre: "galpón" },
       paraElMotor(VISTAS.datosModelo(d))));
     m.vista = VISTAS.datosVista(d);
+    m.secciones = modelo.secciones;   /* los perfiles asignados viajan */
+    m.ediciones = modelo.ediciones;
     return m;
   }
   $("b-guardar").onclick = function () {
@@ -621,6 +899,11 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
     if (p.panosArriostradosTecho && $("c_at")) {
       $("c_at").value = p.panosArriostradosTecho.join(", ");
     }
+    if (p.panosArriostradosFachada && $("c_af")) {
+      $("c_af").value = p.panosArriostradosFachada.join(", ");
+    }
+    if (m.secciones) modelo.secciones = m.secciones;
+    if (m.ediciones) modelo.ediciones = m.ediciones;
     recalcula();
   }
 })();

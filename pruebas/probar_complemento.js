@@ -189,6 +189,21 @@ cierto("con el galpón entero, no cuatro líneas",
   (centro.match(/<line /g) || []).length > 40);
 cierto("y con su leyenda", /class="leyenda"/.test(centro));
 
+/* ───── Y ES UN DIBUJO, NO UN CROQUIS ─────
+   Sin cifras no se puede medir y sin etiquetas no se puede señalar. */
+cierto("LLEVA COTAS, con sus números",
+  (centro.match(/class="cota"/g) || []).length >= 15);
+cierto("y la luz entera está entre ellas", />20,00 m</.test(centro));
+cierto("LLEVA ETIQUETAS de nudo",
+  (centro.match(/class="etiq"/g) || []).length >= 15);
+cierto("y los ejes en círculo, como en un plano",
+  (centro.match(/class="ejeN"/g) || []).length === 2 && /<circle /.test(centro));
+cierto("LOS APOYOS SE DIBUJAN con su símbolo, no son un final de línea",
+  (centro.match(/<path /g) || []).length === 2);
+cierto("y hay líneas de eje discontinuas detrás", /stroke-dasharray/.test(centro));
+cierto("hay zoom", /data-z="\+"/.test(centro) && /data-z="-"/.test(centro));
+cierto("y se dice a qué escala se está mirando", /class="escala"/.test(centro));
+
 /* LAS MÉTRICAS VIVAS */
 const met = pinto(M.dom, "metricas").innerHTML;
 cierto("la barra de métricas trae la luz y el largo",
@@ -200,6 +215,24 @@ cierto("y el selector de combinación", /Combinación/.test(met));
 /* EL PANEL DERECHO · la tesis */
 const der = pinto(M.dom, "derecha").innerHTML;
 cierto("el panel derecho trae fichas", /class="tarj/.test(der));
+
+/* ───── LAS TABLAS · sin la de perfiles no se puede trabajar ───── */
+comp("hay dos tablas", (der.match(/<table class="t"/g) || []).length, 2);
+comp("una fila de perfil por clase de barra",
+  (der.match(/data-perfil=/g) || []).length, 10);
+cierto("con el catálogo detrás para escribir el nombre",
+  /list="catalogo"/.test(der));
+cierto("y las que no tienen perfil se marcan",
+  /class="vacio"/.test(der) && /sin asignar/.test(der));
+comp("y una casilla de arriostre por paño y plano",
+  (der.match(/data-at=/g) || []).length, 10);
+comp("en los dos planos", (der.match(/data-af=/g) || []).length, 10);
+cierto("ASIGNAR UN PERFIL SE PUEDE HACER, que es lo principal de la herramienta",
+  /data-perfil=/.test(der) && /LIBRO\.asignaPerfil/.test(modeHtml));
+cierto("y un perfil que no está en el catálogo no se guarda",
+  /no se guarda un perfil que no está en el catálogo/.test(modeHtml));
+cierto("la casilla y el campo de texto son la misma cosa, no dos verdades",
+  /no haya dos verdades/.test(modeHtml));
 const lineas = (der.match(/<div class="ln">/g) || []).length;
 const conFuente = (der.match(/data-fte="/g) || []).length;
 const conOrigen = (der.match(/<span class="org">/g) || []).length;

@@ -270,6 +270,104 @@ comp("alineados: la ficha va en verde",
 comp("desalineados: no", V.fichas("planta", desalineado)[0].estado, null);
 
 /* ================================================================
+   7b · LAS ANOTACIONES · lo que separa un dibujo de un croquis
+
+   Un dibujo estructural sin cifras no se puede medir, y sin etiquetas no
+   se puede señalar: el panel derecho dice «DIAGONAL D7» y si el dibujo no
+   pone D7 en ninguna parte, el que mira tiene que adivinar cuál es.
+   Van como DATOS, en coordenadas del modelo, para que se puedan comprobar
+   aquí en vez de mirarlos.
+   ================================================================ */
+const an = V.anotaciones("portico", m3);
+cierto("el pórtico se acota", an.cotas.length >= 15);
+cierto("se etiqueta", an.etiquetas.length >= 20);
+comp("y lleva sus dos apoyos", an.apoyos.length, 2);
+comp("uno fijo y otro móvil, que es como apoya un tijeral",
+  an.apoyos.map((a) => a.tipo), ["fijo", "movil"]);
+
+/* las cotas están EN COORDENADAS DEL MODELO, no en píxeles: así la
+   plantilla las transforma con el mismo mapa que las barras y si el
+   dibujo se mueve, las cifras se mueven con él */
+const luz = an.cotas.filter((c) => c.texto === "20,00 m")[0];
+cierto("la luz entera está acotada", !!luz);
+comp("de 0 a 20 en coordenadas del modelo", [luz.x1, luz.x2], [0, 20]);
+comp("abajo y en el segundo nivel, para no pisar las de los paños",
+  [luz.lado, luz.nivel], ["abajo", 2]);
+comp("hay una cota por paño", an.cotas.filter((c) => c.texto === "1,667").length, 12);
+cierto("la altura de columna se acota a la izquierda",
+  an.cotas.some((c) => c.lado === "izq" && c.texto === "6,00 m"));
+cierto("y la altura total hasta la cumbre, 6 + 1,2 + 2,0 = 9,20",
+  an.cotas.some((c) => c.texto === "9,20 m"));
+cierto("el peralte del centro va a la derecha, donde se ve",
+  an.cotas.some((c) => c.lado === "der" && c.texto === "3,20"));
+
+const circ = an.etiquetas.filter((e) => e.forma === "circulo");
+comp("los ejes de columna van en círculo, como en un plano", circ.length, 2);
+comp("y se llaman A y B", circ.map((e) => e.texto), ["A", "B"]);
+cierto("los nudos llevan su id, que es como los nombra el panel derecho",
+  an.etiquetas.some((e) => e.texto === "I0") &&
+  an.etiquetas.some((e) => /^S\d+$/.test(e.texto)));
+comp("y hay dos líneas de eje, una por columna", an.ejes.length, 2);
+
+/* la planta numera los pórticos y marca el paño arriostrado */
+const anP = V.anotaciones("planta", m3);
+comp("la planta numera los once pórticos",
+  anP.etiquetas.filter((e) => e.forma === "circulo").length, 11);
+comp("con una línea de eje cada uno", anP.ejes.length, 11);
+cierto("y marca dónde está el arriostre, que es lo que esta vista enseña",
+  anP.etiquetas.some((e) => e.texto === "arriostrado"));
+cierto("el largo se acota", anP.cotas.some((c) => c.texto === "60,00 m"));
+
+/* la elevación marca los puntos fijos de la dilatación */
+const anE = V.anotaciones("elev", m3);
+comp("la elevación dibuja un apoyo por pórtico", anE.apoyos.length, 11);
+cierto("y marca los puntos fijos, que es lo que esta vista enseña",
+  anE.etiquetas.some((e) => e.texto === "punto fijo"));
+comp("la 3D no se acota: una isométrica acotada no es una isométrica",
+  V.anotaciones("tresd", m3).cotas.length, 0);
+
+/* ================================================================
+   7c · LAS TABLAS · la de perfiles es la que faltaba para trabajar
+   ================================================================ */
+const tp0 = V.tablaPerfiles(m3, null);
+comp("hay una fila por clase de barra del modelo", tp0.clases, 10);
+comp("y sin modelo, ninguna tiene perfil", tp0.sinPerfil, 10);
+cierto("ordenadas por número de barras, que es por donde se empieza",
+  tp0.filas[0].barras >= tp0.filas[tp0.filas.length - 1].barras);
+cierto("y se dice lo que significa no tenerlos",
+  /el análisis necesita A e I/.test(tp0.nota));
+
+const LIBRO = require("../src/libro.js");
+let mod = LIBRO.nuevo({ luz_m: 20 });
+mod = LIBRO.asignaPerfil(mod, { clase: "diagonal" }, "L2½x2½x¼").modelo;
+const tp1 = V.tablaPerfiles(m3, mod);
+comp("asignando uno, queda una clase menos sin perfil", tp1.sinPerfil, 9);
+comp("y la diagonal lo enseña",
+  tp1.filas.filter((f) => f.clase === "diagonal")[0].perfil, "L2½x2½x¼");
+cierto("las demás siguen marcadas como sin asignar",
+  tp1.filas.filter((f) => f.clase === "columna")[0].sinPerfil === true);
+
+const tn = V.tablaPanos(m3);
+comp("una fila por paño", tn.filas.length, 10);
+comp("y dice entre qué pórticos está cada uno", tn.filas[0].entre, "1 – 2");
+comp("el paño 5 está arriostrado en los dos planos",
+  [tn.filas[5].techo, tn.filas[5].fachada], [true, true]);
+cierto("y por eso está alineado", tn.filas[5].alineado === true);
+comp("el 4 no lo está en ninguno", [tn.filas[4].techo, tn.filas[4].fachada],
+  [false, false]);
+cierto("la nota dice que la viga de alero solo amarra",
+  /solo amarra/.test(tn.nota));
+
+const desal2 = MON.monta(Object.assign({}, D, {
+  panosArriostradosTecho: [2], panosArriostradosFachada: [7]
+}));
+const tnD = V.tablaPanos(desal2);
+cierto("con el techo en el 2 y la fachada en el 7, los dos salen desalineados",
+  tnD.filas[2].alineado === false && tnD.filas[7].alineado === false);
+cierto("y la nota da los metros de alero a axial",
+  /30,00 m de alero a AXIAL/.test(tnD.nota));
+
+/* ================================================================
    8 · LAS FILAS DEL INVENTARIO
    ================================================================ */
 for (const id of ["V.procedencia", "V.no.duplica", "V.limites",
