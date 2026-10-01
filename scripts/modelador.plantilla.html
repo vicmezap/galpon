@@ -88,17 +88,26 @@ h3.sec { font-family:var(--cifra); font-size:9.5px; letter-spacing:.1em;
   text-transform:uppercase; color:var(--suave); margin:0 0 7px; font-weight:500; }
 h3.sec + h3.sec { margin-top:16px; }
 
-/* herramientas */
-.herr { display:flex; flex-direction:column; gap:1px; margin-bottom:14px; }
-.herr button { display:flex; align-items:center; gap:8px; text-align:left;
-  font-family:var(--cuerpo); font-size:12.5px; background:none; border:0;
-  border-left:3px solid transparent; padding:5px 7px; color:var(--tinta);
-  cursor:pointer; border-radius:2px; }
-.herr button:hover { background:var(--papel-2); }
-.herr button[aria-pressed="true"] { border-left-color:var(--acero);
-  background:var(--papel-2); font-weight:600; }
-.herr i { width:13px; height:13px; border-radius:2px; flex:none; }
-.herr small { display:block; font-size:10.5px; color:var(--suave); font-weight:400; }
+/* capas · ver y aislar */
+.capas { margin-bottom:6px; }
+.capa { display:grid; grid-template-columns:16px 1fr auto auto; gap:6px;
+  align-items:center; padding:3px 4px; border-radius:2px; font-size:12px; }
+.capa:hover { background:var(--papel-2); }
+.capa.aislada { background:var(--papel-2); outline:1px solid var(--acero); }
+.capa.apagada { opacity:.45; }
+.capa i { width:12px; height:0; border-top-width:3px; border-top-style:solid; }
+.capa .nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.capa .n { font-family:var(--cifra); font-size:10.5px; color:var(--suave);
+  font-variant-numeric:tabular-nums; }
+.capa button.ais { font-family:var(--cifra); font-size:8.5px; letter-spacing:.06em;
+  text-transform:uppercase; background:none; border:1px solid var(--linea);
+  border-radius:2px; color:var(--suave); padding:0 4px; cursor:pointer; }
+.capa button.ais:hover, .capa.aislada button.ais { color:var(--acero);
+  border-color:var(--acero); }
+.capa input { margin:0; }
+.resumen { font-family:var(--cifra); font-size:10px; color:var(--suave);
+  border-top:1px solid var(--papel-2); padding-top:5px; margin-bottom:14px; }
+.resumen b { color:var(--acero); }
 
 /* parámetros */
 fieldset { border:1px solid var(--linea); border-radius:3px; background:var(--ficha);
@@ -132,6 +141,11 @@ text.ejeN { font-family:var(--cifra); font-size:11px; fill:var(--acero);
   font-weight:600; }
 text.marca { font-family:var(--cifra); font-size:10px; fill:var(--aviso);
   letter-spacing:.06em; }
+line.toca { stroke:transparent; stroke-width:9; cursor:pointer; }
+.marco.orbitable svg { cursor:grab; }
+.marco.orbitando svg { cursor:grabbing; }
+.pista { position:absolute; bottom:12px; right:14px; font-family:var(--cifra);
+  font-size:10px; color:var(--suave); }
 .marco svg { display:block; width:100%; height:auto; }
 .leyenda { display:flex; flex-wrap:wrap; gap:11px; margin-top:7px; font-size:10.5px;
   color:var(--suave); font-family:var(--cifra); }
@@ -225,8 +239,9 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
 
 <div class="obra">
   <aside class="izq">
-    <h3 class="sec">Dibujar</h3>
-    <div class="herr" id="herr"></div>
+    <h3 class="sec">Ver</h3>
+    <div class="capas" id="capas"></div>
+    <div class="resumen" id="resumen"></div>
     <h3 class="sec">Datos</h3>
     <form id="f" autocomplete="off" onsubmit="return false"></form>
   </aside>
@@ -325,39 +340,35 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
     recalcula();
   });
 
-  /* ---------- herramientas · todavía no editan, y se dice ---------- */
-  var HERRAMIENTAS = [
-    ["sel", "Selección", "ver medidas", "transparent"],
-    ["columna", "Columna", "clic o arrastra", "var(--tinta)"],
-    ["brida", "Brida", "clic o arrastra", "var(--tinta)"],
-    ["diagonal", "Diagonal", "clic o arrastra", "var(--tinta-2)"],
-    ["correa", "Correa", "clic", "var(--suave)"],
-    ["arriostre", "Arriostre", "pincha un paño", "var(--aviso)"],
-    ["hastial", "Columna hastial", "clic", "var(--tinta-2)"],
-    ["porton", "Portón", "arrastra", "transparent"]
-  ];
-  var herrActiva = "sel";
-  $("herr").innerHTML = HERRAMIENTAS.map(function (h) {
-    return '<button data-h="' + h[0] + '" aria-pressed="' + (h[0] === herrActiva) + '">' +
-      '<i style="background:' + h[3] + ';border:1px solid var(--linea)"></i>' +
-      "<span>" + esc(h[1]) + "<small>" + esc(h[2]) + "</small></span></button>";
-  }).join("");
-  $("herr").addEventListener("click", function (ev) {
-    var b = ev.target.closest ? ev.target.closest("button[data-h]") : null;
-    if (!b) return;
-    herrActiva = b.getAttribute("data-h");
-    Array.prototype.forEach.call($("herr").querySelectorAll("button[data-h]"),
-      function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
-    if (herrActiva !== "sel") avisaHerramienta();
-  });
-  function avisaHerramienta() {
-    $("derecha").innerHTML = '<div class="guarda"><b>Esa herramienta todavía no dibuja.</b>' +
-      '<pre>El lienzo editable es el paso siguiente del modelador. Hoy la geometría ' +
-      'sale entera de los parámetros de la izquierda, y lo que se ve es real: ' +
-      'generador.js la monta, montaje.js la arma en los tres planos y las guardas ' +
-      'ya comprueban el camino de carga.\n\nCuando el lienzo edite, lo que muevas ' +
-      'se guardará como CAPA sobre lo paramétrico: los parámetros no se apagan y ' +
-      'tus ediciones se reaplican al cambiarlos.</pre></div>';
+  /* ---------- VER Y AISLAR · lo que estaba mal y por qué -------------
+     Aquí había una paleta de dibujo copiada de Retícula, y era un error de
+     método: en Retícula la planta es LIBRE —las columnas van donde van—,
+     así que dibujar es imprescindible; en un galpón NO HAY NADA LIBRE,
+     todo sale de los parámetros. Se copió la forma de la herramienta de al
+     lado sin preguntar si el problema de debajo era el mismo.
+
+     Lo que un modelo de 733 barras que no se dibuja necesita es poder
+     MIRARSE: apagar las correas para ver el alma, aislar las diagonales,
+     pinchar una barra y saber qué es. */
+  var verEstado = { apagadas: {}, aislada: null };
+  var barraSel = null;
+
+  function pintaCapas(m3) {
+    var c = VISTAS.capas(m3, verEstado);
+    $("capas").innerHTML = c.filas.map(function (f) {
+      return '<div class="capa' + (f.aislada ? " aislada" : "") +
+        (f.visible ? "" : " apagada") + '" data-capa="' + esc(f.clase) + '">' +
+        '<input type="checkbox" data-ver="' + esc(f.clase) + '"' +
+        (f.visible ? " checked" : "") + (c.aislada ? " disabled" : "") + ">" +
+        '<span class="nm" title="' + esc(f.clase) + " · " + esc(f.plano) + '">' +
+        '<i style="border-top-color:' + (COLOR[f.clase] || "var(--tinta-2)") +
+        '"></i> ' + esc(f.clase) + "</span>" +
+        '<span class="n">' + f.barras + "</span>" +
+        '<button class="ais" data-ais="' + esc(f.clase) + '">' +
+        (f.aislada ? "todo" : "solo") + "</button></div>";
+    }).join("");
+    $("resumen").innerHTML = "<b>" + c.barrasVisibles + "</b> de " +
+      c.barrasTotales + " barras<br>" + esc(c.nota);
   }
 
   /* ---------- el formulario, declarado en vistas.js ---------- */
@@ -479,6 +490,7 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
 
     var o = ['<svg viewBox="0 0 ' + Math.round(W * zoom) + " " + Math.round(H) +
       '" preserveAspectRatio="xMidYMid meet" role="img">'];
+    var tocar = [];
 
     /* 1 · los ejes, detrás de todo */
     if (anot) {
@@ -507,15 +519,22 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
       if (!a || !c) continue;
       var op = (opacidad && opacidad[b.id] !== undefined) ? opacidad[b.id] : 1;
       var sel = (b.clase === claseSel);
+      var esta = (b.id === barraSel);
       o.push('<line x1="' + XN(a).toFixed(1) + '" y1="' + YN(a).toFixed(1) +
         '" x2="' + XN(c).toFixed(1) + '" y2="' + YN(c).toFixed(1) +
-        '" stroke="' + (sel ? "var(--acero)" : (COLOR[b.clase] || "var(--tinta-2)")) +
-        '" stroke-width="' + ((GRUESO[b.clase] || 1.1) * (sel ? 2.2 : 1)) + '"' +
+        '" stroke="' + (esta ? "var(--alerta)"
+          : (sel ? "var(--acero)" : (COLOR[b.clase] || "var(--tinta-2)"))) +
+        '" stroke-width="' + ((GRUESO[b.clase] || 1.1) * (esta ? 3 : (sel ? 2.2 : 1))) + '"' +
         (op < 1 ? ' stroke-opacity="' + op.toFixed(3) + '"' : "") +
         ' stroke-linecap="round"/>');
+      /* una línea gorda y transparente encima, para poder pincharla: una
+         barra de 1 px no se acierta con el ratón */
+      tocar.push('<line class="toca" data-barra="' + esc(b.id) +
+        '" x1="' + XN(a).toFixed(1) + '" y1="' + YN(a).toFixed(1) +
+        '" x2="' + XN(c).toFixed(1) + '" y2="' + YN(c).toFixed(1) + '"/>');
     }
 
-    if (!anot) return o.join("") + "</svg>";
+    if (!anot) return o.join("") + tocar.join("") + "</svg>";
 
     /* 3 · los apoyos, con su símbolo */
     for (i = 0; i < anot.apoyos.length; i++) {
@@ -599,7 +618,7 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
           '" text-anchor="middle">' + esc(et.texto) + "</text>");
       }
     }
-    return o.join("") + "</svg>";
+    return o.join("") + tocar.join("") + "</svg>";
   }
 
   /* ---------- panel derecho ---------- */
@@ -659,6 +678,24 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
       f + "</tbody></table>" +
       '<p class="pie' + (t.filas.some(function (r) { return !r.alineado; }) ? " mal" : "") +
       '">' + esc(t.nota) + "</p></div>";
+  }
+
+  /* EL PANEL CONTEXTUAL · el equivalente del «CRUCE VACIO · Sin columna
+     en B-2'» de Reticula. Pinchas una barra y sale lo que es. */
+  function fichaSeleccion(m3) {
+    if (!barraSel) {
+      return '<div class="tarj"><h4>Nada seleccionado</h4>' +
+        '<p class="sub">pincha una barra del dibujo</p>' +
+        '<p class="pie">Con 733 barras, señalar una es la manera de hablar de ' +
+        'ella: el panel dirá qué clase es, qué perfil lleva y cuánto mide.</p></div>';
+    }
+    var s = VISTAS.seleccion(m3, modelo, barraSel);
+    if (!s) { barraSel = null; return fichaSeleccion(m3); }
+    return '<div class="tarj" style="border-left-color:var(--alerta)"><h4>' +
+      esc(s.id) + "</h4>" +
+      '<p class="sub">' + esc(s.clase) + ' · <button class="fte" ' +
+      'id="quita-sel" type="button">quitar</button></p>' +
+      s.lineas.map(pintaLinea).join("") + "</div>";
   }
 
   var CATALOGO = null;
@@ -745,7 +782,10 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
     var vista = VISTAS.datosVista(d);
     var dj = VISTAS.dibujo(vistaActiva, m3, vista);
     var anot = VISTAS.anotaciones(vistaActiva, m3, vista);
-    $("centro").innerHTML = '<div class="marco">' +
+    pintaCapas(m3);
+    dj.barras = VISTAS.filtra(dj.barras, verEstado);
+    var es3d = vistaActiva === "tresd";
+    $("centro").innerHTML = '<div class="marco' + (es3d ? " orbitable" : "") + '">' +
       '<div class="zoom"><button data-z="-">−</button>' +
       '<button data-z="0">▣</button><button data-z="+">+</button></div>' +
       dibuja(dj.nudos, dj.barras,
@@ -753,11 +793,13 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
         function (n) { return n[dj.ejeY]; }, dj.orden, dj.opacidad, anot) +
       '<div class="escala">zoom ×' + n2(zoom, 2) + "  ·  " +
       anot.cotas.length + " cotas</div>" +
+      (es3d ? '<div class="pista">arrastra para girar · rueda para acercar</div>' : "") +
       '<div class="leyenda">' + dj.leyenda.map(function (x) {
         return '<span><i style="border-top-color:' + (TINTA[x[1]] || x[1]) + '"></i>' +
           esc(x[0]) + "</span>";
       }).join("") + "</div></div>";
-    $("derecha").innerHTML = tablaPerfiles(m3) + tablaPanos(m3) +
+    $("derecha").innerHTML = fichaSeleccion(m3) + tablaPerfiles(m3) +
+      tablaPanos(m3) +
       VISTAS.fichas(vistaActiva, m3, vista).map(pintaFicha).join("");
     pintaCatalogo();
   }
@@ -783,14 +825,68 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
   $("f").addEventListener("input", recalcula);
   $("f").addEventListener("change", recalcula);
 
-  /* zoom */
+  /* zoom y selección */
   $("centro").addEventListener("click", function (ev) {
     var b = ev.target.closest ? ev.target.closest("button[data-z]") : null;
-    if (!b) return;
-    var z = b.getAttribute("data-z");
-    if (z === "+") zoom = Math.min(ZMAX, zoom * 1.35);
-    else if (z === "-") zoom = Math.max(ZMIN, zoom / 1.35);
-    else zoom = 1;
+    if (b) {
+      var z = b.getAttribute("data-z");
+      if (z === "+") zoom = Math.min(ZMAX, zoom * 1.35);
+      else if (z === "-") zoom = Math.max(ZMIN, zoom / 1.35);
+      else zoom = 1;
+      recalcula();
+      return;
+    }
+    var l = ev.target.closest ? ev.target.closest("line[data-barra]") : null;
+    if (l) {
+      var id = l.getAttribute("data-barra");
+      barraSel = (barraSel === id) ? null : id;
+      recalcula();
+    }
+  });
+
+  /* ---------- LA 3D SE GIRA ARRASTRANDO ----------
+     Azimut y elevación como campos numéricos no es «moverla a tu gusto».
+     Se arrastra, como en cualquier visor. Los campos siguen ahí y se
+     actualizan solos: son la misma cosa y no dos. */
+  var arrastre = null;
+  $("centro").addEventListener("mousedown", function (ev) {
+    if (vistaActiva !== "tresd") return;
+    if (ev.target.closest && ev.target.closest("button")) return;
+    arrastre = { x: ev.clientX, y: ev.clientY,
+      az: +$("c_azim").value, el: +$("c_elev3d").value };
+    var mc = $("centro").querySelector ? null : null;
+    ev.preventDefault();
+  });
+  document.addEventListener("mousemove", function (ev) {
+    if (!arrastre) return;
+    var dx = ev.clientX - arrastre.x, dy = ev.clientY - arrastre.y;
+    $("c_azim").value = Math.round(arrastre.az - dx * 0.4);
+    $("c_elev3d").value = Math.max(-89, Math.min(89,
+      Math.round(arrastre.el + dy * 0.4)));
+    recalcula();
+  });
+  document.addEventListener("mouseup", function () { arrastre = null; });
+
+  /* la rueda acerca, en cualquier vista */
+  $("centro").addEventListener("wheel", function (ev) {
+    ev.preventDefault();
+    zoom = ev.deltaY < 0 ? Math.min(ZMAX, zoom * 1.12) : Math.max(ZMIN, zoom / 1.12);
+    recalcula();
+  }, { passive: false });
+
+  /* ---------- VER Y AISLAR ---------- */
+  $("capas").addEventListener("click", function (ev) {
+    var a = ev.target.closest ? ev.target.closest("button[data-ais]") : null;
+    if (!a) return;
+    var c = a.getAttribute("data-ais");
+    verEstado.aislada = (verEstado.aislada === c) ? null : c;
+    recalcula();
+  });
+  $("capas").addEventListener("change", function (ev) {
+    var v = ev.target.getAttribute && ev.target.getAttribute("data-ver");
+    if (v === null || v === undefined) return;
+    if (ev.target.checked) delete verEstado.apagadas[v];
+    else verEstado.apagadas[v] = true;
     recalcula();
   });
 
@@ -829,6 +925,11 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
     el.value = v.join(", ");
     recalcula();
   }
+
+  /* quitar la selección */
+  $("derecha").addEventListener("click", function (ev) {
+    if (ev.target && ev.target.id === "quita-sel") { barraSel = null; recalcula(); }
+  });
 
   /* pinchar una fila de perfiles resalta esa clase en el dibujo */
   $("derecha").addEventListener("click", function (ev) {

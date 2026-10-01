@@ -297,3 +297,45 @@ comprobar desde fuera de Excel.
 | `gen_complemento.py` | hornear DOS páginas: `taskpane.html` estrecho y `modelador.html` grande | sí |
 | el manifiesto | añadir **DialogApi 1.2** | parcial |
 | el diálogo | abre a 88×88, barra de pasos, pide el modelo, lo devuelve al cerrar | **no — solo en Excel** |
+
+---
+
+## 9 · RECTIFICACIÓN · el galpón no se dibuja
+
+> 01-10-2026. Lo señaló el proyectista mirando la primera versión:
+> «entiendo que yo no voy a dibujar; si yo no voy a dibujar esa opción no
+> sirve, solo serviría si es que me va a aislar elementos».
+
+Tenía razón, y el error fue **de método, no de gusto**.
+
+**El criterio debería haber sido: ¿qué tiene de libre este modelo?** En
+Retícula la planta es libre de verdad —las columnas van donde van, los vanos
+son irregulares, hay vacíos y ejes inclinados—, y ahí una paleta de dibujo es
+imprescindible. **En un galpón no hay nada libre:** todo sale de la luz, el
+largo, la separación de pórticos, la pendiente, los paños y la tipología del
+alma. No hay nada que dibujar a mano.
+
+Se copió la forma de la herramienta de al lado sin preguntar si el problema de
+debajo era el mismo. No lo era.
+
+### Lo que un galpón sí necesita
+
+Un modelo de **733 barras que no se dibuja** necesita poder **mirarse**:
+
+| | |
+|---|---|
+| **Ver y aislar** | apagar las correas para ver el alma, aislar las diagonales. Una capa por clase, con su cuenta y su botón de *solo*. |
+| **Seleccionar** | pinchar una barra y que diga qué es: clase, nudos, longitud, perfil, peso. El equivalente del «CRUCE VACÍO · Sin columna en B-2'» de Retícula. |
+| **Girar la 3D arrastrando** | azimut y elevación como campos numéricos no es «moverla a tu gusto». |
+
+Eso sustituye a la paleta. **La maquinaria de capas de edición (§7) se queda**
+—cuesta poco y cubre la excepción de mover un nudo suelto— pero deja de ser el
+centro: la interacción principal de Galpón es **elegir, filtrar e inspeccionar**,
+no dibujar.
+
+### Lo que esto cambia del orden de construcción (§8)
+
+El paso «la vista PÓRTICO, editable» **ya no es el siguiente**. Lo siguiente de
+verdad es el **PASO 3, ANÁLISIS**, porque es lo único que falta para que la
+selección diga un ratio en vez de «falta el análisis», y el ratio es lo que el
+proyectista viene a buscar.

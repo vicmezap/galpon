@@ -244,16 +244,38 @@ const fuentes = (der.match(/data-fte="([^"]+)"/g) || [])
 comp("todo botón de fuente apunta a una fila que existe",
   fuentes.filter((id) => !INV.existe(id)), []);
 
-/* LAS HERRAMIENTAS, QUE TODAVÍA NO DIBUJAN Y LO DICEN */
-const herr = pinto(M.dom, "herr").innerHTML;
-cierto("la paleta de herramientas está", (herr.match(/data-h=/g) || []).length >= 7);
-cierto("con el arriostre entre ellas", /Arriostre/.test(herr));
-cierto("y el código avisa de que todavía no editan",
-  /Esa herramienta todavía no dibuja/.test(modeHtml));
-cierto("explicando que lo que se ve SÍ es real",
-  /generador\.js la monta/.test(modeHtml));
-cierto("y qué pasará cuando edite: capas sobre lo paramétrico",
-  /se guardará como CAPA/.test(modeHtml));
+/* ───── VER Y AISLAR, NO DIBUJAR ─────
+   Aquí había una paleta de dibujo copiada de Retícula. Era un error de
+   método: en un galpón no hay nada libre que dibujar. */
+cierto("YA NO HAY PALETA DE DIBUJO", !/data-h=/.test(modeHtml));
+const capas = pinto(M.dom, "capas").innerHTML;
+comp("hay una capa por clase de barra",
+  (capas.match(/data-capa=/g) || []).length, 10);
+comp("cada una con su botón de aislar",
+  (capas.match(/data-ais=/g) || []).length, 10);
+comp("y su casilla de ver", (capas.match(/data-ver=/g) || []).length, 10);
+cierto("con el resumen de cuántas barras se ven",
+  /733/.test(pinto(M.dom, "resumen").innerHTML));
+cierto("el código explica por qué no es una paleta",
+  /error de\s+método/.test(modeHtml) && /NO HAY NADA LIBRE/.test(modeHtml));
+
+/* ───── EL LIENZO SELECCIONA ───── */
+cierto("cada barra lleva una línea gorda transparente para poder pincharla",
+  (centro.match(/class="toca"/g) || []).length > 20);
+cierto("con el id de la barra", /data-barra="/.test(centro));
+cierto("y se explica por qué: una barra de 1 px no se acierta con el ratón",
+  /no se acierta con el ratón/.test(modeHtml));
+cierto("sin nada seleccionado, el panel lo dice e invita",
+  /Nada seleccionado/.test(der) && /pincha una barra/.test(der));
+
+/* ───── LA 3D SE GIRA ARRASTRANDO ───── */
+cierto("el marco de la 3D se marca como orbitable", /orbitable/.test(modeHtml));
+cierto("hay arrastre", /mousedown/.test(modeHtml) && /mousemove/.test(modeHtml));
+cierto("que mueve el azimut y la elevación",
+  /c_azim/.test(modeHtml) && /c_elev3d/.test(modeHtml));
+cierto("y la rueda acerca", /"wheel"/.test(modeHtml));
+cierto("el código dice por qué no bastaban los campos numéricos",
+  /no es «moverla a tu gusto»/.test(modeHtml));
 
 /* LOS PASOS QUE NO ESTÁN NO SE FINGEN */
 cierto("un paso sin pantalla lo dice y nombra lo que falta",

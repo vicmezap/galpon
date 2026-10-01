@@ -679,6 +679,152 @@
     };
   }
 
+  /* ---------- VER Y AISLAR · lo que sustituye a la paleta de dibujo ----
+     ESTO EMPEZO SIENDO UNA PALETA DE DIBUJO copiada de Reticula, y estaba
+     mal por un error de metodo que conviene dejar escrito.
+
+     En Reticula la planta es LIBRE: las columnas van donde van, los vanos
+     son irregulares, hay vacios y ejes inclinados.  Ahi una paleta de
+     dibujo es imprescindible.  En un galpon NO HAY NADA LIBRE: todo sale
+     de la luz, el largo, la separacion de porticos, la pendiente, los
+     panos y la tipologia.  No hay nada que dibujar a mano.
+
+     Se copio la forma de la herramienta de al lado sin preguntar si el
+     problema de debajo era el mismo, y no lo era.  Lo que un modelo de 733
+     barras que NO se dibuja necesita de verdad es poder MIRARSE: apagar
+     las correas para ver el alma, aislar las diagonales, pinchar una barra
+     y saber que es.  Eso es esto. */
+  function capas(m3, estado) {
+    const e = estado || {};
+    const cuenta = m3.conteo.porClase;
+    const aislada = e.aislada || null;
+    const apagadas = e.apagadas || {};
+    const filas = Object.keys(cuenta).map((clase) => ({
+      clase: clase,
+      barras: cuenta[clase],
+      plano: planoDe(m3, clase),
+      visible: aislada ? clase === aislada : !apagadas[clase],
+      aislada: clase === aislada
+    }));
+    filas.sort((a, b) => b.barras - a.barras);
+    const vistas = filas.filter((f) => f.visible);
+    return {
+      filas: filas, aislada: aislada,
+      clasesVisibles: vistas.length,
+      barrasVisibles: vistas.reduce((a, f) => a + f.barras, 0),
+      barrasTotales: m3.conteo.barras,
+      art: ART["V.procedencia"],
+      nota: aislada
+        ? "aislada «" + aislada + "»: lo demás sigue en el modelo, solo no se dibuja"
+        : (vistas.length === filas.length
+          ? "se ven las " + m3.conteo.barras + " barras"
+          : "ocultas " + (filas.length - vistas.length) + " clase(s)")
+    };
+  }
+
+  function planoDe(m3, clase) {
+    for (const b of m3.barras) if (b.clase === clase) return b.plano;
+    return null;
+  }
+
+  /* Las barras que hay que dibujar con las capas puestas. NO se filtran
+     los nudos: un nudo suelto no estorba y quitarlo obligaria a recalcular
+     el encuadre, con lo que el dibujo daria un salto al apagar una capa. */
+  function filtra(barras, estado) {
+    const c = capas({ conteo: { porClase: cuentaClases(barras),
+      barras: barras.length }, barras: barras }, estado);
+    const ver = {};
+    for (const f of c.filas) if (f.visible) ver[f.clase] = true;
+    return barras.filter((b) => ver[b.clase]);
+  }
+  function cuentaClases(barras) {
+    const o = {};
+    for (const b of barras) o[b.clase] = (o[b.clase] || 0) + 1;
+    return o;
+  }
+
+  /* ---------- LA SELECCION · el panel contextual ------------------------
+     Reticula dice «CRUCE VACIO · Sin columna en B-2'».  Esto es su
+     equivalente: pinchas una barra y sale lo que es.
+
+     LO QUE NO DICE ES EL RATIO, y se dice que no lo dice.  Para el ratio
+     hacen falta las fuerzas, las fuerzas salen del analisis y el analisis
+     es el PASO 3, que todavia no tiene pantalla.  Ensenar aqui un numero
+     que parezca un ratio seria exactamente lo que este proyecto no hace. */
+  function seleccion(m3, modelo, idBarra) {
+    const b = m3.barras.filter((x) => x.id === idBarra)[0];
+    if (!b) return null;
+    const pos = {};
+    for (const n of m3.nudos) pos[n.id] = n;
+    const a = pos[b.i], c = pos[b.j];
+    const L = (a && c)
+      ? Math.sqrt(Math.pow(c.x_m - a.x_m, 2) + Math.pow(c.y_m - a.y_m, 2) +
+          Math.pow(c.z_m - a.z_m, 2))
+      : null;
+
+    const per = modelo ? perfilDeBarra(modelo, b) : { perfil: null, de: null };
+    const L2 = [
+      ln("Clase", b.clase, "geometria"),
+      ln("Entre nudos", b.i + " y " + b.j, "geometria"),
+      ln("Plano", b.plano, "norma", { fuente: "MT.ejes" })
+    ];
+    if (L !== null) L2.push(ln("Longitud", n2(L, 3) + " m", "geometria"));
+    if (b.eje !== undefined) L2.push(ln("Pórtico", String(b.eje + 1), "conteo"));
+    if (b.pano !== undefined) L2.push(ln("Paño", String(b.pano), "conteo"));
+
+    if (per.perfil) {
+      L2.push(ln("Perfil", per.perfil, "entrada",
+        { nota: per.de === "clase"
+          ? "asignado a toda la clase «" + b.clase + "»"
+          : "excepción asignada a esta barra" }));
+      if (per.datos) {
+        L2.push(ln("Área", n2(per.datos.A_cm2, 2) + " cm²", "entrada"));
+        if (per.datos.peso_kgfm !== undefined) {
+          L2.push(ln("Peso", n2(per.datos.peso_kgfm, 2) + " kgf/m", "entrada"));
+          if (L !== null) {
+            L2.push(ln("Peso de esta barra",
+              n2(per.datos.peso_kgfm * L, 1) + " kgf", "geometria"));
+          }
+        }
+        if (per.datos.rx_cm !== undefined && L !== null) {
+          L2.push(ln("L/rx", n2(L * 100 / per.datos.rx_cm, 0), "geometria"));
+        }
+      }
+    } else {
+      L2.push(ln("Perfil", "sin asignar", "entrada",
+        { estado: "no", nota: "asígnalo en la tabla de perfiles: sin A ni I el " +
+          "análisis no puede correr" }));
+    }
+
+    L2.push(ln("Ratio", "falta el análisis", "medido",
+      { nota: "el ratio necesita las fuerzas, las fuerzas salen del análisis y " +
+        "el análisis es el PASO 3, que todavía no tiene pantalla. Un número " +
+        "aquí que pareciera un ratio sería justo lo que este proyecto no hace." }));
+
+    return {
+      id: b.id, clase: b.clase, longitud_m: L, perfil: per.perfil,
+      lineas: L2, faltaAnalisis: true,
+      art: ART["V.procedencia"]
+    };
+  }
+
+  function perfilDeBarra(modelo, b) {
+    if (!modelo || !modelo.secciones) return { perfil: null, de: null };
+    const pb = modelo.secciones.porBarra[b.id];
+    const pc = modelo.secciones.porClase[b.clase];
+    const id = pb !== undefined ? pb : pc;
+    if (id === undefined) return { perfil: null, de: null };
+    let datos = null;
+    try { datos = PERFILES_OPC ? PERFILES_OPC.busca(id) : null; } catch (e) { datos = null; }
+    return { perfil: id, de: pb !== undefined ? "barra" : "clase", datos: datos };
+  }
+
+  /* perfiles.js es opcional aqui: en Node la prueba puede no cargarlo, y
+     la seleccion tiene que seguir funcionando sin los datos del perfil. */
+  const PERFILES_OPC = (typeof require === "function")
+    ? (function () { try { return require("./perfiles.js"); } catch (e) { return null; } })()
+    : (typeof self !== "undefined" ? self.PERFILES : null);
+
   /* ---------- lo que la prueba necesita para barrerlo todo -------------- */
   function todasLasLineas(m3, vista) {
     const out = [];
@@ -695,6 +841,7 @@
     ART, ORIGENES, ENTRADAS, PESTANAS,
     ln, ficha, grupos, valida, problema, pestana, dibujo, fichas, todasLasLineas,
     datosModelo, datosVista, camaraDe,
-    anotaciones, cota, tablaPerfiles, tablaPanos
+    anotaciones, cota, tablaPerfiles, tablaPanos,
+    capas, filtra, seleccion, perfilDeBarra
   };
 });

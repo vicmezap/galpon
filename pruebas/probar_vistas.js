@@ -368,6 +368,80 @@ cierto("y la nota da los metros de alero a axial",
   /30,00 m de alero a AXIAL/.test(tnD.nota));
 
 /* ================================================================
+   7d · VER Y AISLAR · lo que sustituye a la paleta de dibujo
+
+   Aquí había una paleta de dibujo copiada de Retícula y era un error de
+   método: en Retícula la planta es LIBRE y dibujar es imprescindible; en
+   un galpón no hay nada libre, todo sale de los parámetros. Lo que hace
+   falta no es dibujar: es poder mirar un modelo de 733 barras.
+   ================================================================ */
+const cp = V.capas(m3, {});
+comp("una capa por clase de barra", cp.filas.length, 10);
+comp("y con todo encendido se ven las 733", cp.barrasVisibles, 733);
+cierto("ordenadas por número de barras", cp.filas[0].barras >= cp.filas[9].barras);
+cierto("cada capa sabe en qué plano vive",
+  cp.filas.every((f) => typeof f.plano === "string"));
+
+const apag = V.capas(m3, { apagadas: { correa: true, "viga de alero": true } });
+comp("apagando correas y vigas de alero quedan 583", apag.barrasVisibles, 583);
+comp("y se dice cuántas clases se ocultaron", apag.nota, "ocultas 2 clase(s)");
+cierto("las apagadas se marcan como no visibles",
+  apag.filas.filter((f) => f.clase === "correa")[0].visible === false);
+
+const ais = V.capas(m3, { aislada: "diagonal" });
+comp("aislando las diagonales quedan 132", ais.barrasVisibles, 132);
+comp("y una sola clase visible", ais.clasesVisibles, 1);
+cierto("LO DEMÁS SIGUE EN EL MODELO, solo no se dibuja",
+  /sigue en el modelo/.test(ais.nota) && ais.barrasTotales === 733);
+comp("filtra() devuelve justo esas barras",
+  V.filtra(m3.barras, { aislada: "diagonal" }).length, 132);
+comp("y sin estado, todas", V.filtra(m3.barras, {}).length, 733);
+
+/* ================================================================
+   7e · LA SELECCIÓN · el panel contextual
+   ================================================================ */
+const idD = m3.barras.filter((b) => b.clase === "diagonal")[0].id;
+let modS = LIBRO.nuevo({});
+modS = LIBRO.asignaPerfil(modS, { clase: "diagonal" }, "L4X4X1/2").modelo;
+const sel = V.seleccion(m3, modS, idD);
+comp("la barra seleccionada se identifica", sel.id, idD);
+comp("con su clase", sel.clase, "diagonal");
+cierto("y su longitud medida", sel.longitud_m > 0);
+const dq = (ls, q) => (ls.filter((l) => l.q === q)[0] || {});
+comp("dice entre qué nudos va", dq(sel.lineas, "Entre nudos").origen, "geometria");
+comp("y en qué plano", dq(sel.lineas, "Plano").origen, "norma");
+comp("el perfil, con su procedencia de entrada",
+  dq(sel.lineas, "Perfil").v, "L4X4X1/2");
+cierto("y de dónde viene la asignación",
+  /toda la clase/.test(dq(sel.lineas, "Perfil").nota));
+cierto("trae el área del catálogo", dq(sel.lineas, "Área").v !== undefined);
+cierto("y el peso de ESTA barra, que es área por longitud",
+  dq(sel.lineas, "Peso de esta barra").v !== undefined);
+
+/* LO QUE NO DICE, Y SE DICE QUE NO LO DICE */
+comp("el ratio NO se inventa", dq(sel.lineas, "Ratio").v, "falta el análisis");
+cierto("y se explica por qué: el análisis es el paso 3",
+  /PASO 3/.test(dq(sel.lineas, "Ratio").nota));
+cierto("diciendo que un número aquí sería justo lo que no se hace",
+  /lo que este proyecto no hace/.test(dq(sel.lineas, "Ratio").nota));
+cierto("la selección se marca como pendiente de análisis", sel.faltaAnalisis === true);
+
+/* sin perfil, lo dice y explica qué bloquea */
+const sinP = V.seleccion(m3, LIBRO.nuevo({}), idD);
+comp("sin perfil asignado, lo dice", dq(sinP.lineas, "Perfil").v, "sin asignar");
+comp("y lo marca en rojo", dq(sinP.lineas, "Perfil").estado, "no");
+cierto("explicando que sin A ni I no corre el análisis",
+  /sin A ni I/.test(dq(sinP.lineas, "Perfil").nota));
+
+comp("una barra que no existe devuelve null", V.seleccion(m3, modS, "NO.EXISTE"), null);
+
+/* TODAS las líneas de la selección declaran procedencia, como las demás */
+comp("ninguna línea de la selección sin procedencia",
+  sel.lineas.filter((l) => V.ORIGENES.indexOf(l.origen) < 0), []);
+comp("y las de norma citan filas que existen",
+  sel.lineas.filter((l) => l.origen === "norma" && !INV.existe(l.fuente)), []);
+
+/* ================================================================
    8 · LAS FILAS DEL INVENTARIO
    ================================================================ */
 for (const id of ["V.procedencia", "V.no.duplica", "V.limites",
