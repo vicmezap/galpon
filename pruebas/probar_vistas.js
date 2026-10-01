@@ -487,12 +487,19 @@ comp("y todos dicen a que grupo del diagrama pertenecen",
 /* LA BARRA DE VISTAS ES DE GEOMETRIA, Y DE NADIE MAS */
 comp("SOLO Geometria lleva la barra de cuatro vistas",
   V.PASOS.filter((p) => p.vistas).map((p) => p.id), ["geom"]);
-comp("y solo Geometria lleva panel a la izquierda",
-  V.PASOS.filter((p) => (p.lados || []).length).map((p) => p.id), ["geom"]);
+comp("LOS PANELES DE GEOMETRIA —Ver y Datos— solo los lleva Geometria",
+  V.PASOS.filter((p) => (p.lados || []).some((l) => l === "ver" || l === "parametros"))
+    .map((p) => p.id), ["geom"]);
+comp("y cada paso con panel a la izquierda lleva EL SUYO",
+  V.PASOS.filter((p) => (p.lados || []).length).map((p) => p.id + ":" + p.lados.join("+")),
+  ["geom:ver+parametros", "cargas:cargas", "analisis:analisis"]);
+comp("Analisis lleva panel derecho sin la barra de cuatro vistas",
+  [V.armazon("analisis").derecha, V.armazon("analisis").vistas], [true, false]);
+comp("Cargas no lleva panel derecho", V.armazon("cargas").derecha, false);
 comp("con sus dos lados: las capas y los parametros",
   V.armazon("geom").lados, ["ver", "parametros"]);
 comp("CARGAS NO ENSENA LA BARRA DE VISTAS", V.armazon("cargas").vistas, false);
-comp("ni los parametros del tijeral", V.armazon("cargas").lados, []);
+comp("ni los parametros del tijeral: lleva los suyos", V.armazon("cargas").lados, ["cargas"]);
 comp("ni Comprobacion", V.armazon("comprob").vistas, false);
 comp("ni Inicio", V.armazon("inicio").vistas, false);
 
@@ -509,8 +516,8 @@ comp("y QUIEN la hara", flojos.filter((p) => !p.hara).map((p) => p.id), []);
 comp("y si el motor esta escrito", flojos.filter((p) => !p.motor).map((p) => p.id), []);
 comp("los que si tienen pantalla llevan subtitulo en vez de excusa",
   V.PASOS.filter((p) => p.listo && !p.sub).map((p) => p.id), []);
-comp("tres estan llenos hoy", V.PASOS.filter((p) => p.listo).map((p) => p.id),
-  ["inicio", "geom", "comprob"]);
+comp("cinco estan llenos hoy", V.PASOS.filter((p) => p.listo).map((p) => p.id),
+  ["inicio", "geom", "cargas", "analisis", "comprob"]);
 
 /* ---------------- INICIO · el tablero ---------------- */
 const tab = V.inicio(m3, null);

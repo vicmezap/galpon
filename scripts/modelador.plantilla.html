@@ -268,6 +268,36 @@ ol.avisos .ir:hover { border-color:var(--acero); }
 .cuenta span.e { color:var(--alerta); border-color:var(--alerta); }
 .cuenta span.a { color:var(--aviso); border-color:var(--aviso); }
 .cuenta span.ok { color:var(--ok); border-color:var(--ok); }
+/* ---- CARGAS Y ANÁLISIS ---- */
+.rueda-x { overflow-x:auto; }
+table.rx { width:100%; border-collapse:collapse; font-family:var(--cifra); font-size:10px;
+  font-variant-numeric:tabular-nums; }
+table.rx th { font-weight:500; color:var(--suave); text-align:right; padding:3px 3px;
+  border-bottom:1px solid var(--linea); }
+table.rx td { text-align:right; padding:3px 3px; border-bottom:1px solid var(--papel-2); }
+table.rx th:first-child, table.rx td:first-child { text-align:left; }
+table.rx td.neg { color:var(--aviso); }
+.modos { display:flex; gap:2px; margin:0 0 10px; flex-wrap:wrap; }
+.modos button { font-family:var(--disp); font-size:11.5px; font-weight:600; padding:4px 10px;
+  border:1px solid var(--linea); background:var(--papel); color:var(--tinta-2);
+  cursor:pointer; border-radius:2px; }
+.modos button[aria-pressed="true"] { background:var(--acero); border-color:var(--acero); color:#fff; }
+svg.fz { width:100%; height:auto; display:block; background:var(--papel);
+  border:1px solid var(--linea); border-radius:3px; }
+svg.fz .t { stroke:var(--acero); } svg.fz .c { stroke:var(--alerta); }
+svg.fz .m { stroke:var(--aviso); } svg.fz .n { stroke:var(--linea); }
+svg.fz .sel { stroke:var(--tinta); }
+svg.fz text { font-family:var(--cifra); font-size:10px; fill:var(--tinta-2); }
+svg.fz .apoyo { fill:none; stroke:var(--tinta-2); stroke-width:1.4; }
+.ley { display:flex; gap:14px; flex-wrap:wrap; font-family:var(--cifra); font-size:10px;
+  color:var(--suave); margin-top:6px; }
+.ley i { display:inline-block; width:18px; height:0; border-top:3px solid; vertical-align:middle;
+  margin-right:5px; }
+.hoja h3 { font-family:var(--disp); font-size:13px; font-weight:600; margin:22px 0 8px; }
+ul.combs { list-style:none; margin:0; padding:0; font-family:var(--cifra); font-size:11px; }
+ul.combs li { padding:3px 0; border-bottom:1px solid var(--papel-2); }
+ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
+.dos { display:grid; gap:18px; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); }
 .todavia code { font-family:var(--cifra); font-size:.92em; }
 #fuente { position:fixed; inset:auto 0 0 0; background:var(--ficha);
   border-top:2px solid var(--acero); padding:11px 16px 13px; z-index:9;
@@ -310,6 +340,14 @@ ol.avisos .ir:hover { border-color:var(--acero); }
     <div id="lado-parametros">
       <h3 class="sec">Datos</h3>
       <form id="f" autocomplete="off" onsubmit="return false"></form>
+    </div>
+    <div id="lado-cargas">
+      <h3 class="sec">Cargas</h3>
+      <form id="fc" autocomplete="off" onsubmit="return false"></form>
+    </div>
+    <div id="lado-analisis">
+      <h3 class="sec">Modelo de análisis</h3>
+      <form id="fa" autocomplete="off" onsubmit="return false"></form>
     </div>
   </aside>
   <main class="lienzo" id="centro"></main>
@@ -406,10 +444,12 @@ ol.avisos .ir:hover { border-color:var(--acero); }
     var par = a.lados.indexOf("parametros") >= 0;
     $("lado-ver").hidden = !ver;
     $("lado-parametros").hidden = !par;
+    $("lado-cargas").hidden = a.lados.indexOf("cargas") < 0;
+    $("lado-analisis").hidden = a.lados.indexOf("analisis") < 0;
     $("izquierda").hidden = !a.lados.length;
-    $("derecha").hidden = !a.vistas;
+    $("derecha").hidden = !a.derecha;
     $("obra").className = "obra" + (a.lados.length ? "" : " sin-izq") +
-      (a.vistas ? "" : " sin-der");
+      (a.derecha ? "" : " sin-der");
     return a;
   }
 
@@ -468,6 +508,236 @@ ol.avisos .ir:hover { border-color:var(--acero); }
   $("centro").addEventListener("click", function (ev) {
     var b = ev.target.closest ? ev.target.closest("button[data-ir]") : null;
     if (b) vePaso(b.getAttribute("data-ir"));
+  });
+
+  /* ---------- LOS FORMULARIOS DE CARGAS Y ANALISIS ----------
+     Los campos salen de resultados.js, que dice a qué clave del modelo va
+     cada uno. Ninguno trae valor: un campo vacío se queda sin poner y la
+     pantalla lo pide, en vez de rellenarse con un número que nadie eligió. */
+  function campoSitio(c, pref) {
+    var cid = pref + c.id;
+    var et = esc(c.etiqueta) + (c.unidad ? " (" + esc(c.unidad) + ")" : "") +
+      (c.fuente ? fuenteBtn(c.fuente) : "");
+    var envol = '<div class="par ancho"' + (c.soloSi ? ' data-solo="' + c.soloSi + '"' : "") + ">";
+    if (c.tipo === "opcion") {
+      return envol + '<label for="' + cid + '">' + et + '</label><select id="' + cid + '">' +
+        c.opciones.map(function (o) {
+          return '<option value="' + o[0] + '">' + esc(o[1]) + "</option>";
+        }).join("") + "</select></div>";
+    }
+    return envol + '<label for="' + cid + '">' + et + '</label><input type="number" id="' +
+      cid + '" step="any" value=""></div>';
+  }
+  function pintaForm(id, grupos, pref) {
+    $(id).innerHTML = grupos.map(function (g) {
+      return "<fieldset><legend>" + esc(g.grupo) + "</legend>" +
+        g.campos.map(function (c) { return campoSitio(c, pref); }).join("") + "</fieldset>";
+    }).join("");
+  }
+  function valoresForm(grupos, pref) {
+    var v = {};
+    grupos.forEach(function (g) {
+      g.campos.forEach(function (c) { var el = $(pref + c.id); v[c.id] = el ? el.value : ""; });
+    });
+    return v;
+  }
+  function ponValores(grupos, pref, v) {
+    grupos.forEach(function (g) {
+      g.campos.forEach(function (c) {
+        var el = $(pref + c.id);
+        if (el) el.value = (v[c.id] === undefined) ? "" : v[c.id];
+      });
+    });
+  }
+  pintaForm("fc", RESULTADOS.CAMPOS_CARGAS, "ca_");
+  pintaForm("fa", RESULTADOS.CAMPOS_ANALISIS, "an_");
+  $("fc").addEventListener("change", function () {
+    modelo.sitio = RESULTADOS.leeSitio(valoresForm(RESULTADOS.CAMPOS_CARGAS, "ca_"));
+    recalcula();
+  });
+  $("fa").addEventListener("change", function () {
+    modelo.sistema = RESULTADOS.leeSistema(valoresForm(RESULTADOS.CAMPOS_ANALISIS, "an_"));
+    recalcula();
+  });
+  function ponSitioEnFormularios() {
+    ponValores(RESULTADOS.CAMPOS_CARGAS, "ca_", RESULTADOS.valoresDeSitio(modelo.sitio));
+    ponValores(RESULTADOS.CAMPOS_ANALISIS, "an_", modelo.sistema || {});
+  }
+
+  function listaFaltas(faltas, conIr) {
+    return '<ol class="avisos">' + faltas.map(function (f) {
+      var p = conIr && f.paso && f.paso !== pasoActivo ? VISTAS.paso(f.paso) : null;
+      return '<li class="aviso"><span class="niv">falta</span><b>' + esc(f.que) + "</b>" +
+        (f.fuente ? fuenteBtn(f.fuente) : "") +
+        (p ? '<button class="ir" data-ir="' + p.id + '">ir a ' + esc(p.nombre) + "</button>" : "") +
+        "</li>";
+    }).join("") + "</ol>";
+  }
+
+  /* ---------- CARGAS ---------- */
+  function pintaCargas(fallo) {
+    if (!m3) {
+      $("centro").innerHTML = '<div class="hoja"><h2>Cargas</h2><p class="lead">el galpón no ' +
+        "se puede montar: " + esc(fallo ? fallo.titulo : "—") + ". Se corrige en Geometría.</p></div>";
+      return;
+    }
+    var c = RESULTADOS.cargas(m3, modelo.sitio);
+    var faltas = c.faltan.map(function (f) { return { que: f.que }; });
+    var h = '<div class="hoja"><h2>Cargas</h2><p class="lead">' +
+      (c.completo ? "todo definido: el análisis tiene con qué correr"
+        : "faltan " + faltas.length + " dato(s), que se piden a la izquierda") + "</p>" +
+      (faltas.length ? listaFaltas(faltas, false) : "") +
+      '<div class="rejilla">' + c.fichas.map(pintaFicha).join("") + "</div>";
+    if (c.tablaViento.length) {
+      h += "<h3>Viento por superficie</h3><div class=\"tarj\"><table class=\"rx\"><thead><tr>" +
+        "<th>Dirección</th><th>Superficie</th><th>Ce</th><th>Ci</th><th>C</th><th>Ph (kgf/m²)</th>" +
+        "</tr></thead><tbody>" + c.tablaViento.map(function (r) {
+          return "<tr><td>" + esc(r.direccion) + "</td><td>" + esc(r.superficie) + "</td><td>" +
+            n2(r.Ce, 2) + "</td><td>" + n2(r.Ci, 2) + "</td><td>" + n2(r.C, 2) +
+            '</td><td class="' + (r.Ph_kgfm2 < 0 ? "neg" : "") + '">' + n2(r.Ph_kgfm2, 1) + "</td></tr>";
+        }).join("") + "</tbody></table><p class=\"pie\">Presiones y succiones exteriores " +
+        "simultáneas (E.020 Art. 12.1). Naranja levanta.</p></div>";
+    }
+    if (c.combinaciones) {
+      var lis = function (l) {
+        return '<ul class="combs">' + l.map(function (x) {
+          return '<li><span class="id">' + esc(x.id) + "</span>" + esc(x.texto) + "</li>";
+        }).join("") + "</ul>";
+      };
+      h += '<h3>Combinaciones</h3><div class="dos"><div class="tarj"><h4>Acero · E.090</h4>' +
+        lis(c.combinaciones.acero) + '</div><div class="tarj"><h4>Cimentación · E.060</h4>' +
+        lis(c.combinaciones.concreto) + '<p class="pie">A la cimentación se le pasan los casos ' +
+        "sin factorizar y combina con sus propios factores (fila J.costura).</p></div></div>";
+    }
+    $("centro").innerHTML = h + "</div>";
+    Array.prototype.forEach.call(document.querySelectorAll ? document.querySelectorAll("[data-solo]") : [],
+      function (el) { el.hidden = !(modelo.sitio && modelo.sitio.hayNieve); });
+  }
+
+  /* ---------- ANALISIS ----------
+     Corre cuando se entra en el paso o cambia algo de lo que depende. La
+     cámara de Geometría no cuenta: el resultado se guarda con una clave de
+     todo lo que lo determina y se reutiliza mientras no cambie. */
+  var analisisCache = { clave: null, res: null };
+  var modoAnalisis = "compresion";
+  function claveAnalisis() {
+    return JSON.stringify([paraElMotor(VISTAS.datosModelo(datos())), modelo.secciones,
+      modelo.sitio, modelo.sistema]);
+  }
+  function analisisActual() {
+    var k = claveAnalisis();
+    if (analisisCache.clave !== k) {
+      analisisCache = { clave: k, res: RESULTADOS.analisis(m3, modelo, PERFILES) };
+    }
+    return analisisCache.res;
+  }
+  function analisisVigente() {
+    return analisisCache.clave === claveAnalisis() && analisisCache.res &&
+      analisisCache.res.ok ? analisisCache.res : null;
+  }
+
+  function dibujaFuerzas(dj, r) {
+    var pos = {}, xs = [], ys = [];
+    dj.nudos.forEach(function (nd) { pos[nd.id] = nd; xs.push(nd.x_m); ys.push(nd.y_m); });
+    var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
+    var y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+    var W = 1000, m = 48, k = (W - 2 * m) / Math.max(x1 - x0, 1e-6);
+    var H = (y1 - y0) * k + 2 * m + 20;
+    if (H > 600) { k = (600 - 2 * m - 20) / (y1 - y0); H = 600; }
+    var X = function (x) { return m + (x - x0) * k; };
+    var Y = function (y) { return H - m - (y - y0) * k; };
+    var h = '<svg class="fz" viewBox="0 0 ' + W + " " + n2(H, 0).replace(",", ".") + '">';
+    dj.barras.forEach(function (b) {
+      var a = pos[b.i], c = pos[b.j];
+      var cls = dj.modo === "momento" ? (Math.abs(b.valor) > 1e-6 ? "m" : "n")
+        : (b.valor > 1e-6 ? "t" : (b.valor < -1e-6 ? "c" : "n"));
+      var sw = 1 + 6 * b.peso;
+      var xy = ' x1="' + X(a.x_m).toFixed(1) + '" y1="' + Y(a.y_m).toFixed(1) + '" x2="' +
+        X(c.x_m).toFixed(1) + '" y2="' + Y(c.y_m).toFixed(1) + '"';
+      if (b.id === barraSel) h += '<line class="sel"' + xy + ' stroke-width="' + (sw + 5) + '"/>';
+      h += '<line class="' + cls + '"' + xy + ' stroke-width="' + sw.toFixed(2) + '" stroke-linecap="round"/>';
+      h += '<line data-barra="' + esc(b.id) + '"' + xy +
+        ' stroke="transparent" stroke-width="12" style="cursor:pointer"/>';
+      if (b.etiqueta && b.peso >= 0.12) {
+        h += '<text x="' + ((X(a.x_m) + X(c.x_m)) / 2 + 4).toFixed(1) + '" y="' +
+          ((Y(a.y_m) + Y(c.y_m)) / 2 - 4).toFixed(1) + '">' + esc(b.etiqueta) + "</text>";
+      }
+    });
+    /* los apoyos, dibujados según el sistema */
+    dj.nudos.forEach(function (nd) {
+      if (nd.clase !== "base") return;
+      var px = X(nd.x_m), py = Y(nd.y_m);
+      h += r.sistema.base === "empotrada"
+        ? '<path class="apoyo" d="M' + (px - 14) + " " + py + "h28M" + (px - 12) + " " + py +
+          "l-6 8M" + (px - 2) + " " + py + "l-6 8M" + (px + 8) + " " + py + 'l-6 8"/>'
+        : '<path class="apoyo" d="M' + px + " " + py + "l-9 14h18z\"/>";
+    });
+    return h + "</svg>";
+  }
+
+  function pintaAnalisis(fallo) {
+    if (!m3) {
+      $("centro").innerHTML = '<div class="hoja"><h2>Análisis</h2><p class="lead">el galpón no ' +
+        "se puede montar: " + esc(fallo ? fallo.titulo : "—") + ". Se corrige en Geometría.</p></div>";
+      $("derecha").innerHTML = "";
+      return;
+    }
+    var a = analisisActual();
+    if (!a.ok) {
+      $("centro").innerHTML = '<div class="hoja"><h2>Análisis</h2><p class="lead">todavía no ' +
+        "se puede correr: falta lo que sigue, y cada cosa dice dónde se pone</p>" +
+        listaFaltas(a.faltas, true) + "</div>";
+      $("derecha").innerHTML = '<p class="nohay">El análisis resuelve el pórtico interior ' +
+        "con el Método Directo: todas las combinaciones de la E.090, el viento como estados " +
+        "físicos y el segundo orden del Apéndice 8.</p>";
+      return;
+    }
+    var r = a.r;
+    var dj = RESULTADOS.dibujo(r, m3, modoAnalisis);
+    var modos = '<div class="modos">' + dj.modos.map(function (x) {
+      return '<button type="button" data-modo="' + x[0] + '" aria-pressed="' +
+        (x[0] === dj.modo) + '">' + esc(x[1]) + "</button>";
+    }).join("") + "</div>";
+    var ley = '<div class="ley">' + (dj.modo === "momento"
+      ? '<span><i style="border-top-color:var(--aviso)"></i>' + esc(dj.leyenda) + "</span>"
+      : '<span><i style="border-top-color:var(--acero)"></i>tracción</span>' +
+        '<span><i style="border-top-color:var(--alerta)"></i>compresión</span>' +
+        "<span>" + esc(dj.leyenda) + "</span>") +
+      "<span>máx. " + n2(dj.modo === "momento" ? dj.max / 1e5 : dj.max / 1000, 2) + " " + dj.unidad +
+      "</span></div>";
+    $("centro").innerHTML = '<div class="hoja"><h2>Análisis</h2><p class="lead">' +
+      esc(r.sistema.nombre) + " · pórtico interior, eje " + r.eje + " · " +
+      r.combinaciones.length + " corridas</p>" + modos + dibujaFuerzas(dj, r) + ley + "</div>";
+
+    var sel;
+    var lf = barraSel ? RESULTADOS.lineasFuerzas(r, barraSel) : null;
+    if (lf) {
+      sel = '<div class="tarj" style="border-left-color:var(--alerta)"><h4>' +
+        esc(barraSel.split("@")[0]) + '</h4><p class="sub">' + esc(lf.nota) + "</p>" +
+        lf.lineas.map(pintaLinea).join("") + "</div>";
+    } else {
+      sel = '<div class="tarj"><h4>Nada seleccionado</h4><p class="sub">pincha una barra del dibujo</p></div>';
+    }
+    var tr = RESULTADOS.tablaReacciones(r);
+    var t = function (x) { return n2(x / 1000, 2); };
+    var tabla = '<div class="tarj"><h4>Reacciones por caso</h4><p class="sub">sin factorizar · ' +
+      "para la cimentación · t y t·m</p>" +
+      '<div class="rueda-x"><table class="rx"><thead><tr><th>caso</th><th>Rx izq</th><th>Ry izq</th><th>Mz izq</th>' +
+      "<th>Rx der</th><th>Ry der</th><th>Mz der</th></tr></thead><tbody>" +
+      tr.map(function (x) {
+        return '<tr title="' + esc(x.desc) + '"><td>' + esc(x.caso) + "</td><td>" + t(x.B0.Rx) +
+          "</td><td>" + t(x.B0.Ry) + "</td><td>" + n2(x.B0.Mz / 1e5, 2) + "</td><td>" + t(x.B1.Rx) +
+          "</td><td>" + t(x.B1.Ry) + "</td><td>" + n2(x.B1.Mz / 1e5, 2) + "</td></tr>";
+      }).join("") + "</tbody></table></div>" + '<p class="pie">' + fuenteBtn("A.reacciones.casos") +
+      " A la cimentación se le pasan casos, no combinaciones.</p></div>";
+    var avisos = '<div class="tarj"><h4>Lo que este análisis todavía no cubre</h4>' +
+      r.avisos.map(function (x) { return '<p class="pie">' + esc(x) + "</p>"; }).join("") + "</div>";
+    $("derecha").innerHTML = sel + a.fichas.map(pintaFicha).join("") + tabla + avisos;
+  }
+
+  $("centro").addEventListener("click", function (ev) {
+    var b = ev.target.closest ? ev.target.closest("button[data-modo]") : null;
+    if (b) { modoAnalisis = b.getAttribute("data-modo"); recalcula(); }
   });
 
   /* ---------- LO QUE TODAVIA NO TIENE PANTALLA ----------
@@ -837,11 +1107,20 @@ ol.avisos .ir:hover { border-color:var(--acero); }
     }
     var s = VISTAS.seleccion(m3, modelo, barraSel);
     if (!s) { barraSel = null; return fichaSeleccion(m3); }
+    /* si hay un análisis VIGENTE —del mismo galpón, perfiles y cargas— la
+       ficha dice las fuerzas en vez de «falta el análisis» */
+    var lineas = s.lineas;
+    var av = analisisVigente();
+    var lf = av ? RESULTADOS.lineasFuerzas(av.r, barraSel) : null;
+    if (lf) {
+      lineas = lineas.filter(function (l) { return l.q !== "Ratio"; }).concat(lf.lineas);
+    }
     return '<div class="tarj" style="border-left-color:var(--alerta)"><h4>' +
       esc(s.id) + "</h4>" +
       '<p class="sub">' + esc(s.clase) + ' · <button class="fte" ' +
       'id="quita-sel" type="button">quitar</button></p>' +
-      s.lineas.map(pintaLinea).join("") + "</div>";
+      lineas.map(pintaLinea).join("") +
+      (lf ? '<p class="pie">' + esc(lf.nota) + "</p>" : "") + "</div>";
   }
 
   var CATALOGO = null;
@@ -913,6 +1192,8 @@ ol.avisos .ir:hover { border-color:var(--acero); }
        la pagina aunque esten ocultos, asi que se pueden leer siempre. */
     if (pasoActivo === "inicio") { pintaInicio(fallo); return; }
     if (pasoActivo === "comprob") { pintaComprobacion(fallo); return; }
+    if (pasoActivo === "cargas") { pintaCargas(fallo); return; }
+    if (pasoActivo === "analisis") { pintaAnalisis(fallo); return; }
 
     if (fallo) {
       $("metricas").innerHTML = "";
@@ -1220,6 +1501,9 @@ ol.avisos .ir:hover { border-color:var(--acero); }
     m.vista = VISTAS.datosVista(d);
     m.secciones = modelo.secciones;   /* los perfiles asignados viajan */
     m.ediciones = modelo.ediciones;
+    /* y las cargas y el sistema: sin esto se perdían al guardar y cerrar */
+    m.sitio = modelo.sitio || {};
+    m.sistema = modelo.sistema || null;
     return m;
   }
   $("b-guardar").onclick = function () {
@@ -1268,6 +1552,9 @@ ol.avisos .ir:hover { border-color:var(--acero); }
     }
     if (m.secciones) modelo.secciones = m.secciones;
     if (m.ediciones) modelo.ediciones = m.ediciones;
+    if (m.sitio) modelo.sitio = m.sitio;
+    if (m.sistema) modelo.sistema = m.sistema;
+    ponSitioEnFormularios();
     recalcula();
   }
 })();

@@ -251,6 +251,19 @@ cerca("B2 = 1/(1 − Pstory/Pe,story) con Pe,story = 0,85·H·L/ΔH, rehecho a m
   cierto("y Cm ≥ 0,2, el mínimo de la fórmula", c0.Cm >= 0.2 - 1e-12);
 }
 
+/* ---- SIMETRÍA DE LA ENVOLVENTE ----
+   Galpón simétrico, viento en las dos direcciones, nocional en los dos
+   sentidos: las dos columnas tienen que dar lo mismo. Se vio en pantalla que
+   no lo hacían —3,63 contra 3,79 t·m— porque se sumaban el máximo de Mnt y
+   el de Mlt por separado, y el reparto nt/lt depende de en qué alero va el
+   apoyo ficticio. Queda solo el residuo de que B2 amplifique la parte lt. */
+for (const [nom, rr] of [["rígido empotrado", r], ["péndulo", A.analiza({ m3: m3, seccion: seccion,
+  acero: "A36", sistema: PENDULO, cargas: CARGAS })]]) {
+  cerca(nom + " · las dos columnas, el mismo momento máximo",
+    rr.barras.C0.momento.Mr_kgfcm, rr.barras.C1.momento.Mr_kgfcm, 0.005);
+  cerca(nom + " · y la misma compresión", rr.barras.C0.compresion.Pr_kgf, rr.barras.C1.compresion.Pr_kgf, 0.005);
+}
+
 /* ---- LA FÍSICA DEL GALPÓN ---- */
 const bi = r.barras.BI3;
 cierto("la brida inferior TRACCIONA con la gravedad", bi.traccion.Pr_kgf > 0);

@@ -250,7 +250,8 @@
       sumaNudo(L, nudo, 0, -P);
       fuera += P;
     }
-    return { id: "D", tipo: "D", desc: "muerta: cobertura " + D_kgfm2 + " kgf/m² + peso propio",
+    return { id: "D", tipo: "D", desc: "muerta: cobertura " + String(Math.round(D_kgfm2 * 100) / 100).replace(".", ",") +
+        " kgf/m² + peso propio",
       cargas: L, pesoPropio_kgf: propio, pesoCorreas_kgf: fuera,
       art: ART["A.pesopropio"], artReparto: ART["A.reparto.techo"] };
   }
@@ -262,7 +263,8 @@
       const P = Lr_kgfm2 * t.L_m * g.trib_m;
       sumaNudo(L, t.a, 0, -P / 2); sumaNudo(L, t.b, 0, -P / 2);
     }
-    return { id: "Lr", tipo: "Lr", desc: "viva de techo " + Lr_kgfm2 + " kgf/m² sobre la superficie",
+    return { id: "Lr", tipo: "Lr", desc: "viva de techo " + String(Math.round(Lr_kgfm2 * 100) / 100).replace(".", ",") +
+        " kgf/m² sobre la superficie",
       cargas: L, art: ART["A.Lr.area"] };
   }
 
@@ -511,7 +513,22 @@
         r.B1 = B1; r.Cm = Cm;
         r.Mi_kgfcm = B1 * mn.Mi_kgfcm + sol.B2 * ml.Mi_kgfcm;
         r.Mj_kgfcm = B1 * mn.Mj_kgfcm + sol.B2 * ml.Mj_kgfcm;
-        r.Mr_kgfcm = B1 * mn.max_kgfcm + sol.B2 * ml.max_kgfcm;   /* fila A.Mr.max */
+        /* EL MÁXIMO DE LA SUMA, NO LA SUMA DE LOS MÁXIMOS · fila A.Mr.max.
+           Mr(x) = B1·Mnt(x) + B2·Mlt(x) es una parábola conocida: Mnt lleva la
+           carga repartida y Mlt es lineal. Su máximo está en un extremo o donde
+           su derivada se anula. Sumar los dos máximos por separado daba otra
+           cosa en cada columna, porque el reparto nt/lt depende de en qué alero
+           se pone el apoyo ficticio, y la envolvente de un galpón SIMÉTRICO
+           salía asimétrica: 3,63 contra 3,79 t·m. */
+        const w = (wDe[b.id] || 0) / 100, L = fn.L_cm;
+        const Mx = (x) => B1 * (-fn.M_i_kgfcm + fn.V_i_kgf * x + w * x * x / 2) +
+          sol.B2 * (-fl.M_i_kgfcm + fl.V_i_kgf * x);
+        let mmax = Math.max(Math.abs(Mx(0)), Math.abs(Mx(L)));
+        if (Math.abs(w) > 1e-12) {
+          const xs = -(B1 * fn.V_i_kgf + sol.B2 * fl.V_i_kgf) / (B1 * w);
+          if (xs > 0 && xs < L) mmax = Math.max(mmax, Math.abs(Mx(xs)));
+        }
+        r.Mr_kgfcm = mmax;
         r.Vr_kgf = Math.max(Math.abs(fn.V_i_kgf), Math.abs(fn.V_j_kgf)) +
           sol.B2 * Math.max(Math.abs(fl.V_i_kgf), Math.abs(fl.V_j_kgf));
         r.Pns_kgf = null;

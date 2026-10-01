@@ -335,29 +335,63 @@ comp("y un grupo del diagrama por cada uno que haya, contados y no a dedo",
   M.win.VISTAS.PASOS.map((p) => p.grupo)
     .filter((g, i, a) => a.indexOf(g) === i).length);
 comp("los que no tienen pantalla salen apagados",
-  (barra.match(/class="falta"/g) || []).length, 8);
+  (barra.match(/class="falta"/g) || []).length,
+  M.win.VISTAS.PASOS.filter((p) => !p.listo).length);
 
 /* EN GEOMETRIA: barra de vistas, los dos lados y el panel derecho */
 comp("en Geometria se ve la barra de vistas", pinto(M.dom, "vistas").hidden, false);
 comp("y las capas", pinto(M.dom, "lado-ver").hidden, false);
 comp("y los parametros", pinto(M.dom, "lado-parametros").hidden, false);
 
-/* AL ENTRAR EN CARGAS SE VA TODO LO QUE ERA DE GEOMETRIA */
-pulsa(M.dom, "pasos", "data-paso", "cargas");
-comp("EN CARGAS LA BARRA DE VISTAS DESAPARECE", pinto(M.dom, "vistas").hidden, true);
+/* UN PASO SIN PANTALLA: se va todo lo de Geometría y se dice qué falta */
+pulsa(M.dom, "pasos", "data-paso", "diseno");
+comp("EN DISEÑO LA BARRA DE VISTAS DESAPARECE", pinto(M.dom, "vistas").hidden, true);
 comp("y las metricas del galpon tambien", pinto(M.dom, "metricas").hidden, true);
 comp("y el panel entero de la izquierda", pinto(M.dom, "izquierda").hidden, true);
 comp("y el de la derecha, que era la seleccion de barras",
   pinto(M.dom, "derecha").hidden, true);
-const cargas = pinto(M.dom, "centro").innerHTML;
-cierto("Cargas dice QUE ensenara", /E\.020/.test(cargas) && /Tabla 5/.test(cargas));
-cierto("y que su motor ya esta escrito", /e020\.js/.test(cargas));
+const diseno = pinto(M.dom, "centro").innerHTML;
+cierto("Diseño dice QUE enseñará y que su motor está escrito",
+  /AISC/.test(diseno) && /acero\.js/.test(diseno));
 cierto("no se pone una maqueta, y se dice por que",
-  /Todavía no hay pantalla/.test(cargas) && /engaña más que una que avisa/.test(cargas));
+  /Todavía no hay pantalla/.test(diseno) && /engaña más que una que avisa/.test(diseno));
 cierto("y con tildes: el texto es para el proyectista, no para el compilador",
   !/Todavia no hay|ensenara|La hara |Ve a Geometria|ningun aviso/.test(modeHtml));
 cierto("ya no queda ni una capa de barras a la vista",
-  cargas.indexOf("data-capa=") < 0);
+  diseno.indexOf("data-capa=") < 0);
+
+/* ───── CARGAS · su propio panel, y sin valores que nadie eligió ───── */
+pulsa(M.dom, "pasos", "data-paso", "cargas");
+comp("en Cargas va SU panel a la izquierda", pinto(M.dom, "lado-cargas").hidden, false);
+comp("y no el de Geometría", [pinto(M.dom, "lado-ver").hidden, pinto(M.dom, "lado-parametros").hidden],
+  [true, true]);
+comp("ni panel derecho", pinto(M.dom, "derecha").hidden, true);
+const fc = pinto(M.dom, "fc").innerHTML;
+cierto("el formulario trae la cobertura, el viento, las aberturas y el acero",
+  /ca_esp/.test(fc) && /ca_v"/.test(fc) && /ca_ab_izqDer/.test(fc) && /ca_acero/.test(fc));
+cierto("las aberturas, una por dirección", /ca_ab_derIzq/.test(fc) && /ca_ab_longitudinal/.test(fc));
+cierto("NINGÚN campo trae valor: todos empiezan en «— elegir —» o vacíos",
+  !/selected/.test(fc) && !/<input[^>]*value="[^"]/.test(fc));
+cierto("cada campo con norma lleva su botón de fuente", (fc.match(/data-fte=/g) || []).length >= 6);
+const cg = pinto(M.dom, "centro").innerHTML;
+cierto("vacío, la pantalla DICE qué falta en vez de inventarlo", /faltan \d+ dato/.test(cg));
+cierto("y entre lo que falta, las aberturas por dirección", /aberturas para el viento/.test(cg));
+
+/* ───── ANÁLISIS · sin datos dice qué falta y adónde ir ───── */
+pulsa(M.dom, "pasos", "data-paso", "analisis");
+comp("en Análisis va SU panel a la izquierda", pinto(M.dom, "lado-analisis").hidden, false);
+comp("y panel derecho, sin la barra de cuatro vistas",
+  [pinto(M.dom, "derecha").hidden, pinto(M.dom, "vistas").hidden], [false, true]);
+cierto("el formulario pide la base y la unión, sin valor por omisión",
+  /an_base/.test(pinto(M.dom, "fa").innerHTML) && /an_union/.test(pinto(M.dom, "fa").innerHTML) &&
+  !/selected/.test(pinto(M.dom, "fa").innerHTML));
+const an = pinto(M.dom, "centro").innerHTML;
+cierto("sin datos no corre, y lo dice", /todavía no se puede correr/.test(an));
+cierto("pide el sistema estructural", /sistema estructural/.test(an));
+cierto("y manda a Cargas a por lo que falta allí", /data-ir="cargas"/.test(an));
+cierto("guardar lleva el sitio y el sistema, que antes se perdían",
+  /m\.sitio = modelo\.sitio/.test(modeHtml) && /m\.sistema = modelo\.sistema/.test(modeHtml));
+cierto("y abrir los devuelve a los formularios", /ponSitioEnFormularios\(\)/.test(modeHtml));
 
 /* INICIO · un tablero de verdad, no una pestana vacia */
 pulsa(M.dom, "pasos", "data-paso", "inicio");
@@ -365,7 +399,8 @@ const inicio = pinto(M.dom, "centro").innerHTML;
 comp("Inicio tampoco ensena la barra de vistas", pinto(M.dom, "vistas").hidden, true);
 comp("el tablero trae tres fichas", (inicio.match(/class="tarj/g) || []).length, 3);
 cierto("con el galpon que hay ahora mismo", /1200 m²/.test(inicio));
-cierto("los once pasos y cuantos estan listos", /3 de 11/.test(inicio));
+cierto("los once pasos y cuantos estan listos",
+  inicio.indexOf(M.win.VISTAS.PASOS.filter((p) => p.listo).length + " de 11") >= 0);
 cierto("y el inventario entero, con el total que tiene HOY",
   inicio.indexOf(">" + INV.resumen().total + "<") >= 0 && /Sin fuente/.test(inicio));
 cierto("con los pendientes NOMBRADOS, no contados",
@@ -404,17 +439,19 @@ for (const pp of M.win.VISTAS.PASOS) {
   const debe = {
     vistas: !a.vistas,
     metricas: !a.vistas,
-    derecha: !a.vistas,
+    derecha: !a.derecha,
     izquierda: !a.lados.length,
     "lado-ver": a.lados.indexOf("ver") < 0,
-    "lado-parametros": a.lados.indexOf("parametros") < 0
+    "lado-parametros": a.lados.indexOf("parametros") < 0,
+    "lado-cargas": a.lados.indexOf("cargas") < 0,
+    "lado-analisis": a.lados.indexOf("analisis") < 0
   };
   /* LA REJA. Ocultar los lados no basta: con tres columnas fijas el
      centro caia en la primera, la de 210 px, y todo salia apretado a la
      izquierda. Visto en Excel, no aqui: aqui el atributo estaba bien. */
   const cls = pinto(M.dom, "obra").className || "";
   if (/sin-izq/.test(cls) !== !a.lados.length) mal.push(pp.id + " · la reja no quita la columna izquierda");
-  if (/sin-der/.test(cls) !== !a.vistas) mal.push(pp.id + " · la reja no quita la columna derecha");
+  if (/sin-der/.test(cls) !== !a.derecha) mal.push(pp.id + " · la reja no quita la columna derecha");
   for (const id of Object.keys(debe)) {
     if (pinto(M.dom, id).hidden !== debe[id]) {
       mal.push(pp.id + " · " + id + " deberia estar " +

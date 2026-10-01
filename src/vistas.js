@@ -704,19 +704,13 @@
       vistas: true, lados: ["ver", "parametros"],
       sub: "el galpón entero, en cuatro vistas" },
 
-    { id: "cargas", grupo: "Paso 2 · Modelo", nombre: "Cargas", listo: false,
-      vistas: false, lados: [],
-      hara: "una pantalla de cargas",
-      motor: "e020.js, viento.js, e030.js y combinaciones.js, escritos y probados",
-      que: "E.020 muerta y viva de techo, viento por zonas con la Tabla 5, " +
-        "E.030 y las combinaciones de la E.090" },
+    { id: "cargas", grupo: "Paso 2 · Modelo", nombre: "Cargas", listo: true,
+      vistas: false, lados: ["cargas"], derecha: false,
+      sub: "lo que carga el galpón, cada número con su artículo" },
 
-    { id: "analisis", grupo: "Paso 3", nombre: "Análisis", listo: false,
-      vistas: false, lados: [],
-      hara: "una pantalla de análisis",
-      motor: "modelo.js, solver.js, estabilidad.js y riostras.js, escritos",
-      que: "las fuerzas de cada barra, el Método Directo y la pasada del bucle. " +
-        "ES EL QUE MÁS FALTA: sin él la selección no puede decir un ratio" },
+    { id: "analisis", grupo: "Paso 3", nombre: "Análisis", listo: true,
+      vistas: false, lados: ["analisis"], derecha: true,
+      sub: "el pórtico interior, resuelto con el Método Directo" },
 
     { id: "diseno", grupo: "Paso 4", nombre: "Diseño", listo: false,
       vistas: false, lados: [],
@@ -769,6 +763,9 @@
     return {
       id: p.id, nombre: p.nombre, listo: p.listo,
       vistas: !!p.vistas,
+      /* el panel derecho va con la barra de vistas salvo que el paso diga
+         otra cosa: Análisis lo lleva sin llevar las cuatro vistas */
+      derecha: (p.derecha === undefined) ? !!p.vistas : !!p.derecha,
       lados: (p.lados || []).slice(),
       sub: p.sub || null
     };

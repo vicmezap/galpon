@@ -163,13 +163,13 @@
       "id": "A.Mr.max",
       "grupo": "El análisis",
       "magnitud": "El momento máximo dentro de un tramo de columna",
-      "valor": "Mr,max = B1·máx|Mnt(x)| + B2·máx|Mlt(x)|",
+      "valor": "Mr,max = máx |B1·Mnt(x) + B2·Mlt(x)| a lo largo del tramo",
       "unidad": "kgf·cm",
       "estado": "adoptado",
       "editable": false,
       "clave": true,
-      "fuente": "AISC A-8-1, aplicada a los máximos",
-      "nota": "Con viento repartido el momento nt tiene un máximo dentro del tramo, y el lt —sin carga en el tramo— es lineal y su máximo está en un extremo. Sumar los dos máximos aunque no caigan en el mismo punto queda del lado seguro, y la diferencia en una columna de galpón es pequeña porque el máximo lt casi siempre está en la base, donde también está el nt."
+      "fuente": "AISC A-8-1, evaluada punto a punto",
+      "nota": "ESTABA MAL ESCRITO, Y SE VIO EN LA PANTALLA. La primera versión sumaba el máximo de Mnt y el de Mlt aunque no cayeran en el mismo punto, y esta nota decía que la diferencia era pequeña «porque el máximo lt casi siempre está en la base». No lo es: el reparto entre nt y lt depende de en qué alero se pone el apoyo ficticio, que es arbitrario, y la columna que tiene el apoyo encima se sobreestimaba distinto que la otra. En un galpón SIMÉTRICO la envolvente salía asimétrica, 3,63 contra 3,79 t·m. AHORA ES EXACTO: Mr(x) = B1·Mnt(x) + B2·Mlt(x) es una parábola —Mnt lleva la carga repartida del viento, Mlt es lineal porque el tramo no tiene carga en el análisis lt— y su máximo está en un extremo o donde su derivada se anula. La prueba exige que las dos columnas den lo mismo."
     },
     {
       "id": "A.reacciones.casos",
