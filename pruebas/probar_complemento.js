@@ -180,7 +180,7 @@ cierto("y las tres tienen líneas dibujadas, no un SVG vacío",
 cierto("no hay problemas que mostrar con los datos por omisión",
   pinto(dom, "problemas").hidden === true);
 cierto("los sellos dicen cuántas filas tiene el inventario",
-  /388/.test(pinto(dom, "sellos").innerHTML));
+  /390/.test(pinto(dom, "sellos").innerHTML));
 cierto("y cuántos perfiles hay",
   /2408/.test(pinto(dom, "sellos").innerHTML));
 
@@ -297,7 +297,7 @@ cierto("la portada enlaza el complemento", /href="taskpane\.html"/.test(portada)
 cierto("y el manifiesto, con las instrucciones para instalarlo",
   /href="manifest\.xml"/.test(portada) && /Cargar mi complemento/.test(portada));
 cierto("y el inventario", /href="inventario\.html"/.test(portada));
-cierto("y dice cuántas filas tiene", /388 filas/.test(portada));
+cierto("y dice cuántas filas tiene", /390 filas/.test(portada));
 
 /* NINGÚN MÓDULO SE QUEDA FUERA POR OLVIDO: el generador lleva la lista a
    mano porque el orden importa, y por eso comprueba que no falte ninguno. */

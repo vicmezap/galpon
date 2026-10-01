@@ -43,6 +43,31 @@
        sin protestar, que es la peor de las dos.
 
    ─────────────────────────────────────────────────────────────────────
+   LO EDITADO MANDA, Y NO APAGA LOS PARÁMETROS · fila L.suelto.
+
+   Las ediciones se guardan como CAPAS y se vuelven a aplicar encima cada
+   vez que cambia un parámetro.  Cambias la pendiente al 25 %: el tijeral
+   se regenera y encima vuelven tus nudos movidos y tus barras borradas.
+
+   Esto se decidió al revés primero —que el modelo «se soltara» al primer
+   cambio manual, dejando los parámetros de solo lectura— y se rectificó el
+   mismo día al ver qué significaba: LA EDICIÓN MÁS FRECUENTE EN UN GALPÓN
+   NO ES ARRASTRAR UN NUDO, ES ASIGNAR UN PERFIL, y eso es el bucle del
+   diseño en acero.  Soltar el modelo al primer perfil habría apagado la
+   pendiente en la primera pasada.
+
+   Y POR ESO LOS PERFILES NO SON UNA EDICIÓN · fila L.secciones.  Van en el
+   modelo al mismo nivel que la luz, por CLASE de barra y solo por barra
+   suelta cuando hay excepción.  Así la edición más frecuente tiene riesgo
+   CERO de quedarse huérfana: las capas quedan para lo geométrico, que es
+   lo único que puede dejar de existir.
+
+   LO QUE NO SE PUEDE REAPLICAR NO SE BORRA · fila L.perdidas.  Pasas de 12
+   paños a 8 y «borrar D11» se queda sin sitio: se avisa y SE CONSERVA.  Si
+   vuelves a 12, la edición vuelve sola.  Borrarla haría que ir y volver
+   destruyera trabajo sin que nadie lo pidiera.
+
+   ─────────────────────────────────────────────────────────────────────
    Y UNA COSA QUE NO HACE Y PARECE QUE DEBERÍA · fila L.particion.  No
    usa localStorage para pasar el modelo entre la ventana y el panel.  No
    es prudencia: es que NO FUNCIONA, y el comentario que lo dice está en
@@ -66,7 +91,7 @@
 
   const ART = INV.declara("libro.js", [
     "L.formato", "L.trozo", "L.solo.entradas", "L.suelto", "L.editado",
-    "L.particion", "Z.costura"
+    "L.secciones", "L.perdidas", "L.particion", "Z.costura"
   ]);
 
   /* ---------- las hojas · muy ocultas ----------------------------------
@@ -87,8 +112,8 @@
   const FORMATO = 1;
 
   /* ---------- LO QUE SE GUARDA, Y NADA MÁS · fila L.solo.entradas ------ */
-  const CLAVES = ["formato", "estado", "nombre", "parametros", "sitio",
-    "geometria", "vista", "guardado"];
+  const CLAVES = ["formato", "nombre", "parametros", "secciones", "ediciones",
+    "sitio", "vista", "guardado"];
 
   /* Los parámetros reconocidos.  Una clave nueva aquí es una línea; una
      clave nueva colada sin estar aquí sería un dato que se pierde al
@@ -98,7 +123,9 @@
     "paneles", "peralteApoyo_m", "panosArriostradosTecho",
     "panosArriostradosFachada", "columnasHastiales"];
 
-  const ESTADOS = ["parametrico", "suelto"];
+  /* Los tres tipos de capa, y ninguno más.  Uno desconocido PARA: es un
+     error de quien lo escribió, no un estado del proyectista. */
+  const TIPOS = ["mover", "borrar", "anadir"];
 
   function exige(cond, msg) { if (!cond) throw new Error("libro: " + msg); }
 
@@ -109,71 +136,201 @@
     for (const k of PARAMETROS) if (o[k] !== undefined) p[k] = o[k];
     return {
       formato: FORMATO,
-      estado: "parametrico",
       nombre: o.nombre || "galpón sin nombre",
       parametros: p,
+      /* entrada de primera clase, no edición · fila L.secciones */
+      secciones: o.secciones || { porClase: {}, porBarra: {} },
+      /* las capas geométricas · fila L.suelto */
+      ediciones: o.ediciones ? o.ediciones.slice() : [],
       sitio: o.sitio || {},
-      geometria: null,
       vista: o.vista || {},
       guardado: null
     };
   }
 
-  /* ---------- PARAMÉTRICO Y SUELTO · fila L.suelto ---------------------
-     El paso es de ida.  La vuelta existe pero hay que pedirla, y dice lo
-     que descarta. */
-  function edita(modelo, geometria, queSeEdito) {
+  /* ---------- LAS CAPAS · fila L.suelto --------------------------------
+     Apilar una edición no cambia el régimen del modelo: sigue siendo
+     paramétrico y los parámetros siguen tocándose. */
+  function edita(modelo, edicion) {
     valida(modelo);
-    exige(geometria && Array.isArray(geometria.nudos) && Array.isArray(geometria.barras),
-      "edita() necesita la geometría editada, con nudos y barras");
+    validaEdicion(edicion);
     const m = clona(modelo);
-    const yaEstaba = m.estado === "suelto";
-    m.estado = "suelto";
-    m.geometria = { nudos: geometria.nudos, barras: geometria.barras };
+    m.ediciones.push(clona(edicion));
     return {
       modelo: m,
-      seSolto: !yaEstaba,
+      ediciones: m.ediciones.length,
       art: ART["L.suelto"],
       artProcedencia: ART["L.editado"],
-      nota: yaEstaba
-        ? "el modelo ya estaba suelto: se guarda la geometría nueva"
-        : "EL MODELO SE HA SOLTADO" + (queSeEdito ? " al " + queSeEdito : "") +
-          ". Los parámetros pasan a solo lectura: quedan como historial de " +
-          "cómo nació. Para volver a parametrizar hay que regenerar desde " +
-          "cero, y eso descarta lo editado."
+      nota: "la edición queda como capa. Los parámetros siguen activos: al " +
+        "cambiar uno, el tijeral se regenera y esta capa se vuelve a aplicar " +
+        "encima."
     };
   }
 
-  function regenera(modelo, parametros) {
-    valida(modelo);
-    const m = nuevo(parametros || modelo.parametros);
-    m.nombre = modelo.nombre;
-    m.sitio = modelo.sitio;
-    m.vista = modelo.vista;
-    return {
-      modelo: m,
-      descartado: modelo.estado === "suelto",
-      barrasDescartadas: modelo.geometria ? modelo.geometria.barras.length : 0,
-      art: ART["L.suelto"],
-      nota: modelo.estado === "suelto"
-        ? "se ha descartado la geometría editada y el modelo vuelve a ser " +
-          "paramétrico. Esto no se deshace."
-        : "el modelo ya era paramétrico: solo se han cambiado los parámetros"
-    };
+  function validaEdicion(e) {
+    exige(e && typeof e === "object", "la edición no es un objeto");
+    exige(TIPOS.indexOf(e.tipo) >= 0,
+      "tipo de edición «" + e.tipo + "» desconocido; los que hay: " + TIPOS.join(" · "));
+    if (e.tipo === "mover") {
+      exige(typeof e.nudo === "string" && e.nudo, "mover() necesita el id del nudo");
+      exige(typeof e.dx_m === "number" && typeof e.dy_m === "number",
+        "mover necesita dx_m y dy_m numéricos");
+    } else if (e.tipo === "borrar") {
+      exige(typeof e.barra === "string" && e.barra, "borrar necesita el id de la barra");
+    } else {
+      exige(e.barra && typeof e.barra === "object" && e.barra.id && e.barra.i && e.barra.j,
+        "añadir necesita la barra con id, i y j");
+    }
+    return true;
   }
 
-  /* ¿Se pueden tocar los parámetros? · la pregunta que hace la pantalla */
+  /* LOS PARÁMETROS NO SE APAGAN NUNCA · lo que pregunta la pantalla. */
   function parametrosEditables(modelo) {
     valida(modelo);
     return {
-      editables: modelo.estado === "parametrico",
-      estado: modelo.estado,
+      editables: true,
+      ediciones: modelo.ediciones.length,
       art: ART["L.suelto"],
-      porque: modelo.estado === "parametrico"
-        ? "el modelo es paramétrico: los parámetros mandan"
-        : "el modelo está SUELTO. Los parámetros son el historial de cómo " +
-          "nació y no se pueden tocar: si se pudieran, lo que se ve en " +
-          "pantalla dejaría de ser lo que dicen los parámetros."
+      porque: modelo.ediciones.length
+        ? "los parámetros siempre se tocan. Hay " + modelo.ediciones.length +
+          " edición(es) encima, que se reaplicarán sobre la geometría nueva; " +
+          "lo que no quepa se dirá, no se tirará."
+        : "los parámetros siempre se tocan, y de momento no hay ninguna edición encima"
+    };
+  }
+
+  /* ---------- REAPLICAR LAS CAPAS · filas L.suelto y L.perdidas --------
+     Entra la geometría recién generada de los parámetros y salen las dos
+     cosas que hacen falta: la geometría con las capas puestas, y LA LISTA
+     DE LAS QUE NO CABÍAN, con su motivo.  Esto NO lanza por una capa
+     perdida: una capa perdida es un aviso para el proyectista, no un error
+     del programa, y lanzar dejaría la pantalla en blanco. */
+  function aplica(base, ediciones) {
+    exige(base && Array.isArray(base.nudos) && Array.isArray(base.barras),
+      "aplica() necesita la geometría base, con nudos y barras");
+    const nudos = base.nudos.map((n) => Object.assign({}, n));
+    const barras = base.barras.map((b) => Object.assign({}, b));
+    const porNudo = {};
+    for (const n of nudos) porNudo[n.id] = n;
+    const porBarra = {};
+    for (const b of barras) porBarra[b.id] = b;
+
+    const puestas = [], perdidas = [];
+    const fuera = {};
+
+    for (const e of (ediciones || [])) {
+      validaEdicion(e);
+      if (e.tipo === "mover") {
+        const n = porNudo[e.nudo];
+        if (!n) { perdidas.push({ edicion: e, porque: "el nudo «" + e.nudo + "» ya no existe" }); continue; }
+        n.x_m += e.dx_m;
+        n.y_m += e.dy_m;
+        if (typeof e.dz_m === "number" && typeof n.z_m === "number") n.z_m += e.dz_m;
+        n.editado = true;
+        puestas.push(e);
+      } else if (e.tipo === "borrar") {
+        if (!porBarra[e.barra]) { perdidas.push({ edicion: e, porque: "la barra «" + e.barra + "» ya no existe" }); continue; }
+        fuera[e.barra] = true;
+        puestas.push(e);
+      } else {
+        const b = e.barra;
+        if (porBarra[b.id] && !fuera[b.id]) { perdidas.push({ edicion: e, porque: "ya hay una barra «" + b.id + "»" }); continue; }
+        if (!porNudo[b.i] || !porNudo[b.j]) {
+          perdidas.push({ edicion: e, porque: "falta un extremo: " +
+            (!porNudo[b.i] ? b.i : b.j) + " no existe" });
+          continue;
+        }
+        const nueva = Object.assign({}, b, { editado: true });
+        barras.push(nueva);
+        porBarra[b.id] = nueva;
+        delete fuera[b.id];
+        puestas.push(e);
+      }
+    }
+
+    return {
+      nudos: nudos,
+      barras: barras.filter((b) => !fuera[b.id]),
+      reaplicadas: puestas,
+      perdidas: perdidas,
+      art: ART["L.perdidas"],
+      nota: perdidas.length
+        ? perdidas.length + " edición(es) no se pudieron reaplicar sobre la " +
+          "geometría nueva. NO se han borrado: si la geometría vuelve a " +
+          "tenerlas, vuelven solas."
+        : "todas las ediciones se reaplicaron"
+    };
+  }
+
+  /* Olvidar ediciones, que hay que pedirlo · fila L.perdidas */
+  function olvidaEdiciones(modelo, cuales) {
+    valida(modelo);
+    const m = clona(modelo);
+    const antes = m.ediciones.length;
+    if (cuales === undefined) m.ediciones = [];
+    else {
+      exige(Array.isArray(cuales), "olvidaEdiciones() recibe los índices a olvidar, o nada");
+      const fuera = {};
+      for (const i of cuales) fuera[i] = true;
+      m.ediciones = m.ediciones.filter((e, i) => !fuera[i]);
+    }
+    return {
+      modelo: m, olvidadas: antes - m.ediciones.length, quedan: m.ediciones.length,
+      art: ART["L.perdidas"],
+      nota: "esto no se deshace: las capas olvidadas no vuelven aunque la " +
+        "geometría vuelva a admitirlas"
+    };
+  }
+
+  /* ---------- LOS PERFILES · fila L.secciones --------------------------
+     Por clase, y por barra solo como excepción.  Lo de por clase es lo que
+     hace que una sección NO pueda quedarse huérfana al cambiar un
+     parámetro: «todas las diagonales son L2½x2½x¼» sigue valiendo haya las
+     diagonales que haya. */
+  function asignaPerfil(modelo, destino, perfil) {
+    valida(modelo);
+    exige(destino && typeof destino === "object", "asignaPerfil() necesita a qué asignarlo");
+    exige(destino.clase || destino.barra,
+      "hay que decir la clase de barra o la barra suelta");
+    exige(!(destino.clase && destino.barra),
+      "o por clase o por barra, no las dos: por clase es lo normal y por barra la excepción");
+    const m = clona(modelo);
+    if (destino.clase) m.secciones.porClase[destino.clase] = perfil;
+    else m.secciones.porBarra[destino.barra] = perfil;
+    return {
+      modelo: m, art: ART["L.secciones"],
+      nota: destino.clase
+        ? "por clase: no se puede quedar huérfano al cambiar un parámetro"
+        : "por barra suelta: si esa barra deja de existir, la excepción se " +
+          "queda sin dueño y se avisa"
+    };
+  }
+
+  /* El perfil que le toca a una barra: la excepción manda sobre la clase. */
+  function perfilDe(modelo, barra) {
+    valida(modelo);
+    exige(barra && barra.id, "perfilDe() necesita la barra");
+    const porBarra = modelo.secciones.porBarra[barra.id];
+    if (porBarra !== undefined) return { perfil: porBarra, de: "barra", art: ART["L.secciones"] };
+    const porClase = modelo.secciones.porClase[barra.clase];
+    if (porClase !== undefined) return { perfil: porClase, de: "clase", art: ART["L.secciones"] };
+    return { perfil: null, de: null, art: ART["L.secciones"],
+      nota: "sin perfil asignado ni por barra ni por su clase «" + barra.clase + "»" };
+  }
+
+  /* Excepciones por barra que se quedaron sin dueño · se avisa, no se borra */
+  function perfilesHuerfanos(modelo, geometria) {
+    valida(modelo);
+    exige(geometria && Array.isArray(geometria.barras), "hace falta la geometría");
+    const hay = {};
+    for (const b of geometria.barras) hay[b.id] = true;
+    const sueltos = Object.keys(modelo.secciones.porBarra).filter((id) => !hay[id]);
+    return {
+      huerfanos: sueltos, art: ART["L.secciones"],
+      nota: sueltos.length
+        ? sueltos.length + " perfil(es) asignados a barras que ya no existen. " +
+          "Se conservan por si vuelven."
+        : "ninguna excepción por barra se ha quedado sin dueño"
     };
   }
 
@@ -182,16 +339,12 @@
   /* ---------- validación de forma -------------------------------------- */
   function valida(modelo) {
     exige(modelo && typeof modelo === "object", "el modelo no es un objeto");
-    exige(ESTADOS.indexOf(modelo.estado) >= 0,
-      "estado «" + modelo.estado + "» desconocido; los que hay: " + ESTADOS.join(" · "));
     exige(modelo.parametros && typeof modelo.parametros === "object",
       "el modelo no trae parametros");
-    if (modelo.estado === "suelto") {
-      exige(modelo.geometria && Array.isArray(modelo.geometria.nudos),
-        "el modelo dice estar SUELTO y no trae geometría. Un modelo suelto es " +
-        "exactamente el que ya no se puede reconstruir de los parámetros: sin " +
-        "geometría no hay nada.");
-    }
+    exige(Array.isArray(modelo.ediciones),
+      "el modelo no trae la lista de ediciones (puede ir vacía, pero tiene que estar)");
+    exige(modelo.secciones && modelo.secciones.porClase && modelo.secciones.porBarra,
+      "el modelo no trae secciones, con porClase y porBarra");
     return true;
   }
 
@@ -346,8 +499,9 @@
   return {
     ART, HOJA_MODELO, HOJA_RESULTADOS, HOJAS, VISIBILIDAD,
     TROZO, MAX_FILAS, TROZO_MSG, RANGO, MARCA, FORMATO,
-    CLAVES, PARAMETROS, ESTADOS,
-    nuevo, valida, clona, edita, regenera, parametrosEditables,
+    CLAVES, PARAMETROS, TIPOS,
+    nuevo, valida, clona, edita, validaEdicion, aplica, olvidaEdiciones,
+    parametrosEditables, asignaPerfil, perfilDe, perfilesHuerfanos,
     paraGuardar, serializa, deserializa,
     trocea, paraElRango, junta,
     troceaMensaje, juntaMensaje, vaYVuelve

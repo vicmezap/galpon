@@ -117,14 +117,14 @@
     {
       "id": "L.suelto",
       "grupo": "El modelo dentro del libro",
-      "magnitud": "Paramétrico y suelto · el paso es de ida",
-      "valor": "paramétrico → suelto  ·  la vuelta solo regenerando desde cero",
+      "magnitud": "Las ediciones son capas sobre lo paramétrico",
+      "valor": "se reaplican al regenerar · los parámetros NUNCA se apagan",
       "unidad": "—",
       "estado": "adoptado",
       "editable": false,
       "clave": true,
-      "fuente": "decisión del proyectista, 01-10-2026",
-      "nota": "El tijeral se genera de parámetros y después se edita. En cuanto se toca algo a mano el modelo SE SUELTA: los parámetros quedan de solo lectura, como historial de cómo nació, y para volver a parametrizar hay que regenerar desde cero a propósito, descartando lo editado. SE ELIGIÓ ENTRE TRES y esta es la única en la que LA PANTALLA NO PUEDE MENTIR: no existe un estado en el que los parámetros que se ven no describan la geometría que se ve. Las otras dos eran reaplicar las ediciones como un delta sobre la geometría regenerada, y dejar que el parámetro borre la edición avisando; las dos admiten ese estado mentiroso, aunque sea un instante."
+      "fuente": "decisión del proyectista, 01-10-2026 (rectificada el mismo día)",
+      "nota": "El tijeral se genera de parámetros y después se edita, y LO EDITADO MANDA: las ediciones se guardan como capas y se vuelven a aplicar encima cada vez que cambia un parámetro. Los parámetros no se bloquean nunca. SE ELIGIÓ PRIMERO LO CONTRARIO —que el modelo «se soltara» al primer cambio manual, dejando los parámetros de solo lectura— y se rectificó el mismo día al ver qué significaba en la práctica: LA EDICIÓN MÁS FRECUENTE EN UN GALPÓN NO ES ARRASTRAR UN NUDO, ES ASIGNAR UN PERFIL, y asignar perfiles es el bucle del diseño en acero —cambias la sección, cambia la rigidez, reanalizas—. Soltar el modelo al primer perfil habría apagado la pendiente en la primera pasada. EL PRECIO DE ESTA OPCIÓN, dicho entero: una edición puede reaplicarse y significar otra cosa —moviste I3 con 12 paños y ahora hay 8, el nudo existe pero está en otro sitio del tijeral—. Se acepta porque es menor que apagar el panel, y porque lo que NO se puede reaplicar se avisa en vez de tirarse."
     },
     {
       "id": "L.editado",
@@ -136,7 +136,7 @@
       "editable": false,
       "clave": true,
       "fuente": "consecuencia de L.suelto sobre la fila V.procedencia",
-      "nota": "Las cinco procedencias de V.procedencia —norma, entrada, geometría, conteo, medido— no cubren una dimensión que el proyectista movió arrastrando. Y la diferencia no es de etiqueta: una cota que sale de un parámetro ES REPRODUCIBLE —se vuelve a obtener escribiendo los mismos datos— y una arrastrada NO LO ES. En una pantalla cuya tesis es decir de dónde sale cada número, esa es justo la diferencia que hay que declarar, no la que se puede callar."
+      "nota": "Las cinco procedencias de V.procedencia —norma, entrada, geometría, conteo, medido— no cubren una dimensión que el proyectista movió arrastrando. Y la diferencia no es de etiqueta: una cota que sale de un parámetro ES REPRODUCIBLE —se vuelve a obtener escribiendo los mismos datos— y una arrastrada NO LO ES. En una pantalla cuya tesis es decir de dónde sale cada número, esa es justo la diferencia que hay que declarar. OJO CON LOS PERFILES: asignar una sección NO es una edición geométrica, es una ENTRADA de primera clase (fila L.secciones), así que su procedencia sigue siendo «entrada» y no «editado»."
     },
     {
       "id": "L.particion",
@@ -149,6 +149,30 @@
       "clave": true,
       "fuente": "Retícula, taskpane.html publicado, comentario en leerModelo()",
       "nota": "Textual de su código: «ANTES esto se leía de localStorage, y esa era la mitad del fallo: la ventana del modelador tiene su propia partición de almacenamiento, así que lo que ella guardaba nunca llegaba aquí.» Es un fallo ya pagado en la suite y no hay que volver a pagarlo: el modelo va OBLIGATORIAMENTE por messageParent / messageChild, nunca por almacenamiento compartido, que no existe. Y va troceado porque el mensaje tiene tope: TROZO_MSG = 8 000, con {a, i, n, d} y recomposición al otro lado. messageChild exige DialogApi 1.2."
+    },
+    {
+      "id": "L.secciones",
+      "grupo": "El modelo dentro del libro",
+      "magnitud": "Los perfiles son entrada, no edición",
+      "valor": "por clase de barra, y por barra suelta como excepción",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "decisión de arquitectura del complemento",
+      "nota": "Asignar un perfil se parece a editar, pero no lo es: es un dato de entrada como la luz, y por eso vive en el modelo al mismo nivel y NO en las capas de edición. La consecuencia es la que importa: una sección asignada NO PUEDE QUEDARSE HUÉRFANA al cambiar un parámetro —se guarda por CLASE de barra («todas las diagonales son L2½x2½x¼») y solo por barra suelta cuando hay una excepción puntual—, así que la edición más frecuente del proyecto tiene riesgo cero de perderse. Las capas quedan solo para lo geométrico, que es lo único que de verdad puede dejar de existir."
+    },
+    {
+      "id": "L.perdidas",
+      "grupo": "El modelo dentro del libro",
+      "magnitud": "Una edición que no se puede reaplicar NO se borra",
+      "valor": "se avisa y se conserva · si la geometría vuelve, la edición vuelve",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "decisión de arquitectura del complemento",
+      "nota": "Pasas de 12 paños a 8: la diagonal D11 deja de existir y la capa «borrar D11» se queda sin sitio. NO SE TIRA. Se conserva en la lista y se dice en el panel de avisos que esta vez no pudo aplicarse, con su botón para olvidarla a propósito. Y entonces sale gratis una propiedad que importa: SI VUELVES A LOS 12 PAÑOS, LA EDICIÓN VUELVE SOLA. Borrarla automáticamente haría que ir y volver destruyera trabajo sin que nadie lo pidiera, que es la misma razón por la que paraGuardar() se niega a descartar claves desconocidas."
     }
   ]
 }

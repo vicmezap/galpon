@@ -42,9 +42,11 @@ cierto("la fila cita de dónde salen los números", /Ret[íi]cula/.test(INV.art(
 /* ================================================================
    2 · EL MODELO NUEVO
    ================================================================ */
-comp("nace paramétrico", m0.estado, "parametrico");
+comp("nace sin ediciones encima", m0.ediciones.length, 0);
 comp("con su formato", m0.formato, L.FORMATO);
-comp("sin geometría, que todavía no hay", m0.geometria, null);
+comp("y con las secciones vacías pero presentes",
+  [Object.keys(m0.secciones.porClase).length, Object.keys(m0.secciones.porBarra).length],
+  [0, 0]);
 comp("y con los parámetros que se le dieron",
   Object.keys(m0.parametros).sort().length, 12);
 cierto("los parámetros que llegaron están todos",
@@ -56,7 +58,7 @@ comp("una clave desconocida en nuevo() simplemente no entra",
    3 · IDA Y VUELTA
    ================================================================ */
 const v = L.vaYVuelve(m0, FECHA);
-comp("el modelo vuelve con el mismo estado", v.modelo.estado, "parametrico");
+comp("el modelo vuelve con sus ediciones", v.modelo.ediciones.length, 0);
 comp("y el mismo nombre", v.modelo.nombre, "Nave Chorrillos");
 comp("y los mismos parámetros", v.modelo.parametros, m0.parametros);
 comp("el formato leído es el escrito", v.formato, L.FORMATO);
@@ -122,8 +124,9 @@ lanza("un parámetro desconocido PARA",
 const g = L.paraGuardar(m0);
 comp("lo guardado solo trae las claves de la lista",
   Object.keys(g).filter((k) => L.CLAVES.indexOf(k) < 0), []);
-cierto("entre ellas los parámetros y el estado",
-  g.parametros !== undefined && g.estado !== undefined);
+cierto("entre ellas los parámetros, las secciones y las ediciones",
+  g.parametros !== undefined && g.secciones !== undefined &&
+  g.ediciones !== undefined);
 
 /* ================================================================
    6 · TROCEAR, Y EL PADDING QUE EVITA EL FALLO FEO
@@ -181,55 +184,137 @@ comp("un modelo troceado de otra manera se lee igual", L.junta(trocitos), texto)
 cierto("y se abre", L.deserializa(L.junta(trocitos)).modelo.nombre === "Nave Chorrillos");
 
 /* ================================================================
-   8 · PARAMÉTRICO Y SUELTO · fila L.suelto
+   8 · LAS CAPAS · filas L.suelto, L.secciones y L.perdidas
+
+   Esto se decidió primero al revés —que el modelo «se soltara» al primer
+   cambio manual, apagando los parámetros— y se rectificó el mismo día.
+   Lo que lo tumbó está comprobado abajo: asignar un perfil, que es la
+   edición más frecuente del proyecto, habría apagado la pendiente.
    ================================================================ */
 cierto("al nacer, los parámetros se tocan", L.parametrosEditables(m0).editables);
 
-const GEO = { nudos: [{ id: "I0" }, { id: "I1" }], barras: [{ id: "BS0" }] };
-const e1 = L.edita(m0, GEO, "mover el nudo I3");
-comp("editar lo suelta", e1.modelo.estado, "suelto");
-cierto("y lo dice la primera vez", e1.seSolto === true);
-cierto("con el aviso entero: a solo lectura y cómo volver",
-  /SE HA SOLTADO/.test(e1.nota) && /solo lectura/.test(e1.nota) &&
-  /regenerar desde cero/.test(e1.nota));
-cierto("y nombra lo que se editó", /mover el nudo I3/.test(e1.nota));
-cierto("ahora los parámetros NO se tocan", L.parametrosEditables(e1.modelo).editables === false);
-cierto("y se explica que si se pudieran, la pantalla mentiría",
-  /dejar[íi]a de ser lo que dicen los par[áa]metros/
-    .test(L.parametrosEditables(e1.modelo).porque));
+/* ───── LOS PERFILES SON ENTRADA, NO EDICIÓN · fila L.secciones ───── */
+let mp = L.asignaPerfil(m0, { clase: "diagonal" }, "L2½x2½x¼").modelo;
+mp = L.asignaPerfil(mp, { barra: "D7" }, "L3x3x¼").modelo;
+comp("por clase, todas las diagonales", L.perfilDe(mp, { id: "D5", clase: "diagonal" }).perfil,
+  "L2½x2½x¼");
+comp("y se sabe que vino de la clase", L.perfilDe(mp, { id: "D5", clase: "diagonal" }).de,
+  "clase");
+comp("la excepción por barra manda sobre la clase",
+  L.perfilDe(mp, { id: "D7", clase: "diagonal" }).perfil, "L3x3x¼");
+comp("y se sabe que vino de la barra", L.perfilDe(mp, { id: "D7", clase: "diagonal" }).de,
+  "barra");
+comp("una barra sin perfil ni por clase lo dice",
+  L.perfilDe(mp, { id: "BS0", clase: "brida superior" }).perfil, null);
 
-const e2 = L.edita(e1.modelo, GEO, "borrar una diagonal");
-cierto("editar otra vez ya no «suelta»: ya estaba suelto", e2.seSolto === false);
-comp("y sigue suelto", e2.modelo.estado, "suelto");
+cierto("ASIGNAR PERFILES NO APAGA LOS PARÁMETROS · es lo que tumbó la otra opción",
+  L.parametrosEditables(mp).editables === true);
+cierto("y la fila lo cuenta: es el bucle del diseño en acero",
+  /ASIGNAR UN PERFIL/.test(INV.fila("L.suelto").nota) &&
+  /rectific/.test(INV.fila("L.suelto").nota));
+lanza("asignar por clase Y por barra a la vez PARA",
+  () => L.asignaPerfil(m0, { clase: "diagonal", barra: "D7" }, "x"), "no las dos");
 
-/* EL MODELO SUELTO VIAJA CON SU GEOMETRÍA */
-const vs = L.vaYVuelve(e1.modelo, FECHA);
-comp("un modelo suelto se guarda y vuelve suelto", vs.modelo.estado, "suelto");
-comp("con su geometría entera", vs.modelo.geometria.nudos.length, 2);
-lanza("un modelo que dice estar suelto SIN geometría PARA",
-  () => L.valida({ estado: "suelto", parametros: {}, geometria: null }),
-  "no trae geometría");
-cierto("y explica por qué eso no puede ser",
-  (() => {
-    try { L.valida({ estado: "suelto", parametros: {} }); }
-    catch (e) { return /ya no se puede reconstruir de los par[áa]metros/.test(e.message); }
-  })());
+/* Una excepción por barra que se queda sin dueño se avisa, no se borra */
+const huer = L.perfilesHuerfanos(mp, { barras: [{ id: "D5" }, { id: "BS0" }] });
+comp("D7 ya no existe: la excepción se queda huérfana", huer.huerfanos, ["D7"]);
+cierto("y se conserva por si vuelve", /Se conservan/.test(huer.nota));
+comp("con las barras puestas, ninguna huérfana",
+  L.perfilesHuerfanos(mp, { barras: [{ id: "D7" }] }).huerfanos, []);
 
-/* LA VUELTA, QUE HAY QUE PEDIRLA */
-const r = L.regenera(e1.modelo, Object.assign({}, PAR, { pendiente: 0.25 }));
-comp("regenerar devuelve a paramétrico", r.modelo.estado, "parametrico");
-cierto("y avisa de que descartó", r.descartado === true);
-comp("diciendo cuántas barras", r.barrasDescartadas, 1);
-cierto("y que no se deshace", /no se deshace/.test(r.nota));
-cerca("con los parámetros nuevos ya puestos", r.modelo.parametros.pendiente, 0.25, 1e-12);
-comp("y sin rastro de la geometría vieja", r.modelo.geometria, null);
-cierto("el nombre se conserva, que no es geometría", r.modelo.nombre === "Nave Chorrillos");
-cierto("regenerar un modelo que ya era paramétrico no descarta nada",
-  L.regenera(m0, PAR).descartado === false);
+/* ───── LAS CAPAS GEOMÉTRICAS ───── */
+let mc = L.edita(mp, { tipo: "mover", nudo: "I3", dx_m: 0, dy_m: 0.2 }).modelo;
+const e2 = L.edita(mc, { tipo: "borrar", barra: "D11" });
+mc = e2.modelo;
+comp("dos ediciones apiladas", mc.ediciones.length, 2);
+cierto("y los parámetros SIGUEN tocándose", L.parametrosEditables(mc).editables === true);
+cierto("la nota lo dice: se reaplican encima",
+  /se vuelve a aplicar encima/.test(e2.nota));
+cierto("y parametrosEditables cuenta cuántas hay encima",
+  /2 edición\(es\) encima/.test(L.parametrosEditables(mc).porque));
 
-lanza("un estado inventado PARA", () => L.valida({ estado: "a medias", parametros: {} }),
-  "desconocido");
-lanza("editar sin geometría PARA", () => L.edita(m0, null), "necesita la geometría");
+lanza("un tipo de edición inventado PARA",
+  () => L.edita(mc, { tipo: "retorcer", nudo: "I3" }), "desconocido");
+lanza("mover sin decir cuánto PARA",
+  () => L.edita(mc, { tipo: "mover", nudo: "I3" }), "dx_m y dy_m");
+lanza("borrar sin barra PARA", () => L.edita(mc, { tipo: "borrar" }), "id de la barra");
+
+/* ───── REAPLICAR ───── */
+const BASE12 = {
+  nudos: [{ id: "I3", x_m: 5, y_m: 0 }, { id: "I4", x_m: 6, y_m: 0 }],
+  barras: [{ id: "D11", i: "I3", j: "I4", clase: "diagonal" },
+    { id: "D1", i: "I3", j: "I4", clase: "diagonal" }]
+};
+const r12 = L.aplica(BASE12, mc.ediciones);
+comp("las dos capas entran", r12.reaplicadas.length, 2);
+comp("ninguna se pierde", r12.perdidas.length, 0);
+cerca("el nudo I3 queda movido 0,20 m", r12.nudos[0].y_m, 0.2, 1e-12);
+cierto("y marcado como editado, que es una procedencia propia",
+  r12.nudos[0].editado === true);
+comp("y la barra borrada ya no está", r12.barras.map((b) => b.id), ["D1"]);
+cierto("la base NO se toca: aplica() no muta lo que recibe",
+  BASE12.nudos[0].y_m === 0 && BASE12.barras.length === 2);
+
+/* ───── LO QUE NO CABE SE AVISA Y SE CONSERVA · fila L.perdidas ───── */
+const BASE8 = { nudos: [{ id: "I3", x_m: 5, y_m: 0 }],
+  barras: [{ id: "D1", i: "I3", j: "I3", clase: "diagonal" }] };
+const r8 = L.aplica(BASE8, mc.ediciones);
+/* Indexar perdidas[0] sin red mata la prueba en vez de reportarla cuando la
+   lista viene vacia: el runner solo imprime al final, asi que el proceso se
+   muere sin decir nada. Es la SEGUNDA vez que me pasa —ya ocurrio en
+   probar_complemento.js— asi que aqui va con red desde el principio. */
+const perdida = (r, i) => (r.perdidas[i || 0] || { edicion: {}, porque: "" });
+comp("con menos paños, una capa se queda sin sitio", r8.perdidas.length, 1);
+comp("y es la de borrar D11", perdida(r8).edicion.barra, "D11");
+cierto("CON SU MOTIVO, no solo «falló»", /ya no existe/.test(perdida(r8).porque));
+comp("la otra sí entra", r8.reaplicadas.length, 1);
+cierto("aplica() NO lanza por una capa perdida: es un aviso, no un error",
+  r8.perdidas.length > 0 && Array.isArray(r8.nudos));
+cierto("y la nota dice que no se han borrado", /NO se han borrado/.test(r8.nota));
+
+comp("EL MODELO CONSERVA SUS DOS EDICIONES", mc.ediciones.length, 2);
+const otraVez = L.aplica(BASE12, mc.ediciones);
+comp("así que al volver a los paños de antes, la edición VUELVE SOLA",
+  otraVez.perdidas.length, 0);
+comp("y vuelven a entrar las dos", otraVez.reaplicadas.length, 2);
+
+/* añadir */
+const mAdd = L.edita(m0, { tipo: "anadir",
+  barra: { id: "X1", i: "I3", j: "I4", clase: "arriostre de techo" } }).modelo;
+const rAdd = L.aplica(BASE12, mAdd.ediciones);
+comp("añadir una barra la pone", rAdd.barras.length, 3);
+cierto("marcada como editada",
+  rAdd.barras.filter((b) => b.id === "X1")[0].editado === true);
+const rDup = L.aplica(BASE12, [{ tipo: "anadir",
+  barra: { id: "D1", i: "I3", j: "I4", clase: "diagonal" } }]);
+comp("añadir una que ya existe se pierde, con su motivo", rDup.perdidas.length, 1);
+cierto("y el motivo lo dice", /ya hay una barra/.test(perdida(rDup).porque));
+const rSinNudo = L.aplica(BASE8, [{ tipo: "anadir",
+  barra: { id: "X2", i: "I3", j: "I99", clase: "diagonal" } }]);
+cierto("y si falta un extremo, también, nombrándolo",
+  rSinNudo.perdidas.length === 1 && /I99/.test(perdida(rSinNudo).porque));
+
+/* ───── OLVIDAR, QUE HAY QUE PEDIRLO ───── */
+const olv = L.olvidaEdiciones(mc);
+comp("olvidar todas las quita", olv.modelo.ediciones.length, 0);
+comp("y dice cuántas", olv.olvidadas, 2);
+cierto("y que no se deshace", /no se deshace/.test(olv.nota));
+const olv1 = L.olvidaEdiciones(mc, [1]);
+comp("olvidar una deja la otra", olv1.quedan, 1);
+comp("y es la que no se olvidó", olv1.modelo.ediciones[0].tipo, "mover");
+
+/* ───── LAS CAPAS VIAJAN AL LIBRO ───── */
+const vc = L.vaYVuelve(mc, FECHA);
+comp("el modelo vuelve con sus dos ediciones", vc.modelo.ediciones.length, 2);
+comp("y con sus perfiles por clase",
+  vc.modelo.secciones.porClase.diagonal, "L2½x2½x¼");
+comp("y la excepción por barra", vc.modelo.secciones.porBarra.D7, "L3x3x¼");
+
+lanza("un modelo sin lista de ediciones PARA",
+  () => L.valida({ parametros: {}, secciones: { porClase: {}, porBarra: {} } }),
+  "lista de ediciones");
+lanza("y uno sin secciones también",
+  () => L.valida({ parametros: {}, ediciones: [] }), "secciones");
 
 /* ================================================================
    9 · EL CANAL · fila L.particion
@@ -273,16 +358,22 @@ cierto("el modelo de ejemplo viaja en un solo mensaje",
    10 · LAS FILAS DEL INVENTARIO
    ================================================================ */
 for (const id of ["L.formato", "L.trozo", "L.solo.entradas", "L.suelto",
-  "L.editado", "L.particion"]) {
+  "L.editado", "L.secciones", "L.perdidas", "L.particion"]) {
   cierto("la fila " + id + " existe y tiene fuente",
     INV.existe(id) && !!INV.fila(id).fuente);
 }
 cierto("L.particion es VERIFICADO: está leído del código de Retícula",
   INV.fila("L.particion").estado === "verificado" &&
   /partici[óo]n de almacenamiento/.test(INV.fila("L.particion").nota));
-cierto("L.suelto cuenta que se eligió entre tres",
-  /entre tres/i.test(INV.fila("L.suelto").nota) &&
-  /no puede mentir/i.test(INV.fila("L.suelto").nota));
+cierto("L.suelto cuenta que se eligió al revés primero y por qué se rectificó",
+  /se rectific/i.test(INV.fila("L.suelto").nota) &&
+  /ASIGNAR UN PERFIL/.test(INV.fila("L.suelto").nota));
+cierto("y dice entero el precio de esta opción",
+  /PRECIO DE ESTA OPCIÓN/.test(INV.fila("L.suelto").nota));
+cierto("L.secciones explica que un perfil no puede quedarse huérfano",
+  /HUÉRFANA/.test(INV.fila("L.secciones").nota));
+cierto("L.perdidas explica que ir y volver no destruye trabajo",
+  /VUELVE SOLA/.test(INV.fila("L.perdidas").nota));
 cierto("L.editado explica que lo arrastrado no es reproducible",
   /REPRODUCIBLE/.test(INV.fila("L.editado").nota));
 cierto("L.solo.entradas se apoya en la regla que ya existía",
