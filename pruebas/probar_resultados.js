@@ -21,7 +21,7 @@ const D = { luz_m: 20, largo_m: 60, sepPorticos_m: 6, alturaColumna_m: 6, panele
 const m3 = MON.monta(D);
 const SITIO = { espesorCobertura_mm: 0.4, Dotras_kgfm2: 5, hayNieve: false, V_kmh: 75,
   tipoEdificacion: 1, aberturas: { izqDer: "repartidas", derIzq: "repartidas", longitudinal: "repartidas" },
-  acero: "A36" };
+  acero: "A36", zona: "Z4", suelo: "S2", categoria: "C", sistemaSismico: "OMF", industrial: false };
 const NOMBRES = { "columna": "W10X33", "brida superior": "2L3X3X1/4", "brida inferior": "2L3X3X1/4",
   "diagonal": "L2X2X3/16", "montante": "L2X2X3/16", "correa": "C8X11.5", "viga de alero": "C8X11.5" };
 const conPerfiles = (m) => {
@@ -38,7 +38,8 @@ const vac = R.cargas(m3, {});
 comp("vacío no está completo", vac.completo, false);
 const campos = vac.faltan.map((f) => f.campo).sort();
 comp("y pide cada dato de proyecto, sin rellenar ninguno",
-  campos, ["ca_ab_derIzq", "ca_ab_izqDer", "ca_ab_longitudinal", "ca_esp", "ca_nieve", "ca_tipo", "ca_v"]);
+  campos, ["ca_ab_derIzq", "ca_ab_izqDer", "ca_ab_longitudinal", "ca_categoria", "ca_esp", "ca_indus",
+    "ca_nieve", "ca_sissis", "ca_suelo", "ca_tipo", "ca_v", "ca_zona"]);
 comp("cada falta apunta a un campo que existe en el formulario",
   vac.faltan.filter((f) => !R.CAMPOS_CARGAS.some((g) => g.campos.some((c) => "ca_" + c.id === f.campo))), []);
 comp("sin cargas no hay nada que pasarle al análisis", vac.cargas, null);
@@ -46,6 +47,11 @@ comp("sin cargas no hay nada que pasarle al análisis", vac.cargas, null);
 /* ---- completo ---- */
 const c = R.cargas(m3, SITIO);
 comp("con todo, completo", c.completo, true);
+comp("y el sismo va al análisis con lo que hace falta", c.cargas && c.cargas.sismo,
+  { zona: "Z4", suelo: "S2", vs30_ms: undefined, categoria: "C", sistema: "OMF", industrial: false });
+comp("8 combinaciones de acero con D, Lr, W y E", c.combinaciones.acero.length, 8);
+const sinE = R.cargas(m3, Object.assign({}, SITIO, { zona: undefined }));
+comp("SIN SISMO NO ESTÁ COMPLETO: la E.030 aplica en todo el Perú", sinE.completo, false);
 cerca("D = 3,35 (TR-4 de 0,40) + 5 declarados", c.cargas.D_kgfm2, 3.35 + 5, 1e-12);
 cerca("Lr reducida con At = luz × separación: 30·(0,25 + 4,6/√120)",
   c.cargas.Lr_kgfm2, 30 * (0.25 + 4.6 / Math.sqrt(120)), 1e-9);
@@ -57,7 +63,7 @@ cierto("la tabla de viento trae las tres direcciones",
     .every((d) => c.tablaViento.some((r) => r.direccion === d)));
 cierto("con Ph = 0,005·C·Vh² en cada fila",
   c.tablaViento.every((r) => Math.abs(r.Ph_kgfm2 - 0.005 * r.C * 75 * 75) < 1e-9));
-comp("6 combinaciones de acero con D, Lr y W", c.combinaciones.acero.length, 6);
+
 cierto("y las de la cimentación, aparte", c.combinaciones.concreto.length > 0);
 const todas = c.fichas.reduce((a, f) => a.concat(f.lineas), []);
 comp("NI UNA línea de Cargas sin procedencia válida",
@@ -103,7 +109,8 @@ cierto("el mecanismo se dice como una falta del paso Análisis, con su motivo",
 const mok = conPerfiles(Object.assign(L.nuevo({}), { sitio: SITIO, sistema: { base: "empotrada", union: "rigida" } }));
 const ok = R.analisis(m3, mok, P);
 comp("con todo, corre", ok.ok, true);
-comp("con las 36 corridas", ok.r.combinaciones.length, 36);
+comp("con las 44 corridas, sismo incluido", ok.r.combinaciones.length, 44);
+cierto("y la ficha del sismo sale en Análisis", ok.fichas.some((f) => f.titulo === "Sismo"));
 const lf = ok.fichas.reduce((a, f) => a.concat(f.lineas), []);
 comp("NI UNA línea de Análisis sin procedencia válida",
   lf.filter((l) => V.ORIGENES.indexOf(l.origen) < 0).map((l) => l.q), []);

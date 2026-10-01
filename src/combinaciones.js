@@ -69,9 +69,15 @@
     { id: "1.4-2", art: "U.2", t: [["D", 1.2], ["L", 1.6]], techo: 0.5 },
     { id: "1.4-3", art: "U.3", t: [["D", 1.2]], techo: 1.6, alt: [[["L", 0.5]], [["W", 0.8]]] },
     { id: "1.4-4", art: "U.4", t: [["D", 1.2], ["W", 1.3], ["L", 0.5]], techo: 0.5 },
-    { id: "1.4-5", art: "U.5", t: [["D", 1.2], ["E", 1.0], ["L", 0.5], ["S", 0.2]] },
-    { id: "1.4-6", art: "U.6", t: [["D", 0.9], ["W", -1.3]] },
-    { id: "1.4-6E", art: "U.6", t: [["D", 0.9], ["E", -1.0]] }
+    /* EL ± DE LA NORMA, que se perdía en el texto. La E.090 escribe
+       «1,2D ± 1,0E …» y «0,9D ± (1,3W ó 1,0E)», leído en la página renderizada
+       (pdftotext se come el ±). Los factores se guardan como estaban; masmenos marca
+       los términos que la norma escribe con ±, y texto() los pinta así. El
+       análisis aplica el factor con su magnitud a cada estado físico, que van
+       en las dos direcciones (fila A.viento.signo). */
+    { id: "1.4-5", art: "U.5", t: [["D", 1.2], ["E", 1.0], ["L", 0.5], ["S", 0.2]], masmenos: ["E"] },
+    { id: "1.4-6", art: "U.6", t: [["D", 0.9], ["W", -1.3]], masmenos: ["W"] },
+    { id: "1.4-6E", art: "U.6", t: [["D", 0.9], ["E", -1.0]], masmenos: ["E"] }
   ];
 
   /* El factor de L sube a 1,0 en la 1.4-3, 1.4-4 y 1.4-5 cuando la carga viva
@@ -122,9 +128,9 @@
     return t.filter((x) => x[1] !== 0);
   }
 
-  function texto(t) {
+  function texto(t, masmenos) {
     return t.map(([c, f], i) => {
-      const s = f < 0 ? " − " : (i === 0 ? "" : " + ");
+      const s = (masmenos && masmenos.indexOf(c) >= 0) ? " ± " : (f < 0 ? " − " : (i === 0 ? "" : " + "));
       return s + Math.abs(f) + " " + c;
     }).join("");
   }
@@ -183,7 +189,7 @@
           const tieneS = t.some(([c]) => c === "S");
           if (!nieveConViento && tieneW && tieneS) {
             descartadas.push({
-              id: p.id, terminos: t, texto: texto(t),
+              id: p.id, terminos: t, texto: texto(t, p.masmenos),
               motivo: "viento y nieve no simultáneos · E.020 Art. 11.1",
               art: ART["N.no.viento"]
             });
@@ -193,7 +199,7 @@
           /* Dos plantillas pueden degenerar en la MISMA combinación cuando
              faltan casos —sin Lr ni W, la 1.4-3 y la 1.4-4 dan las dos
              1,2 D + 0,5 L—. Se emite una vez, citando las dos. */
-          const clave = texto(t);
+          const clave = texto(t, p.masmenos);
           if (vistos.has(clave)) {
             const y = vistos.get(clave);
             if (y.tambien.indexOf(p.id) < 0) y.tambien.push(p.id);

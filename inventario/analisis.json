@@ -85,7 +85,7 @@
       "editable": false,
       "clave": true,
       "fuente": "E.090 §1.4.1, ecuaciones 1.4-5 y 1.4-6, leídas en la página renderizada",
-      "nota": "La E.090 escribe «1,2D ± 1,0E + …» y «0,9D ± (1,3W ó 1,0E)»: el signo es ±, no −. pdftotext lo pierde y hubo que renderizar la página para verlo. Significa que la carga lateral puede actuar en cualquier sentido. Como aquí el viento se genera como estados físicos en las DOS direcciones, el ± ya está cubierto, y el factor se aplica con su magnitud. Multiplicar un estado físico por −1,3 convertiría la succión real del techo en presión: un viento que no existe. OJO: combinaciones.js guarda la 1.4-6 como «0,9 D − 1,3 W», con el signo como texto; este módulo usa el valor absoluto del factor de W y de E."
+      "nota": "La E.090 escribe «1,2D ± 1,0E + …» y «0,9D ± (1,3W ó 1,0E)»: el signo es ±, no −. pdftotext lo pierde y hubo que renderizar la página para verlo. Significa que la carga lateral puede actuar en cualquier sentido. Como aquí el viento se genera como estados físicos en las DOS direcciones, el ± ya está cubierto, y el factor se aplica con su magnitud. Multiplicar un estado físico por −1,3 convertiría la succión real del techo en presión: un viento que no existe. combinaciones.js guardaba la 1.4-6 como «0,9 D − 1,3 W» y así salía en pantalla; ahora marca los términos con ± (1.4-5 y 1.4-6) y el texto dice lo que dice la norma. Este módulo usa el valor absoluto del factor de W y de E."
     },
     {
       "id": "A.muro",
@@ -194,6 +194,78 @@
       "clave": true,
       "fuente": "AISC C2.3(b) · filas MAT.A36.Fy y MAT.A572.Fy",
       "nota": "El análisis solo necesita el acero para un control: si alguna columna pasa de α·Pr/Pns = 0,5 (fila E.C2.taub). No hay valor por omisión en el módulo; la pantalla le pasa el del paso Datos, y mientras ese paso no exista lo dice en pantalla."
+    },
+    {
+      "id": "A.sismo.periodo",
+      "grupo": "El sismo",
+      "magnitud": "El período fundamental del pórtico",
+      "valor": "T = 0,85 · T de Rayleigh, con el propio modelo y fi ∝ Pi",
+      "unidad": "s",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.030-2026 Art. 36.2 y 36.3 · fila S.T.rayleigh",
+      "nota": "El Art. 36.2 permite Rayleigh «alternativamente» a hn/CT, y es la salida limpia para un galpón: la fórmula del 36.1 no tiene CT para un tijeral sobre columnas (e030.js lo dice). Se calcula con el mismo pórtico del análisis, rigidez nominal, cargando cada nudo con una fuerza lateral igual a su peso —una distribución semejante al primer modo de un pórtico de un nivel—. Se multiplica por 0,85 según el 36.3, porque el modelo no cuenta la rigidez de la cobertura y los cerramientos, que no están aislados. QUEDA DEL LADO SEGURO: un período más corto da un C igual o mayor. hn/35 se enseña al lado para comparar."
+    },
+    {
+      "id": "A.sismo.reparto",
+      "grupo": "El sismo",
+      "magnitud": "Cómo se reparte la cortante en el pórtico",
+      "valor": "un solo nivel, el techo: Fi = V · Pi / ΣP en cada nudo",
+      "unidad": "kgf",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.030-2026 Art. 35.1 · fila S.Fi",
+      "nota": "El Art. 35 reparte por niveles con αi = Pi·hi^k/Σ; un galpón tiene un nivel, el techo, y dentro de él la fuerza va donde va la masa. Cada nudo recibe la parte de V que le toca por su peso sísmico —la carga muerta que baja por él más el 25 % de la viva de techo (fila S.P)—. No hay excentricidad accidental que aplicar: el techo no es diafragma (fila MT.no.diafragma) y cada pórtico se lleva su masa."
+    },
+    {
+      "id": "S.vertical",
+      "grupo": "El sismo",
+      "magnitud": "La componente vertical del sismo",
+      "valor": "Ev = ± 2/3 · Z · U · S · P, simultánea con la horizontal y en el sentido más desfavorable",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.030-2026 Art. 28.4, 28.5 y 38.1, textuales",
+      "nota": "NO ESTABA EN EL INVENTARIO y la norma la exige: «Se debe considerar las solicitaciones sísmicas verticales en el diseño de los elementos verticales, en elementos horizontales de gran luz…» (28.4); «actúa en los elementos simultáneamente con las fuerzas sísmicas horizontales y en el sentido más desfavorable» (28.5); «se debe considerar como una fracción del peso igual a 2/3 Z·U·S» (38.1). Las columnas son elementos verticales, así que aplica a todo galpón. NO SE REDUCE POR R: en zona 4 con suelo S2 son más del 30 % del peso. Como el sentido desfavorable no se sabe de antemano, salen cuatro estados: dos direcciones horizontales por dos sentidos verticales. LA DERIVA SALE SOLO DE LA HORIZONTAL: el Art. 50 amplifica por 0,75·R los desplazamientos de las fuerzas reducidas por R, y la vertical no lo está. La primera versión amplificaba también el desplazamiento vertical y la deriva dependía de R; la prueba que exige que no dependa lo cazó."
+    },
+    {
+      "id": "S.vertical.granluz",
+      "grupo": "El sismo",
+      "magnitud": "Los elementos horizontales «de gran luz»",
+      "valor": "la norma no da el número · se aplica el 38.1 a todo el pórtico y se avisa del 38.2",
+      "unidad": "m",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.030-2026 Art. 28.4 y 38.2",
+      "nota": "El Art. 38.2 pide análisis DINÁMICO para los elementos horizontales de grandes luces, y la norma no dice a partir de cuántos metros. Este módulo aplica la fuerza estática del 38.1 a todo el pórtico, tijeral incluido: cubre lo que el 28.4 manda para las columnas y queda del lado seguro para el tijeral frente a no poner nada. Pero si el proyectista considera que su tijeral es de gran luz, el 38.2 pide un análisis espectral vertical que aquí no se hace, y el módulo lo dice en vez de darlo por cubierto."
+    },
+    {
+      "id": "A.sismo.sistema",
+      "grupo": "El sismo",
+      "magnitud": "El sistema sísmico de la dirección transversal",
+      "valor": "lo elige el proyectista · si la geometría es de péndulo y elige otro, se avisa",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.030-2026 Tabla 10 y Art. 22 · filas S.R0, S.pendulo y S.aisc341",
+      "nota": "R decide la fuerza y es del proyectista. Pero el análisis sabe la geometría: con base empotrada y tijeral apoyado el pórtico es candidato a péndulo invertido (R₀ = 2,5), y si se elige OMF (R₀ = 4) la fuerza sale al 62,5 % de la que toca. No se bloquea —puede haber razones—, pero se avisa en rojo. Y SMF o EBF reclaman un R₀ que solo vale con el detallado del AISC 341 (fila S.aisc341)."
+    },
+    {
+      "id": "A.sismo.regular",
+      "grupo": "El sismo",
+      "magnitud": "Regularidad",
+      "valor": "solo estructura regular: Ia = Ip = 1 · desplazamientos × 0,75·R",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.030-2026 Art. 20 y 50 · filas S.R y S.despl",
+      "nota": "Las irregularidades de las Tablas 8 y 9 cambian R (Ia, Ip) y el factor de desplazamientos (0,85·R). Un galpón de un nivel y planta rectangular suele ser regular, pero eso hay que comprobarlo, y las tablas de irregularidad no están todavía en el módulo. Por eso solo se acepta «regular»: elegir irregular se niega con este motivo en vez de calcular con Ia = Ip = 1 como si lo fuera."
     }
   ]
 }

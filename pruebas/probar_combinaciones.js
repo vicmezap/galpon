@@ -33,7 +33,10 @@ const up090 = C.paraAcero({ casos: { D: true, W: true } })
   .combinaciones.find((x) => x.id === "1.4-6");
 const up060 = C.paraConcreto({ casos: { D: true, W: true } })
   .combinaciones.find((x) => x.id === "9-3−");
-comp("acero · 0,9 D − 1,3 W", up090.texto, "0.9 D − 1.3 W");
+comp("acero · 0,9 D ± 1,3 W: el ± de la norma, no un −", up090.texto, "0.9 D ± 1.3 W");
+comp("y la 1.4-5 también lleva ± en el sismo",
+  C.paraAcero({ casos: { D: true, E: true } }).combinaciones.filter((x) => x.id === "1.4-5")[0].texto,
+  "1.2 D ± 1 E");
 comp("concreto · 0,9 CM − 1,25 CVi", up060.texto, "0.9 CM − 1.25 CVi");
 /* Coinciden en el 0,9 de la muerta y discrepan en el viento: 1,3 contra 1,25. */
 cierto("coinciden en el 0,9 sobre la carga muerta",

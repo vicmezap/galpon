@@ -315,4 +315,67 @@ comp("una columna con α·Pr/Pns > 0,5 dispara la alternativa de C2.3(c)", rT.se
 cierto("y lo dice", /0,001/.test(rT.segundoOrden.nota));
 comp("sin eso, τb = 1 y no hace falta", r.segundoOrden.tauBalt, false);
 
+/* ================================================================
+   7 · EL SISMO · E.030-2026
+   ================================================================ */
+const E030 = require("../src/e030.js");
+const SISMO = { zona: "Z4", suelo: "S2", categoria: "C", sistema: "pendulo" };
+const cS = Object.assign({}, CARGAS, { sismo: SISMO });
+const rE = A.analiza({ m3: m3, seccion: seccion, acero: "A36", sistema: PENDULO, cargas: cS });
+const sE = rE.sismo;
+comp("cuatro estados: dos horizontales por dos verticales (Art. 28.5)",
+  rE.casos.filter((c) => c.tipo === "E").length, 4);
+comp("44 corridas: las 36 + la 1.4-5 y la 1.4-6 con los cuatro estados",
+  rE.combinaciones.length, 44);
+comp("las de sismo son laterales: sin nocional (B2 ≤ 1,7)",
+  rE.combinaciones.filter((c) => /E\d/.test(c.id) && c.nocional_kgf !== 0).length, 0);
+cerca("V = Z·U·C·S·P/R", sE.V_kgf, sE.Z * sE.U * Math.max(0.11, sE.C / sE.R) * sE.S * sE.P_kgf, 1e-12);
+cerca("y coincide con e030.cortanteBasal()", sE.V_kgf, E030.cortanteBasal({ zona: "Z4", suelo: "S2",
+  categoria: "C", pendulo: true, T_s: sE.T_s, P_kgf: sE.P_kgf }).V_kgf, 1e-12);
+comp("péndulo invertido: R = 2,5", sE.R, 2.5);
+cerca("la vertical: 2/3·Z·U·S del peso, SIN dividir por R (Art. 38.1)", sE.Ev, 2 / 3 * sE.Z * sE.U * sE.S, 1e-12);
+cerca("T = 0,85 · T de Rayleigh (Art. 36.3)", sE.T_s, 0.85 * sE.T_rayleigh_s, 1e-12);
+cierto("y Rayleigh sale mucho mayor que hn/35: la fórmula no sirve para un tijeral sobre columnas",
+  sE.T_rayleigh_s > 2 * sE.T_hnCT_s);
+{
+  const g = A.geometria(m3, PENDULO);
+  const D0 = A.casoMuerta(g, m3, seccion, 8), L0 = A.casoViva(g, 30);
+  const cs = A.casosSismo(g, seccion, SISMO, D0, L0);
+  const sum = (L) => Object.keys(L.nudos).reduce((a, n) =>
+    ({ fx: a.fx + L.nudos[n].Fx_kgf, fy: a.fy + L.nudos[n].Fy_kgf }), { fx: 0, fy: 0 });
+  cerca("E1 · la suma horizontal es V", sum(cs.estados[0].cargas).fx, cs.V_kgf, 1e-9);
+  cerca("E3 · y en la otra dirección, −V", sum(cs.estados[2].cargas).fx, -cs.V_kgf, 1e-9);
+  cerca("E1 · la vertical hacia abajo es −Ev·P", sum(cs.estados[0].cargas).fy, -cs.Ev * cs.P_kgf, 1e-9);
+  cerca("E2 · y hacia arriba +Ev·P", sum(cs.estados[1].cargas).fy, cs.Ev * cs.P_kgf, 1e-9);
+  const pD = -Object.keys(D0.cargas.nudos).filter((n) => n.indexOf("B") !== 0)
+    .reduce((a, n) => a + D0.cargas.nudos[n].Fy_kgf, 0);
+  const pL = -Object.keys(L0.cargas.nudos).filter((n) => n.indexOf("B") !== 0)
+    .reduce((a, n) => a + L0.cargas.nudos[n].Fy_kgf, 0);
+  cerca("P = D + 25 % de la viva de techo (fila S.P), sin lo que cae en las bases", cs.P_kgf,
+    pD + 0.25 * pL, 1e-9);
+  lanza("una estructura irregular se niega, no se calcula como regular",
+    () => A.casosSismo(g, seccion, Object.assign({}, SISMO, { regularidad: "irregular" }), D0, L0), "REGULAR");
+  lanza("un sistema sísmico inventado se niega",
+    () => A.casosSismo(g, seccion, Object.assign({}, SISMO, { sistema: "dual" }), D0, L0), "pendulo");
+}
+/* el sismo gobierna la columna del péndulo: R = 2,5 */
+comp("CON R = 2,5 EL SISMO GOBIERNA EL MOMENTO DE LA COLUMNA", rE.barras.C0.momento.combo.split(" ")[0], "1.4-5");
+/* la geometría de péndulo con OMF: se avisa */
+const rO = A.analiza({ m3: m3, seccion: seccion, acero: "A36", sistema: PENDULO,
+  cargas: Object.assign({}, CARGAS, { sismo: Object.assign({}, SISMO, { sistema: "OMF" }) }) });
+cerca("con OMF la fuerza sale al 62,5 %", rO.sismo.V_kgf / sE.V_kgf, 2.5 / 4, 1e-9);
+cierto("y se avisa de que la geometría es de péndulo y la fuerza sale al 62,5 %",
+  rO.avisos.some((a) => /sale al 62,5 %/.test(a)));
+cierto("con el sistema que toca no hay ese aviso", !rE.avisos.some((a) => /sale al/.test(a)));
+cierto("el aviso de gran luz del Art. 38.2 está siempre", rE.avisos.some((a) => /38\.2/.test(a)));
+/* la deriva */
+cerca("deriva sísmica = elástica × 0,75·R (Art. 50)", sE.deriva.deriva_cm, sE.deriva.elastica_cm * 0.75 * 2.5, 1e-12);
+comp("contra el 0,010 del acero (Tabla N° 14)", sE.deriva.limite, 0.010);
+cerca("LA DERIVA NO DEPENDE DE R: la fuerza va con 1/R y el desplazamiento con 0,75·R",
+  rO.sismo.deriva.deriva_cm, sE.deriva.deriva_cm, 1e-6);
+const rI = A.analiza({ m3: m3, seccion: seccion, acero: "A36", sistema: PENDULO,
+  cargas: Object.assign({}, CARGAS, { sismo: Object.assign({}, SISMO, { industrial: true }) }) });
+comp("con uso industrial el tope es el doble: 0,020", rI.sismo.deriva.limite, 0.020);
+comp("sin datos de sismo, se dice que no entra", r.avisos.some((a) => /sismo no entra/.test(a)), true);
+
 fin();

@@ -118,7 +118,8 @@
   /* Los datos del sitio y de las cargas.  Misma regla que PARAMETROS: una
      clave que no está aquí PARA al guardar, en vez de perderse en silencio. */
   const SITIO = ["espesorCobertura_mm", "Dotras_kgfm2", "hayNieve", "Qs_kgfm2",
-    "V_kmh", "tipoEdificacion", "aberturas", "acero"];
+    "V_kmh", "tipoEdificacion", "aberturas", "acero",
+    "zona", "suelo", "vs30_ms", "categoria", "sistemaSismico", "industrial"];
 
   /* El sistema estructural · fila A.sistema.  Sin valor por omisión: lo decide
      el proyectista, y un modelo nuevo no lo trae. */

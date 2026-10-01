@@ -17,18 +17,20 @@
   if (typeof module === "object" && module.exports) {
     module.exports = definir(require("./inventario.js"), require("./vistas.js"),
       require("./e020.js"), require("./viento.js"), require("./combinaciones.js"),
-      require("./analisis.js"), require("./libro.js"));
+      require("./analisis.js"), require("./libro.js"), require("./e030.js"));
   } else {
     raiz.RESULTADOS = definir(raiz.INVENTARIO, raiz.VISTAS, raiz.E020, raiz.VIENTO,
-      raiz.COMBINACIONES, raiz.ANALISIS, raiz.LIBRO);
+      raiz.COMBINACIONES, raiz.ANALISIS, raiz.LIBRO, raiz.E030);
   }
-})(typeof self !== "undefined" ? self : this, function (INV, V, E020, VI, CB, AN, LIBRO) {
+})(typeof self !== "undefined" ? self : this, function (INV, V, E020, VI, CB, AN, LIBRO, E030) {
   "use strict";
 
   const ART = INV.declara("resultados.js", [
     "D.cobertura.peso", "Lr.liviana", "Lr.red.formula", "N.Qs.min", "N.Qt.a", "N.Qt.b",
     "N.Qt.c", "N.desbal.corto", "N.desbal.largo", "W.V.mapa", "W.Vh", "W.Ph", "W.C", "W.tipo",
-    "A.sistema", "A.acero.Pns", "A.reacciones.casos", "SV.viento.H", "A.segundo.orden"
+    "A.sistema", "A.acero.Pns", "A.reacciones.casos", "SV.viento.H", "A.segundo.orden",
+    "S.Z", "S.U", "S.perfil", "S.R0", "S.pendulo", "S.T.rayleigh", "S.C.estatico", "S.V", "S.CR",
+    "S.vertical", "S.despl", "S.deriva", "S.deriva.industrial", "A.sismo.sistema", "A.sismo.periodo"
   ]);
   const ln = V.ln, ficha = V.ficha;
   const n2 = (x, d) => (Math.round(x * Math.pow(10, d)) / Math.pow(10, d))
@@ -172,9 +174,49 @@
     fichas.push(ficha("Viento", "E.020 Cap. 3 · Art. 12 · Tablas 4 y 5", L2));
     out.tablaViento = tablaViento;
 
+    /* ---- sismo · lo que se puede decir sin el modelo; T y V salen en el Análisis ---- */
+    const L3 = [];
+    let sismo = null;
+    for (const [k, campo, que] of [["zona", "ca_zona", "la zona sísmica"],
+      ["suelo", "ca_suelo", "el perfil de suelo"],
+      ["categoria", "ca_categoria", "la categoría de la edificación"],
+      ["sistemaSismico", "ca_sissis", "el sistema sísmico de la dirección transversal"]]) {
+      if (!s[k]) faltan.push({ campo: campo, que: que });
+    }
+    if (typeof s.industrial !== "boolean") {
+      faltan.push({ campo: "ca_indus", que: "si el uso es industrial (cambia el límite de deriva)" });
+    }
+    if (s.zona && s.suelo && s.categoria && s.sistemaSismico) {
+      try {
+        const st = E030.sitio({ zona: s.zona, suelo: s.suelo, vs30_ms: s.vs30_ms });
+        const u = E030.factorU(s.categoria);
+        const pend = s.sistemaSismico === "pendulo";
+        const rr = E030.coefR({ pendulo: pend, sistema: pend ? undefined : s.sistemaSismico });
+        L3.push(ln("Factor de zona Z", n2(st.Z, 2), "norma", { fuente: "S.Z" }));
+        L3.push(ln("Factor de uso U", n2(u.U, 2), "norma", { fuente: "S.U" }));
+        L3.push(ln("Factor de suelo S", n2(st.S, 3), "norma", { fuente: "S.perfil",
+          nota: st.sinVs30 ? "sin Vs30 medido: el mayor valor del intervalo" : null }));
+        L3.push(ln("Períodos TP / TL", n2(st.TP, 2) + " / " + n2(st.TL, 2) + " s", "norma",
+          { fuente: "S.perfil" }));
+        L3.push(ln("Coeficiente R", n2(rr.R, 2), "norma", { fuente: pend ? "S.pendulo" : "S.R0",
+          nota: rr.sistema + (rr.exigeAISC341 ? " · exige el detallado del AISC 341" : "") }));
+        L3.push(ln("Vertical", "2/3·Z·U·S = " + n2(2 / 3 * st.Z * u.U * st.S, 3) + " del peso", "norma",
+          { fuente: "S.vertical", nota: "sin dividir por R, a la vez que la horizontal" }));
+        L3.push(ln("Período y cortante", "en el Análisis", "medido",
+          { nota: "T sale de Rayleigh con el propio pórtico (Art. 36.2), que aquí no está resuelto" }));
+        if (typeof s.industrial === "boolean") {
+          sismo = { zona: s.zona, suelo: s.suelo, vs30_ms: s.vs30_ms, categoria: s.categoria,
+            sistema: s.sistemaSismico, industrial: s.industrial };
+        }
+      } catch (e) {
+        faltan.push({ campo: "ca_suelo", que: e.message.split("\n")[0].replace(/^e030: /, "") });
+      }
+    }
+    fichas.push(ficha("Sismo", "E.030-2026 · Art. 28, 31, 34, 36 y 38", L3));
+
     /* ---- combinaciones ---- */
     if (typeof s.hayNieve === "boolean") {
-      const casos = { D: true, Lr: !s.hayNieve, S: s.hayNieve, W: true };
+      const casos = { D: true, Lr: !s.hayNieve, S: s.hayNieve, W: true, E: true };
       out.combinaciones = {
         acero: CB.paraAcero({ casos: casos }).combinaciones.map((c) => ({ id: c.id, texto: c.texto })),
         concreto: CB.paraConcreto({ casos: casos }).combinaciones
@@ -182,8 +224,8 @@
       };
     }
 
-    if (D !== null && (Lr !== null || S !== null) && viento) {
-      out.cargas = { D_kgfm2: D, Lr_kgfm2: Lr, S: S, viento: viento };
+    if (D !== null && (Lr !== null || S !== null) && viento && sismo) {
+      out.cargas = { D_kgfm2: D, Lr_kgfm2: Lr, S: S, viento: viento, sismo: sismo };
     }
     out.completo = !faltan.length && !!out.cargas;
     return out;
@@ -264,6 +306,26 @@
         { estado: d.cumple ? "ok" : "no" }),
       ln("Límite", "H/100", "norma", { fuente: "SV.viento.H" })
     ], d.cumple ? "bien" : null));
+    if (r.sismo) {
+      const s = r.sismo, dd = s.deriva;
+      F.push(ficha("Sismo", "E.030-2026", [
+        ln("Peso sísmico P", t2(s.P_kgf), "medido",
+          { nota: "carga muerta del pórtico + 25 % de la viva de techo" }),
+        ln("Período de Rayleigh", n2(s.T_rayleigh_s, 3) + " s", "norma", { fuente: "S.T.rayleigh" }),
+        ln("Período usado, × 0,85", n2(s.T_s, 3) + " s", "norma",
+          { fuente: "A.sismo.periodo", nota: "hn/35 daría " + n2(s.T_hnCT_s, 3) + " s" }),
+        ln("C estático", n2(s.C, 2), "norma", { fuente: "S.C.estatico" }),
+        ln("C/R", n2(s.CR_usado, 3), "norma",
+          { fuente: "S.CR", nota: s.enMinimoCR ? "manda el mínimo 0,11" : null }),
+        ln("Cortante en la base V", t2(s.V_kgf), "norma", { fuente: "S.V" }),
+        ln("Vertical ± Ev", t2(s.Ev_kgf), "norma", { fuente: "S.vertical" }),
+        ln("Deriva sísmica", "Δ × " + n2(dd.multiplicador, 2) + " = " + n2(dd.deriva_cm, 2) + " cm",
+          "norma", { fuente: "S.despl" }),
+        ln("Relación", n2(dd.relacion, 4) + " contra " + n2(dd.limite, 3), "norma",
+          { fuente: s.industrial ? "S.deriva.industrial" : "S.deriva", estado: dd.cumple ? "ok" : "no",
+            nota: dd.cumple ? null : "NO CUMPLE: hace falta más rigidez lateral (columnas o sistema)" })
+      ], dd.cumple ? "bien" : null));
+    }
     F.push(ficha("Segundo orden", "Método Directo · Apéndice 8", [
       ln("B2 máximo", n2(r.segundoOrden.maxB2, 3), "medido",
         { nota: r.segundoOrden.maxB2 <= 1.1 ? "el ladeo amplifica poco" : null }),
@@ -374,6 +436,23 @@
         tipo: "opcion", fuente: "W.C", opciones: ABERTURAS },
       { id: "ab_longitudinal", clave: "aberturas.longitudinal", etiqueta: "Aberturas · viento longitudinal",
         tipo: "opcion", fuente: "W.C", opciones: ABERTURAS }] },
+    { grupo: "Sismo", campos: [
+      { id: "zona", clave: "zona", etiqueta: "Zona sísmica", tipo: "opcion", fuente: "S.Z",
+        opciones: [ELEGIR, ["Z1", "Z1 · 0,10"], ["Z2", "Z2 · 0,25"], ["Z3", "Z3 · 0,35"], ["Z4", "Z4 · 0,45"]] },
+      { id: "suelo", clave: "suelo", etiqueta: "Perfil de suelo", tipo: "opcion", fuente: "S.perfil",
+        opciones: [ELEGIR, ["S0", "S0 · roca dura"], ["S1", "S1 · roca o suelo muy rígido"],
+          ["S2", "S2 · suelo intermedio"], ["S3", "S3 · suelo blando"], ["S4", "S4 · excepcional"]] },
+      { id: "vs30", clave: "vs30_ms", etiqueta: "Vs30 medido (opcional)", unidad: "m/s", tipo: "numero",
+        fuente: "S.perfil" },
+      { id: "categoria", clave: "categoria", etiqueta: "Categoría de la edificación", tipo: "opcion",
+        fuente: "S.U", opciones: [ELEGIR, ["A", "A · esencial (1,5)"], ["B", "B · importante (1,3)"],
+          ["C", "C · común (1,0)"]] },
+      { id: "sissis", clave: "sistemaSismico", etiqueta: "Sistema sísmico transversal", tipo: "opcion",
+        fuente: "S.R0", opciones: [ELEGIR, ["pendulo", "péndulo invertido · R₀ 2,5"],
+          ["OMF", "ordinario OMF · R₀ 4"], ["IMF", "intermedio IMF · R₀ 5"],
+          ["SMF", "especial SMF · R₀ 8"]] },
+      { id: "indus", clave: "industrial", etiqueta: "Uso industrial (deriva hasta 2× la tabla)",
+        tipo: "opcion", fuente: "S.deriva.industrial", opciones: [ELEGIR, ["no", "no"], ["si", "sí"]] }] },
     { grupo: "Material", campos: [
       { id: "acero", clave: "acero", etiqueta: "Acero de los perfiles", tipo: "opcion",
         fuente: "A.acero.Pns", opciones: [ELEGIR, ["A36", "A36"], ["A572", "A572 Gr. 50"]] }] }
@@ -402,6 +481,12 @@
     for (const [k] of DIRECCIONES) if (val["ab_" + k]) ab[k] = val["ab_" + k];
     if (Object.keys(ab).length) s.aberturas = ab;
     if (ACEROS.indexOf(val.acero) >= 0) s.acero = val.acero;
+    if (val.zona) s.zona = val.zona;
+    if (val.suelo) s.suelo = val.suelo;
+    if (num(val.vs30) !== undefined) s.vs30_ms = num(val.vs30);
+    if (val.categoria) s.categoria = val.categoria;
+    if (val.sissis) s.sistemaSismico = val.sissis;
+    if (val.indus === "si" || val.indus === "no") s.industrial = val.indus === "si";
     return s;
   }
   function valoresDeSitio(sitio) {
@@ -415,6 +500,12 @@
     if (s.tipoEdificacion !== undefined) v.tipo = String(s.tipoEdificacion);
     for (const [k] of DIRECCIONES) if (s.aberturas && s.aberturas[k]) v["ab_" + k] = s.aberturas[k];
     if (s.acero) v.acero = s.acero;
+    if (s.zona) v.zona = s.zona;
+    if (s.suelo) v.suelo = s.suelo;
+    if (s.vs30_ms !== undefined) v.vs30 = String(s.vs30_ms);
+    if (s.categoria) v.categoria = s.categoria;
+    if (s.sistemaSismico) v.sissis = s.sistemaSismico;
+    if (typeof s.industrial === "boolean") v.indus = s.industrial ? "si" : "no";
     return v;
   }
   function leeSistema(val) {

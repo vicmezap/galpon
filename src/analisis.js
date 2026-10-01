@@ -39,12 +39,13 @@
   if (typeof module === "object" && module.exports) {
     module.exports = definir(require("./inventario.js"), require("./modelo.js"),
       require("./solver.js"), require("./estabilidad.js"), require("./viento.js"),
-      require("./combinaciones.js"), require("./montaje.js"), require("./acero.js"));
+      require("./combinaciones.js"), require("./montaje.js"), require("./acero.js"),
+      require("./e030.js"));
   } else {
     raiz.ANALISIS = definir(raiz.INVENTARIO, raiz.MODELO, raiz.SOLVER, raiz.ESTABILIDAD,
-      raiz.VIENTO, raiz.COMBINACIONES, raiz.MONTAJE, raiz.ACERO);
+      raiz.VIENTO, raiz.COMBINACIONES, raiz.MONTAJE, raiz.ACERO, raiz.E030);
   }
-})(typeof self !== "undefined" ? self : this, function (INV, M, SV, ES, VI, CB, MON, AC) {
+})(typeof self !== "undefined" ? self : this, function (INV, M, SV, ES, VI, CB, MON, AC, E030) {
   "use strict";
 
   const ART = INV.declara("analisis.js", [
@@ -52,6 +53,8 @@
     "A.viento.casos", "A.viento.signo", "A.muro", "A.pesopropio",
     "A.segundo.orden", "A.nocional", "E.C2.taub.alt", "A.B1.tramo", "A.Mr.max",
     "A.reacciones.casos", "A.acero.Pns",
+    "A.sismo.periodo", "A.sismo.reparto", "S.vertical", "S.vertical.granluz",
+    "A.sismo.sistema", "A.sismo.regular", "S.P", "S.despl", "S.deriva", "S.deriva.industrial",
     "S.pendulo", "E.C2.Ni", "E.C2.k080", "E.C2.taub", "E.C3.K", "E.A8.B2", "E.A8.B1",
     "E.A8.Pestory", "E.A8.RM", "E.A8.Cm.transv", "SV.viento.H", "J.costura", "MT.hastial"
   ]);
@@ -386,6 +389,94 @@
       art: ART["A.viento.casos"], artMuro: ART["A.muro"] };
   }
 
+  /* ---------- EL SISMO · E.030-2026 ------------------------------------
+     V = Z·U·C·S·P/R repartida por peso en los nudos del techo (fila
+     A.sismo.reparto), y la vertical ±2/3·Z·U·S·P a la vez (fila S.vertical).
+     T por Rayleigh con el propio pórtico, × 0,85 (fila A.sismo.periodo). */
+  const SISMICOS = ["pendulo"].concat(E030.SISTEMAS);
+  const FRACCION_VERTICAL = 2 / 3;      /* Art. 38.1 · fila S.vertical */
+  const FACTOR_T_NO_ESTRUCTURAL = 0.85; /* Art. 36.3 · fila A.sismo.periodo */
+
+  function casosSismo(g, seccion, sis, casoD, casoTecho) {
+    exige(sis && typeof sis === "object", "el sismo necesita zona, suelo, categoría y sistema");
+    exige(SISMICOS.indexOf(sis.sistema) >= 0,
+      "el sistema sísmico es " + SISMICOS.join(" · ") + ", no «" + sis.sistema + "»");
+    exige(!sis.regularidad || sis.regularidad === "regular",
+      "solo se acepta estructura REGULAR: las irregularidades de las Tablas 8 y 9 cambian R y\n" +
+      "  el factor de desplazamientos, y todavía no están en el módulo (fila A.sismo.regular).");
+    /* el peso sísmico de cada nudo: D + 25 % de la viva de techo · fila S.P */
+    const pesos = {};
+    const bases = {};
+    for (const a of g.apoyos) bases[a.nudo] = true;
+    const suma = (lista, f) => {
+      for (const n of Object.keys(lista.nudos)) {
+        if (bases[n]) continue;
+        pesos[n] = (pesos[n] || 0) - f * lista.nudos[n].Fy_kgf;
+      }
+    };
+    suma(casoD.cargas, 1);
+    if (casoTecho) suma(casoTecho.cargas, E030.PCT_VIVA.techo);
+    const nudos = Object.keys(pesos).filter((n) => pesos[n] > 0);
+    const P = nudos.reduce((a, n) => a + pesos[n], 0);
+    exige(P > 0, "el pórtico no tiene peso sísmico");
+
+    /* el período por Rayleigh: fuerza lateral igual al peso en cada nudo */
+    const m = modelo(g, seccion);
+    for (const n of nudos) M.cargaNudo(m, { nudo: n, Fx_kgf: pesos[n] });
+    const rr = SV.resuelve(m);
+    const ray = E030.periodoRayleigh({ P_kgf: nudos.map((n) => pesos[n]),
+      d_cm: nudos.map((n) => rr.desplaza(n, "ux")), f_kgf: nudos.map((n) => pesos[n]) });
+    const T = FACTOR_T_NO_ESTRUCTURAL * ray.T_s;
+    const hn = g.hAlero_m;
+
+    const pendulo = sis.sistema === "pendulo";
+    const V = E030.cortanteBasal({ zona: sis.zona, suelo: sis.suelo, vs30_ms: sis.vs30_ms,
+      categoria: sis.categoria, pendulo: pendulo, sistema: pendulo ? undefined : sis.sistema,
+      T_s: T, P_kgf: P });
+    const Ev = FRACCION_VERTICAL * V.Z * V.U * V.S;          /* fracción del peso */
+
+    /* SOLO LA HORIZONTAL, para la deriva: el Art. 50 amplifica por 0,75·R los
+       desplazamientos de las fuerzas REDUCIDAS por R, y la vertical no lo está.
+       Amplificar también su desplazamiento hacía depender la deriva de R. */
+    const lateral = nuevaLista();
+    for (const n of nudos) sumaNudo(lateral, n, V.V_kgf * pesos[n] / P, 0);
+
+    const estados = [];
+    let k = 0;
+    for (const [dx, nh] of [[+1, "→"], [-1, "←"]]) {
+      for (const [dy, nv] of [[-1, "vertical hacia abajo"], [+1, "vertical hacia arriba"]]) {
+        const L = nuevaLista();
+        for (const n of nudos) {
+          sumaNudo(L, n, dx * V.V_kgf * pesos[n] / P, dy * Ev * pesos[n]);
+        }
+        k++;
+        estados.push({ id: "E" + k, tipo: "E", direccion: dx, desc: "sismo " + nh + " con " + nv,
+          cargas: L });
+      }
+    }
+    const avisos = [];
+    if (g.sistema.pendulo && !pendulo) {
+      avisos.push("LA GEOMETRÍA ES DE PÉNDULO INVERTIDO (base empotrada y tijeral apoyado) y se eligió " +
+        sis.sistema + ": la E.030 le da R₀ = 2,5, y con R₀ = " + V.R + " la fuerza sale al " +
+        (100 * 2.5 / V.R).toFixed(1).replace(".", ",") + " % de la que toca (fila A.sismo.sistema)");
+    }
+    if (V.sistema && V.sistema.exigeAISC341) {
+      avisos.push(sis.sistema + " reclama un R₀ = " + V.sistema.R0 + " que solo vale con el detallado " +
+        "del AISC 341 (fila S.aisc341)");
+    }
+    avisos.push("la vertical del Art. 38.1 se aplica a todo el pórtico; si el tijeral se considera de " +
+      "gran luz, el Art. 38.2 pide un análisis dinámico que aquí no se hace (fila S.vertical.granluz)");
+    return {
+      estados: estados, lateral: { id: "Eh", tipo: "Eh", desc: "sismo horizontal solo, para la deriva",
+        cargas: lateral },
+      P_kgf: P, V_kgf: V.V_kgf, Ev: Ev, Ev_kgf: Ev * P,
+      T_s: T, T_rayleigh_s: ray.T_s, T_hnCT_s: hn / E030.CT.momento,
+      Z: V.Z, U: V.U, S: V.S, C: V.C, R: V.R, CR: V.CR, CR_usado: V.CR_usado, enMinimoCR: V.enMinimoCR,
+      TP: V.TP, TL: V.TL, sistema: sis.sistema, avisos: avisos, industrial: !!sis.industrial,
+      art: ART["A.sismo.periodo"], artVertical: ART["S.vertical"], artReparto: ART["A.sismo.reparto"]
+    };
+  }
+
   /* =====================================================================
      4 · RESOLVER
      ===================================================================== */
@@ -563,6 +654,12 @@
     if (hayS) for (const s of casosNieve(g, c.S)) casos.push(s);
     const vw = casosViento(g, c.viento);
     for (const w of vw.casos) casos.push(w);
+    let sismo = null;
+    if (c.sismo) {
+      const techo = casos.filter((x) => x.tipo === "Lr" || x.id === "S")[0] || null;
+      sismo = casosSismo(g, d.seccion, c.sismo, casos[0], techo);
+      for (const e of sismo.estados) casos.push(e);
+    }
 
     const porTipo = (t) => casos.filter((x) => x.tipo === t);
     const deId = {};
@@ -574,9 +671,19 @@
       caso: x.id, deriva_cm: x.derivaAlero_cm, relacion: x.derivaAlero_cm / (g.hAlero_m * 100)
     }));
     const peorDeriva = derivas.reduce((a, b) => (b.relacion > a.relacion ? b : a), derivas[0]);
+    let derivaSismo = null;
+    if (sismo) {
+      const dE = resuelveCaso(g, d.seccion, sismo.lateral).derivaAlero_cm;
+      const am = E030.desplazamientos({ regularidad: "regular", R: sismo.R, delta_cm: [dE] });
+      const lim = E030.limiteDeriva({ material: "acero", industrial: sismo.industrial });
+      const rel = am.delta_cm[0] / (g.hAlero_m * 100);
+      derivaSismo = { elastica_cm: dE, multiplicador: am.multiplicador, deriva_cm: am.delta_cm[0],
+        relacion: rel, limite: lim.limite, cumple: rel <= lim.limite + 1e-12,
+        art: ART["S.despl"], artLimite: lim.art };
+    }
 
     /* ---- las combinaciones, expandidas a los estados físicos ---- */
-    const presentes = { D: true, Lr: !hayS, S: hayS, W: true };
+    const presentes = { D: true, Lr: !hayS, S: hayS, W: true, E: !!sismo };
     const familia = CB.paraAcero({ casos: presentes });
     const combos = [];
     for (const cb of familia.combinaciones) {
@@ -586,13 +693,13 @@
         const fa = (caso === "W" || caso === "E") ? Math.abs(f) : f;   /* fila A.viento.signo */
         const estados = porTipo(caso);
         if (!estados.length) continue;
-        if (caso === "W") conLateral = true;
+        if (caso === "W" || caso === "E") conLateral = true;
         const nuevas = [];
         for (const base of listas) for (const e of estados) nuevas.push(base.concat([[e, fa]]));
         listas.splice(0, listas.length, ...nuevas);
       }
       for (const partes of listas) {
-        const nombre = partes.filter(([e]) => e.tipo === "W" || e.id.indexOf("S-") === 0)
+        const nombre = partes.filter(([e]) => e.tipo === "W" || e.tipo === "E" || e.id.indexOf("S-") === 0)
           .map(([e]) => e.id).join(" ");
         combos.push({ id: cb.id + (nombre ? " · " + nombre : ""), base: cb.id, texto: cb.texto,
           partes: partes, lateral: conLateral });
@@ -682,6 +789,8 @@
         nocionalPorB2: f.nocionalPorB2 })),
       corridas: filas,
       barras: env,
+      sismo: sismo ? Object.assign({}, sismo, { estados: undefined, lateral: undefined,
+        deriva: derivaSismo }) : null,
       deriva: { peor: peorDeriva, limite: 1 / 100, todas: derivas,
         cumple: peorDeriva.relacion <= 1 / 100 + 1e-12, art: ART["SV.viento.H"] },
       segundoOrden: { maxB2: maxB2, tauBalt: tauBalt,
@@ -690,10 +799,9 @@
       avisos: [
         "se analiza el pórtico INTERIOR del eje " + g.eje + "; los de fachada, con columnas " +
           "hastiales, son otro modelo y todavía no están (fila A.portico.tipico)",
-        "el sismo todavía no entra en este análisis: falta elegir R, y con este sistema " +
-          (g.sistema.pendulo ? "el galpón es candidato a péndulo invertido (R₀ = 2,5)" : "es un pórtico") +
-          ". Va en el paso siguiente."
-      ].concat(g.sistema.notaPendulo ? [g.sistema.notaPendulo] : []),
+      ].concat(sismo ? sismo.avisos : ["el sismo no entra en este análisis: faltan sus datos " +
+          "(zona, suelo, categoría y sistema sísmico)"])
+        .concat(g.sistema.notaPendulo && !(sismo && sismo.sistema === "pendulo") ? [g.sistema.notaPendulo] : []),
       art: ART["A.segundo.orden"], artReacciones: ART["A.reacciones.casos"],
       artNocional: ART["A.nocional"]
     };
@@ -702,7 +810,8 @@
   return {
     ART, BASES, UNIONES, LIMITE_B2_NOCIONAL, COEF_TAUB_ALT, UMBRAL_TAUB,
     sistema, ejeTipico, anchoTributario, geometria, modelo, faltanSecciones,
-    tramosTecho, casoMuerta, casoViva, casosNieve, casosViento,
+    SISMICOS, FRACCION_VERTICAL, FACTOR_T_NO_ESTRUCTURAL,
+    tramosTecho, casoMuerta, casoViva, casosNieve, casosViento, casosSismo,
     resuelveCaso, resuelveCombinacion, fuerzasDeDiseno, momentoMaximo, analiza
   };
 });
