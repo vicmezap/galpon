@@ -21,12 +21,12 @@ No es una buena intención: está en `src/inventario.js` y la comprueba
 `pruebas/probar_inventario.js`. Pedir una magnitud que no existe **lanza**, no
 devuelve `undefined`. Un conflicto sin decisión escrita rompe la prueba.
 
-El inventario son **382 filas en `inventario/*.json`**, una por cada número,
+El inventario son **388 filas en `inventario/*.json`**, una por cada número,
 fórmula, límite y criterio que el complemento calcula, con su artículo de norma
 o su página de libro:
 
 ```
-315 verificado   ·   35 adoptado   ·   29 conflicto   ·   0 criterio propio   ·   3 pendientes
+316 verificado   ·   40 adoptado   ·   29 conflicto   ·   0 criterio propio   ·   3 pendientes
 ```
 
 *Verificado* = leído en el texto original. *Adoptado* = fuente reconocida pero
@@ -147,12 +147,13 @@ src/
   vistas.js        las 4 pestañas como DATOS · ninguna cifra sin procedencia
   vista3d.js       cámara y proyección · isométrica, que sí se puede medir
   placabase.js     placa de apoyo, pernos y llave de corte · AISC J8 y Zapata 9.7-9.8
+  libro.js         el modelo dentro del libro de Excel · serializa, trocea y se niega
 inventario/
-  *.json           las 382 filas, trece secciones
+  *.json           las 388 filas, trece secciones
 pruebas/
   correr.js        el runner
   _comun.js        comp · cerca · cierto · lanza · fin
-  probar_*.js      una por módulo · 2020 comprobaciones
+  probar_*.js      una por módulo · 2121 comprobaciones
 catalogos/
   aisc.json        1575 perfiles laminados    · AISC Shapes Database v13
   fam.json          391 perfiles soldados     · serie VS/CS/CVS, ABNT NBR 5884

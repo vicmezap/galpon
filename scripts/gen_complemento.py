@@ -78,6 +78,7 @@ MODULOS = [
     "montaje.js",        # lee GENERADOR
     "vista3d.js",       # funciones puras de camara y proyeccion
     "vistas.js",        # lee GENERADOR, MONTAJE y VISTA3D
+    "libro.js",         # el modelo dentro del libro de Excel
     "proyecto.js",
 ]
 

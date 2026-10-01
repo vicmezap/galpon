@@ -1,9 +1,11 @@
 {
   "seccion": "interfaz",
-  "titulo": "La interfaz · qué se enseña y con qué derecho",
+  "titulo": "La interfaz y su enlace con el libro",
   "modulos": [
     "vistas.js",
-    "vista3d.js"
+    "vista3d.js",
+    "libro.js",
+    "panel.js"
   ],
   "version": 1,
   "fecha": "2026-09-30",
@@ -75,6 +77,78 @@
       "clave": true,
       "fuente": "decisión de arquitectura del complemento",
       "nota": "Un alambre no tiene caras, así que no hay oclusión que calcular y decir que se «quitan líneas ocultas» sería falso. La profundidad se transmite de dos maneras y las dos son orden, no geometría: se pinta de atrás hacia delante —el algoritmo del pintor, que para segmentos sin caras es el correcto y no una aproximación— y lo lejano se atenúa hasta un mínimo del 35 %. CONSECUENCIA BUSCADA: el arriostre de la fachada de atrás se ve a través de la nave. Para revisar que el camino de carga cierra, eso es mejor que peor; un render opaco escondería justo lo que hay que mirar."
+    },
+    {
+      "id": "L.formato",
+      "grupo": "El modelo dentro del libro",
+      "magnitud": "El modelo guardado declara su formato",
+      "valor": "cabecera  GALPON \\t <formato> \\t <fecha>",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "decisión de arquitectura del complemento",
+      "nota": "Un texto dentro de una celda sin marca de formato es una trampa de efecto retardado: el día que el formato cambie, los libros viejos se leerán mal y en silencio, y el error aparecerá como un galpón raro y no como un fallo de lectura. La cabecera dice QUÉ es y DE QUÉ VERSIÓN. Leer algo que no empieza por GALPON PARA —puede ser la hoja de otro complemento, y en este libro conviven con Retícula—; leer un formato MÁS NUEVO del que se conoce PARA también, en vez de adivinar: un complemento viejo abriendo un modelo nuevo tiene que negarse, no interpretarlo a medias."
+    },
+    {
+      "id": "L.trozo",
+      "grupo": "El modelo dentro del libro",
+      "magnitud": "Tamaño de trozo y tope de celdas",
+      "valor": "30 000 caracteres por celda  ·  200 celdas  ·  columna A",
+      "unidad": "caracteres",
+      "estado": "adoptado",
+      "editable": true,
+      "clave": true,
+      "fuente": "Retícula, taskpane.html publicado (TROZO = 30000, A1:A200)",
+      "nota": "Una celda de Excel admite 32 767 caracteres, así que 30 000 deja margen. Se copia el número de Retícula en vez de elegir otro, porque son dos complementos de la misma suite escribiendo en el mismo libro y no hay razón para que difieran. El tope de 200 celdas da 6 MB, de sobra para un galpón; si alguna vez no cupiera, PARA con el número delante en vez de escribir un modelo truncado, que se abriría luego como un galpón incompleto sin avisar."
+    },
+    {
+      "id": "L.solo.entradas",
+      "grupo": "El modelo dentro del libro",
+      "magnitud": "Se guardan las entradas, nunca los resultados",
+      "valor": "parámetros y geometría  ·  NO conteos, ratios ni fuerzas",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "decisión de arquitectura del complemento, por la fila Z.costura",
+      "nota": "Es la misma regla que ya obliga a pasar casos de carga y no combinaciones entre el acero y la cimentación (fila Z.costura), aplicada al libro: un resultado guardado se queda viejo en cuanto cambia una entrada, y nada en la pantalla lo delata. Así que lo guardado se vuelve a calcular al abrir, siempre. paraGuardar() lleva lista blanca y SE NIEGA ante una clave que no conoce en vez de tirarla en silencio: tirarla pierde datos del proyectista sin avisar, y negarse solo cuesta añadir una línea cuando el modelo crezca de verdad."
+    },
+    {
+      "id": "L.suelto",
+      "grupo": "El modelo dentro del libro",
+      "magnitud": "Paramétrico y suelto · el paso es de ida",
+      "valor": "paramétrico → suelto  ·  la vuelta solo regenerando desde cero",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "decisión del proyectista, 01-10-2026",
+      "nota": "El tijeral se genera de parámetros y después se edita. En cuanto se toca algo a mano el modelo SE SUELTA: los parámetros quedan de solo lectura, como historial de cómo nació, y para volver a parametrizar hay que regenerar desde cero a propósito, descartando lo editado. SE ELIGIÓ ENTRE TRES y esta es la única en la que LA PANTALLA NO PUEDE MENTIR: no existe un estado en el que los parámetros que se ven no describan la geometría que se ve. Las otras dos eran reaplicar las ediciones como un delta sobre la geometría regenerada, y dejar que el parámetro borre la edición avisando; las dos admiten ese estado mentiroso, aunque sea un instante."
+    },
+    {
+      "id": "L.editado",
+      "grupo": "El modelo dentro del libro",
+      "magnitud": "Una cota arrastrada a mano es una procedencia propia",
+      "valor": "sexta procedencia: editado",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "consecuencia de L.suelto sobre la fila V.procedencia",
+      "nota": "Las cinco procedencias de V.procedencia —norma, entrada, geometría, conteo, medido— no cubren una dimensión que el proyectista movió arrastrando. Y la diferencia no es de etiqueta: una cota que sale de un parámetro ES REPRODUCIBLE —se vuelve a obtener escribiendo los mismos datos— y una arrastrada NO LO ES. En una pantalla cuya tesis es decir de dónde sale cada número, esa es justo la diferencia que hay que declarar, no la que se puede callar."
+    },
+    {
+      "id": "L.particion",
+      "grupo": "El canal con la ventana",
+      "magnitud": "El diálogo y el panel NO comparten almacenamiento",
+      "valor": "el modelo viaja por mensaje, troceado de 8 000 en 8 000",
+      "unidad": "caracteres",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "Retícula, taskpane.html publicado, comentario en leerModelo()",
+      "nota": "Textual de su código: «ANTES esto se leía de localStorage, y esa era la mitad del fallo: la ventana del modelador tiene su propia partición de almacenamiento, así que lo que ella guardaba nunca llegaba aquí.» Es un fallo ya pagado en la suite y no hay que volver a pagarlo: el modelo va OBLIGATORIAMENTE por messageParent / messageChild, nunca por almacenamiento compartido, que no existe. Y va troceado porque el mensaje tiene tope: TROZO_MSG = 8 000, con {a, i, n, d} y recomposición al otro lado. messageChild exige DialogApi 1.2."
     }
   ]
 }
