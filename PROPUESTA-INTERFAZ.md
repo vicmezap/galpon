@@ -222,3 +222,78 @@ Lo 1 a 3 es lo que convierte esto en una herramienta. Lo demás es ampliar.
 - E8 cimentación · E9 salida · E10 puente a SAP2000
 - Tres pendientes de norma: `J.anclaje.concreto` (ACI 318 Cap. 17),
   `G.peralte`, `MT.alfa`
+
+---
+
+## 6 · La fontanería de Retícula, leída de su código publicado
+
+Cinco cosas que no hay que inventar. Las cinco salen de
+`vicmezap.github.io/reticula/taskpane.html`.
+
+**El diálogo.** `displayDialogAsync(url, {height:88, width:88, displayInIframe:false})`.
+88 % × 88 % y **fuera de iframe**: eso es el «menú grande».
+
+**El sello de minuto en la URL**, y su comentario explica por qué:
+«el modelador cachea con ganas. Poner solo BUILD no basta: si el propio panel
+quedó viejo en caché, pediría la URL vieja y WebView2 le devolvería el diálogo
+viejo. El sello de minuto rompe esa cadena.» La URL lleva `?v=BUILD&t=minuto`.
+
+**El canal.** JSON con campo de acción `a`. El diálogo pide con `{a:"pide"}`;
+el panel contesta con `messageChild`, que **exige DialogApi 1.2** —hoy el
+manifiesto de Galpón solo declara ExcelApi 1.1—. Los mensajes largos van
+troceados: `{a, i, n, d}` y se recomponen al otro lado.
+
+**El modelo vive en hojas dedicadas del libro**, serializado a texto y escrito
+**en trozos por la columna A, `A1:A200`**, con tope duro: si pasa de 200 trozos,
+«el modelo no cabe en la hoja oculta». Retícula usa cuatro hojas: MODELO, ETABS,
+RESULTADOS y BIBLIOTECA.
+
+**Y la trampa que ya costó un fallo**, documentada en su propio código: «ANTES
+esto se leía de localStorage, y esa era la mitad del fallo: la ventana del
+modelador tiene su propia partición de almacenamiento, así que lo que ella
+guardaba nunca llegaba aquí.» **El diálogo y el panel NO comparten
+`localStorage`.** El modelo viaja por mensaje, obligatoriamente.
+
+---
+
+## 7 · DECISIÓN TOMADA · parámetros contra ediciones
+
+**Manda la edición: el modelo se suelta.** En cuanto se toca algo a mano, el
+modelo se desengancha de los parámetros y estos quedan de **solo lectura**, como
+el historial de cómo nació. Para volver a parametrizar hay que **regenerar desde
+cero**, y eso se pide a propósito y se confirma.
+
+Lo que esto obliga, y es bueno que obligue:
+
+- El modelo tiene estado: `paramétrico` → `suelto`, y el paso es de ida.
+  La vuelta existe pero es un botón explícito, *Regenerar desde los parámetros*,
+  que descarta lo editado y lo dice antes.
+- **La pantalla nunca puede mentir**: no existe un estado en el que los
+  parámetros que se ven no describan la geometría que se ve. Con las otras dos
+  opciones sí existía, y por eso esta es la que se eligió.
+- Es comprobable en Node, sin Excel: una máquina de estados pequeña.
+
+**Y una consecuencia en `vistas.js` que hay que atender.** Hoy hay cinco
+procedencias —`norma`, `entrada`, `geometria`, `conteo`, `medido`— y una cota
+arrastrada a mano no es ninguna de ellas. Hace falta una sexta:
+
+    editado    lo movió el proyectista a mano
+
+No es burocracia: una dimensión que viene de un parámetro **es reproducible** y
+una que se arrastró **no lo es**, y en una pantalla que presume de decir de
+dónde sale cada número, esa diferencia es justo la que hay que declarar.
+
+---
+
+## 8 · El siguiente paso · E6'a, el lanzador y el diálogo vacío
+
+No dibuja nada. Prueba la fontanería, que es lo único que no se puede
+comprobar desde fuera de Excel.
+
+| | | probable en Node |
+|---|---|---|
+| `src/libro.js` | serializar, trocear en ≤200 celdas, recomponer · negarse si no cabe | **sí** |
+| `src/panel.js` | el estado de la ficha del libro · la máquina paramétrico/suelto | **sí** |
+| `gen_complemento.py` | hornear DOS páginas: `taskpane.html` estrecho y `modelador.html` grande | sí |
+| el manifiesto | añadir **DialogApi 1.2** | parcial |
+| el diálogo | abre a 88×88, barra de pasos, pide el modelo, lo devuelve al cerrar | **no — solo en Excel** |
