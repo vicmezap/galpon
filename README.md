@@ -21,12 +21,12 @@ No es una buena intención: está en `src/inventario.js` y la comprueba
 `pruebas/probar_inventario.js`. Pedir una magnitud que no existe **lanza**, no
 devuelve `undefined`. Un conflicto sin decisión escrita rompe la prueba.
 
-El inventario son **369 filas en `inventario/*.json`**, una por cada número,
+El inventario son **372 filas en `inventario/*.json`**, una por cada número,
 fórmula, límite y criterio que el complemento calcula, con su artículo de norma
 o su página de libro:
 
 ```
-315 verificado   ·   22 adoptado   ·   29 conflicto   ·   0 criterio propio   ·   3 pendientes
+315 verificado   ·   25 adoptado   ·   29 conflicto   ·   0 criterio propio   ·   3 pendientes
 ```
 
 *Verificado* = leído en el texto original. *Adoptado* = fuente reconocida pero
@@ -91,9 +91,12 @@ pestaña **Galpón** en la cinta.
 La misma página se abre en un navegador sin Excel, y es un uso legítimo: Office
 solo añade poder volcar a la hoja.
 
-**Cada número de la pantalla tiene un botón `fuente`** que enseña su fila del
-inventario con su artículo de norma. Es la tesis del proyecto hecha pantalla:
-369 filas no sirven de nada si no se pueden mirar desde donde se usan.
+**Ninguna cifra de la pantalla sale sin decir de dónde viene.** Las que son
+normativas llevan un botón `fuente` que abre su fila del inventario con su
+artículo; las demás llevan escrita su procedencia —dato, geometría, conteo o
+medido— y **no** llevan botón, porque colgarle una norma a un número que salió
+de contar barras invita a creérselo. Lo declara `src/vistas.js` y una línea sin
+procedencia hace que el módulo lance.
 
 ---
 
@@ -135,12 +138,13 @@ src/
   bundle.js        alDiaOMuere() · ¿estoy probando lo que acabo de escribir?
   generador.js     el tijeral paramétrico · 4 cuerdas × 4 almas · Maxwell y rango
   montaje.js       el galpón entero en tres planos · el camino de carga
+  vistas.js        las 4 pestañas como DATOS · ninguna cifra sin procedencia
 inventario/
-  *.json           las 369 filas, doce secciones
+  *.json           las 372 filas, trece secciones
 pruebas/
   correr.js        el runner
   _comun.js        comp · cerca · cierto · lanza · fin
-  probar_*.js      una por módulo · 1741 comprobaciones
+  probar_*.js      una por módulo · 1822 comprobaciones
 catalogos/
   aisc.json        1575 perfiles laminados    · AISC Shapes Database v13
   fam.json          391 perfiles soldados     · serie VS/CS/CVS, ABNT NBR 5884
@@ -194,7 +198,7 @@ verificable en Node y en CI. Es la rebanada vertical, el primer hito real.
 | **E3** motor | modelo · solver · estabilidad · solo-tracción | ✅ |
 | **E4** AISC | caps. D, E, F, G y H con doble referencia | ✅ |
 | **E5** piezas | elemento · bucle · correas · tijeral · columnas · arriostres | ✅ |
-| **E6** interfaz | **generador · montaje · el complemento** · vistas · vista3d | 🔸 en curso |
+| **E6** interfaz | **generador · montaje · complemento · vistas** · vista3d | 🔸 en curso |
 | **E7** conexiones | placa base · Cap. J | ⬜ |
 | **E8** cimentación | pedestal · zapatas | ⬜ |
 | **E9** salida | hojas · metrado · planos | ⬜ |

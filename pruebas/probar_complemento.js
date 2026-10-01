@@ -114,23 +114,17 @@ lanza("y el peralte sigue siendo obligatorio",
 /* ================================================================
    3 · LA PÁGINA SE EJECUTA Y DIBUJA · un DOM de juguete
    ================================================================ */
-function montaDom(fuente) {
-  /* Los valores por omisión salen de la PROPIA página, no de una copia:
-     si mañana cambia un `value` en la plantilla, esta prueba lo usa. */
+function montaDom() {
+  /* Los valores por omision salen de VISTAS.ENTRADAS, que es donde ahora se
+     declaran: el formulario ya no esta escrito en el HTML, lo pinta la
+     plantilla leyendo el modulo. Asi la prueba usa exactamente lo mismo que
+     la pagina, y no una copia que se pudra. */
   const val = {};
-  const rin = /<input[^>]*>/g;
-  let t;
-  while ((t = rin.exec(fuente)) !== null) {
-    const id = /id="([^"]+)"/.exec(t[0]);
-    if (!id) continue;
-    const v = /value="([^"]*)"/.exec(t[0]);
-    val[id[1]] = { value: v ? v[1] : "", checked: /\schecked/.test(t[0]) };
-  }
-  const rsel = /<select[^>]*id="([^"]+)"[\s\S]*?<\/select>/g;
-  while ((t = rsel.exec(fuente)) !== null) {
-    const sel = /<option value="([^"]*)"[^>]*selected/.exec(t[0]);
-    const pri = /<option value="([^"]*)"/.exec(t[0]);
-    val[t[1]] = { value: sel ? sel[1] : (pri ? pri[1] : ""), checked: false };
+  for (const e of win.VISTAS.ENTRADAS) {
+    val["c_" + e.id] = {
+      value: e.tipo === "si/no" ? "" : String(e.valor),
+      checked: e.tipo === "si/no" ? !!e.valor : false
+    };
   }
 
   const nodos = {};
@@ -150,14 +144,13 @@ function montaDom(fuente) {
     nodos[id] = n;
     return n;
   }
-  const doc = {
-    getElementById: nodo,
-    addEventListener: function () {}
+  return {
+    doc: { getElementById: nodo, addEventListener: function () {} },
+    nodos: nodos, valores: val
   };
-  return { doc: doc, nodos: nodos, valores: val };
 }
 
-const dom = montaDom(html);
+const dom = montaDom();
 win.document = dom.doc;
 let corrio = true, errApp = "";
 try { vm.runInContext(bloques[1], ctx, { filename: "taskpane-app.js" }); }
@@ -187,22 +180,38 @@ cierto("y las tres tienen líneas dibujadas, no un SVG vacío",
 cierto("no hay problemas que mostrar con los datos por omisión",
   pinto(dom, "problemas").hidden === true);
 cierto("los sellos dicen cuántas filas tiene el inventario",
-  /369/.test(pinto(dom, "sellos").innerHTML));
+  /372/.test(pinto(dom, "sellos").innerHTML));
 cierto("y cuántos perfiles hay",
   /2408/.test(pinto(dom, "sellos").innerHTML));
 
-/* LA TESIS EN PANTALLA: cada número con su fila, y los botones existen. */
+/* ───── LA TESIS EN PANTALLA, Y AHORA EN SU FORMA FUERTE ─────
+   No basta con que los botones de fuente apunten a filas que existen: eso
+   ya pasaba en E6c y aun asi once de veintitres cifras se ensenaban sin
+   decir de donde salian.  Lo que se comprueba es la CONVERSA: que NO HAYA
+   NI UNA LINEA sin procedencia declarada (fila V.procedencia). */
 const todoHtml = vPort.innerHTML + vPlan.innerHTML + vElev.innerHTML;
+const lineas = (todoHtml.match(/<div class="ln">/g) || []).length;
+const conFuente = (todoHtml.match(/data-fte="/g) || []).length;
+const conOrigen = (todoHtml.match(/<span class="org">/g) || []).length;
+cierto("hay lineas de verdad en las tres vistas", lineas >= 30);
+comp("TODAS llevan o boton de fuente o procedencia escrita, sin excepcion",
+  lineas, conFuente + conOrigen);
+
 const fuentes = (todoHtml.match(/data-fte="([^"]+)"/g) || [])
   .map((s) => s.replace(/.*="|"$/g, ""));
-cierto("hay botones de «fuente» repartidos por las vistas", fuentes.length >= 10);
 const INV = require("../src/inventario.js");
-comp("y TODOS apuntan a una fila que existe",
+comp("y todo boton de fuente apunta a una fila que existe",
   fuentes.filter((id) => !INV.existe(id)), []);
-cierto("entre ellas las dos que sostienen el módulo de montaje",
+cierto("entre ellas la que sostiene el modulo de montaje",
   fuentes.indexOf("MT.no.diafragma") >= 0 && fuentes.indexOf("MT.termica") >= 0);
-cierto("y las dos que sostienen el generador",
-  fuentes.indexOf("G.maxwell") >= 0 && fuentes.indexOf("G.rango") >= 0);
+cierto("y la del conteo de Maxwell", fuentes.indexOf("G.maxwell") >= 0);
+
+/* Y lo que NO es norma lleva su procedencia escrita, no un boton: colgarle
+   una norma a un numero que salio de contar barras invita a creerselo. */
+for (const et of ["dato", "geometria", "conteo", "medido"]) {
+  cierto("se ve la procedencia «" + et + "» en pantalla",
+    todoHtml.indexOf(">" + et + "<") >= 0);
+}
 
 /* La 3D no se finge. */
 cierto("la pestaña 3D dice que todavía no", /Todav[íi]a no/.test(vTres.innerHTML));
@@ -216,8 +225,8 @@ cierto("sin maqueta provisional, y explicando por qué",
    aviso al lado; eso sería saltarse la guarda por la puerta de atrás.  Se
    comprueba que la vista se queda SIN DIBUJO.
    ================================================================ */
-const dom2 = montaDom(html);
-dom2.valores["at"].value = "";          /* sin arriostre de techo */
+const dom2 = montaDom();
+dom2.valores["c_at"].value = "";        /* sin arriostre de techo */
 win.document = dom2.doc;
 let corrio2 = true;
 try { vm.runInContext(bloques[1], ctx, { filename: "taskpane-app-2.js" }); }
@@ -285,7 +294,7 @@ cierto("la portada enlaza el complemento", /href="taskpane\.html"/.test(portada)
 cierto("y el manifiesto, con las instrucciones para instalarlo",
   /href="manifest\.xml"/.test(portada) && /Cargar mi complemento/.test(portada));
 cierto("y el inventario", /href="inventario\.html"/.test(portada));
-cierto("y dice cuántas filas tiene", /369 filas/.test(portada));
+cierto("y dice cuántas filas tiene", /372 filas/.test(portada));
 
 /* NINGÚN MÓDULO SE QUEDA FUERA POR OLVIDO: el generador lleva la lista a
    mano porque el orden importa, y por eso comprueba que no falte ninguno. */
@@ -304,6 +313,6 @@ const enSrc = fs.readdirSync(path.join(__dirname, "..", "src"))
 comp("todo módulo de src/ está en la lista o declarado fuera con su motivo",
   enSrc.filter((f) => enLista.indexOf(f) < 0 && enFuera.indexOf(f) < 0), []);
 comp("el único que se queda fuera es la guarda de Node", enFuera, ["bundle.js"]);
-comp("y los 22 que entran son los que la página necesita", enLista.length, 22);
+comp("y los 23 que entran son los que la página necesita", enLista.length, 23);
 
 fin();

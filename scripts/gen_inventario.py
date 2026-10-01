@@ -14,7 +14,14 @@ import sys
 
 AQUI = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "inventario"))
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
-SECCIONES = ["cargas", "perfiles", "traccion", "compresion", "flexion", "corte-flexocompresion", "estabilidad", "conexiones", "sismo", "cimentacion"]          # se añaden las otras nueve conforme se cierren
+# EL DIRECTORIO ENTERO, NO UNA LISTA A MANO. Aquí había una lista de diez
+# nombres con el comentario «se añaden las otras conforme se cierren», y
+# pasó lo que pasa siempre: se añadieron geometria, montaje e interfaz y
+# nadie las apuntó. inventario.html llevaba 349 filas cuando el inventario
+# tenía 372 — 23 filas publicadas como inexistentes, en silencio, en la
+# única página que existe para poder auditarlas.
+# Es el mismo error contra el que avisa bundle.js en su cabecera, cometido
+# tres archivos más allá.
 SALIDA = os.path.join(AQUI, "inventario.html")
 
 ORDEN = ["verificado", "adoptado", "conflicto", "sin_fuente", "pendiente"]
@@ -27,14 +34,19 @@ def esc(t):
     return (str(t).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
 
 
+def secciones():
+    """Los .json que haya en inventario/, ordenados.  Si no hay ninguno, para:
+    un inventario incompleto que no avisa es peor que no tenerlo."""
+    ns = sorted(f[:-5] for f in os.listdir(AQUI) if f.endswith(".json"))
+    if not ns:
+        sys.exit("gen_inventario: no hay secciones en " + AQUI)
+    return ns
+
+
 def cargar():
-    """Lee las secciones.  Si una no está, para: un inventario incompleto que
-    no avisa es peor que no tenerlo."""
     out = []
-    for s in SECCIONES:
+    for s in secciones():
         p = os.path.join(AQUI, s + ".json")
-        if not os.path.exists(p):
-            sys.exit("gen_inventario: falta la sección -> " + p)
         with io.open(p, encoding="utf-8") as f:
             out.append(json.load(f))
     return out
@@ -173,7 +185,7 @@ def main():
 <footer>Generado por <code>gen_inventario.py</code> desde %s. El JSON es la fuente; este HTML es la vista.<br>
 Criterio de arranque: ninguna fila en <b>criterio propio</b> o <b>pendiente</b> sin decisión escrita.</footer>
 </div></body></html>""" % (CSS, esc(secs[0]["regla"]), marc, n, "\n".join(cuerpo),
-                           ", ".join(s + ".json" for s in SECCIONES))
+                           ", ".join(s + ".json" for s in secciones()))
 
     with io.open(SALIDA, "w", encoding="utf-8") as f:
         f.write(html)

@@ -107,6 +107,9 @@ button.fte { font-family:var(--cifra); font-size:10px; letter-spacing:.05em;
   text-transform:uppercase; background:none; border:1px solid var(--linea);
   border-radius:2px; color:var(--suave); padding:1px 5px; cursor:pointer; margin-left:6px; }
 button.fte:hover { color:var(--acero); border-color:var(--acero); }
+/* la procedencia de lo que NO es norma: se dice igual, sin boton */
+.ln .org { font-family:var(--cifra); font-size:9.5px; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--linea); margin-left:6px; }
 
 #fuente { position:fixed; inset:auto 0 0 0; background:var(--ficha);
   border-top:2px solid var(--acero); padding:12px 16px 14px; z-index:9;
@@ -150,55 +153,7 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
 <div class="env">
 <div class="reja">
 
-  <form class="datos" id="f" autocomplete="off" onsubmit="return false">
-    <fieldset><legend>Nave</legend>
-      <div class="par"><label for="luz">Luz del pórtico (m)</label>
-        <input type="number" id="luz" value="20" step="0.5" min="2"></div>
-      <div class="par"><label for="largo">Largo total (m)</label>
-        <input type="number" id="largo" value="60" step="1" min="2"></div>
-      <div class="par"><label for="sep">Separación de pórticos (m)</label>
-        <input type="number" id="sep" value="6" step="0.5" min="1"></div>
-      <div class="par"><label for="hcol">Altura de columna (m)</label>
-        <input type="number" id="hcol" value="6" step="0.25" min="1"></div>
-      <div class="par ancho"><label class="marca-check" style="display:flex;gap:7px;align-items:center">
-        <input type="checkbox" id="ajusta" style="width:auto">
-        <span style="font-size:12.5px;color:var(--tinta-2)">Ajustar la separación a la que cabe entera</span></label></div>
-    </fieldset>
-
-    <fieldset><legend>Tijeral</legend>
-      <div class="par ancho"><label for="cuerdas">Cuerdas</label>
-        <select id="cuerdas">
-          <option value="dos_aguas" selected>Dos aguas</option>
-          <option value="un_agua">Un agua</option>
-          <option value="paralelos">Cordones paralelos</option>
-          <option value="tijera">Tijera</option>
-        </select></div>
-      <div class="par ancho"><label for="alma">Alma</label>
-        <select id="alma">
-          <option value="howe" selected>Howe · diagonales subiendo al centro</option>
-          <option value="pratt">Pratt · diagonales bajando al centro</option>
-          <option value="warren">Warren · sin montantes</option>
-          <option value="warren_montantes">Warren con montantes</option>
-        </select></div>
-      <div class="par"><label for="pend">Pendiente del techo (%)</label>
-        <input type="number" id="pend" value="20" step="1" min="0"></div>
-      <div class="par"><label for="pendi">Pendiente inferior, tijera (%)</label>
-        <input type="number" id="pendi" value="8" step="1" min="0"></div>
-      <div class="par"><label for="pan">Paños por media luz</label>
-        <input type="number" id="pan" value="6" step="1" min="1"></div>
-      <div class="par"><label for="h0">Peralte en el apoyo (m)</label>
-        <input type="number" id="h0" value="1.2" step="0.1" min="0.1"></div>
-    </fieldset>
-
-    <fieldset><legend>Arriostres y hastiales</legend>
-      <div class="par ancho"><label for="at">Paños arriostrados · techo</label>
-        <input type="text" id="at" value="5" placeholder="p. ej. 0, 9"></div>
-      <div class="par ancho"><label for="af">Paños arriostrados · fachada</label>
-        <input type="text" id="af" value="5" placeholder="vacío = los mismos del techo"></div>
-      <div class="par ancho"><label for="ch">Columnas hastiales en x (m)</label>
-        <input type="text" id="ch" value="5, 10, 15" placeholder="vacío = ninguna"></div>
-    </fieldset>
-  </form>
+  <form class="datos" id="f" autocomplete="off" onsubmit="return false"></form>
 
   <main>
     <nav class="pestanas" id="pestanas">
@@ -344,213 +299,168 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
     }).join("") + "</div>";
   }
 
-  /* ---------- fichas ---------- */
-  function ln(q, v, cls, art, nota) {
-    return '<div class="ln"><span class="q">' + q + (art ? fuenteBtn(art) : "") +
-      '</span><span class="v' + (cls ? " " + cls : "") + '">' + v + "</span>" +
-      (nota ? "<p>" + esc(nota) + "</p>" : "") + "</div>";
-  }
-  function ficha(t, sub, cuerpo, cls) {
-    return '<div class="ficha' + (cls ? " " + cls : "") + '"><h2>' + t +
-      '</h2><p class="sub">' + sub + "</p>" + cuerpo + "</div>";
+  /* ---------- EL FORMULARIO, DECLARADO EN vistas.js ---------- */
+  (function pintaFormulario() {
+    $("f").innerHTML = VISTAS.grupos().map(function (g) {
+      return "<fieldset><legend>" + esc(g.nombre) + "</legend>" +
+        g.campos.map(campo).join("") + "</fieldset>";
+    }).join("");
+  })();
+
+  function campo(c) {
+    var et = esc(c.etiqueta) + (c.unidad ? " (" + esc(c.unidad) + ")" : "") +
+      (c.fuente ? fuenteBtn(c.fuente) : "");
+    var cid = "c_" + c.id;
+    if (c.tipo === "si/no") {
+      return '<div class="par ancho"><label class="marca-check" style="display:flex;gap:7px;align-items:center">' +
+        '<input type="checkbox" style="width:auto" id="' + cid + '"' +
+        (c.valor ? " checked" : "") + '><span style="font-size:12.5px;color:var(--tinta-2)">' +
+        et + "</span></label></div>";
+    }
+    if (c.tipo === "opcion") {
+      return '<div class="par ancho"><label for="' + cid + '">' + et +
+        '</label><select id="' + cid + '">' + c.opciones.map(function (o) {
+          return '<option value="' + o[0] + '"' +
+            (o[0] === c.valor ? " selected" : "") + ">" + esc(o[1]) + "</option>";
+        }).join("") + "</select></div>";
+    }
+    if (c.tipo === "lista") {
+      return '<div class="par ancho"><label for="' + cid + '">' + et +
+        '</label><input type="text" id="' + cid + '" value="' + esc(c.valor) +
+        '" placeholder="' + esc(c.ayuda || "") + '"></div>';
+    }
+    var r = c.limiteDePantalla || [];
+    return '<div class="par"><label for="' + cid + '">' + et +
+      '</label><input type="number" id="' + cid + '" value="' + c.valor +
+      '" step="' + c.paso + '"' +
+      (r.length ? ' min="' + r[0] + '" max="' + r[1] + '"' : "") + "></div>";
   }
 
-  /* ---------- EL CÁLCULO, Y EL RECHAZO ----------
-     Las guardas del motor LANZAN, y aquí no se ablandan: se enseña el
-     mensaje entero y NO se dibuja nada.  Pintar el galpón «de todas formas»
-     con un aviso al lado sería exactamente lo que el motor se niega a
-     hacer, y por la puerta de atrás. */
+  /* ---------- EL CALCULO, Y EL RECHAZO ----------
+     Las guardas del motor LANZAN, y aqui no se ablandan: se ensena el
+     mensaje entero y NO se dibuja nada (filas V.no.duplica y V.procedencia).
+     Pintar el galpon «de todas formas» con un aviso al lado seria
+     exactamente lo que el motor se niega a hacer, por la puerta de atras. */
   function datos() {
-    var at = lista($("at").value);
-    var af = lista($("af").value);
+    var d = {}, i, c, el;
+    for (i = 0; i < VISTAS.ENTRADAS.length; i++) {
+      c = VISTAS.ENTRADAS[i];
+      el = $("c_" + c.id);
+      if (c.tipo === "si/no") d[c.id] = !!(el && el.checked);
+      else if (c.tipo === "numero") d[c.id] = el ? +el.value : NaN;
+      else d[c.id] = el ? el.value : "";
+    }
+    return d;
+  }
+
+  function paraElMotor(d) {
+    var at = lista(d.at), af = lista(d.af);
     return {
-      luz_m: +$("luz").value, largo_m: +$("largo").value,
-      sepPorticos_m: +$("sep").value, alturaColumna_m: +$("hcol").value,
-      ajustaSeparacion: $("ajusta").checked,
-      cuerdas: $("cuerdas").value, alma: $("alma").value,
-      pendiente: +$("pend").value / 100, pendienteInferior: +$("pendi").value / 100,
-      paneles: +$("pan").value, peralteApoyo_m: +$("h0").value,
+      luz_m: d.luz, largo_m: d.largo, sepPorticos_m: d.sep,
+      alturaColumna_m: d.hcol, ajustaSeparacion: d.ajusta,
+      cuerdas: d.cuerdas, alma: d.alma,
+      pendiente: d.pend / 100, pendienteInferior: d.pendi / 100,
+      paneles: d.pan, peralteApoyo_m: d.h0,
       panosArriostradosTecho: at,
       panosArriostradosFachada: af.length ? af : at,
-      columnasHastiales: lista($("ch").value)
+      columnasHastiales: lista(d.ch)
     };
   }
 
-  function recalcula() {
-    var m3 = null, err = null;
-    try { m3 = MONTAJE.monta(datos()); }
-    catch (e) { err = e; }
+  /* ---------- EL PINTOR, QUE NO DECIDE NADA ----------
+     Recibe {q, v, origen, fuente} de vistas.js y lo dibuja.  Si una linea
+     dice venir de norma, lleva su boton; si no, lleva su procedencia escrita
+     y NO lleva boton.  No es estilo: el boton es la diferencia entre una
+     cifra avalada y una cifra en negrita (fila V.procedencia). */
+  var ETIQUETA = {
+    norma: "", entrada: "dato", geometria: "geometria",
+    conteo: "conteo", medido: "medido"
+  };
 
-    if (err) {
-      $("problemas-t").textContent = "El montaje se niega, y no es un aviso";
-      $("problemas-p").textContent = err.message;
+  function pintaLinea(l) {
+    var marca = (l.origen === "norma")
+      ? fuenteBtn(l.fuente)
+      : '<span class="org">' + ETIQUETA[l.origen] + "</span>";
+    return '<div class="ln"><span class="q">' + esc(l.q) + marca +
+      '</span><span class="v' + (l.estado ? " " + l.estado : "") + '">' +
+      esc(l.v) + "</span>" +
+      (l.nota ? "<p>" + esc(l.nota) + "</p>" : "") + "</div>";
+  }
+
+  function pintaFicha(f) {
+    return '<div class="ficha' + (f.estado ? " " + f.estado : "") + '"><h2>' +
+      esc(f.titulo) + '</h2><p class="sub">' + esc(f.sub) + "</p>" +
+      f.lineas.map(pintaLinea).join("") + "</div>";
+  }
+
+  var TINTA = {
+    tinta: "var(--tinta)", "tinta-2": "var(--tinta-2)",
+    suave: "var(--suave)", succion: "var(--succion)"
+  };
+
+  function pintaVista(p, m3) {
+    if (!p.real) {
+      return '<div class="aviso"><b>Todavia no.</b> ' + esc(p.porque) + "</div>";
+    }
+    var d = VISTAS.dibujo(p.id, m3);
+    var svg = dibuja(d.nudos, d.barras,
+      function (n) { return n[d.ejeX]; },
+      function (n) { return n[d.ejeY]; }, 520);
+    var ley = '<div class="leyenda">' + d.leyenda.map(function (x) {
+      return '<span><i style="border-top-color:' + (TINTA[x[1]] || x[1]) +
+        '"></i>' + esc(x[0]) + "</span>";
+    }).join("") + "</div>";
+    return '<div class="lienzo">' + svg + ley + "</div>" +
+      '<div class="fichas">' + VISTAS.fichas(p.id, m3).map(pintaFicha).join("") + "</div>";
+  }
+
+  function recalcula() {
+    var d = datos();
+    var v = VISTAS.valida(d);
+    var m3 = null, fallo = null, i, p;
+
+    if (!v.ok) {
+      fallo = {
+        titulo: "Hay campos que no se pueden leer",
+        mensaje: v.malos.map(function (m) {
+          return "  - " + m.etiqueta + ": " + m.que +
+            (m.limiteDePantalla ? "\n" + "      (tope de pantalla, no criterio de diseno)" : "");
+        }).join("\n"),
+        porQueNoSeDibuja: "Esto solo comprueba la FORMA. Las reglas de diseno las " +
+          "comprueba el motor, y no se copian aqui."
+      };
+    } else {
+      try { m3 = MONTAJE.monta(paraElMotor(d)); }
+      catch (e) { fallo = VISTAS.problema(e); }
+    }
+
+    if (fallo) {
+      $("problemas-t").textContent = fallo.titulo;
+      $("problemas-p").textContent = fallo.mensaje + "\n" + "\n" + fallo.porQueNoSeDibuja;
       $("problemas").hidden = false;
-      var vacio = '<p class="nohay">No hay modelo. Mientras el motor se niegue, ' +
-        'esta vista no dibuja nada: enseñar el galpón igualmente, con una ' +
-        'advertencia al lado, sería saltarse la guarda por la puerta de atrás.</p>';
-      $("v-portico").innerHTML = vacio;
-      $("v-planta").innerHTML = vacio;
-      $("v-elev").innerHTML = vacio;
-      pintaTresD();
+      var vacio = '<p class="nohay">' + esc(fallo.porQueNoSeDibuja) + "</p>";
+      for (i = 0; i < VISTAS.PESTANAS.length; i++) {
+        p = VISTAS.PESTANAS[i];
+        $("v-" + p.id).innerHTML = p.real ? vacio : pintaVista(p, null);
+      }
       return;
     }
+
     $("problemas").hidden = true;
-    pintaPortico(m3);
-    pintaPlanta(m3);
-    pintaElev(m3);
-    pintaTresD();
-  }
-
-  /* ---------- PÓRTICO · la vista principal ---------- */
-  function pintaPortico(m3) {
-    var p = MONTAJE.planoTransversal(m3, 0);
-    var t = m3.tijeral;
-    var svg = dibuja(p.nudos, p.barras,
-      function (n) { return n.x_m; }, function (n) { return n.y_m; }, 520);
-
-    var c = t.conteo;
-    var cuerpo =
-      ln("Tipología", esc(t.nombre.split(" · ")[0] + " · " + t.alma), "", "G.alma") +
-      ln("Luz · altura de columna", num(m3.luz_m, 2) + " · " + num(m3.alturaColumna_m, 2) + " m") +
-      ln("Paños por media luz · paso", t.paneles + " · " + num(t.paso_m, 3) + " m") +
-      ln("Peralte en apoyo · en el centro",
-        num(t.peralteApoyo_m, 2) + " · " + num(t.peralteCentro_m, 2) + " m",
-        "", "G.peralte",
-        "No hay fuente para una relación peralte/luz de armadura de techo: el peralte es dato.") +
-      ln("Conteo de Maxwell · b + r − 2j",
-        c.b + " + " + c.r + " − 2·" + c.j + " = " + c.grado, "", "G.maxwell") +
-      ln("Veredicto del conteo", esc(c.veredicto), "", "G.hiperestatica", c.nota) +
-      ln("Autorizado por el RANGO", "sí", "ok", "G.rango",
-        "El conteo informa; quien autoriza es el rango de K. Es necesario y no suficiente.");
-
-    var ang = GENERADOR.angulos(t);
-    if (ang.diagonales) {
-      cuerpo += ln("Diagonales · ángulo mínimo y máximo",
-        num(ang.minGrados, 1) + "° a " + num(ang.maxGrados, 1) + "°");
-      cuerpo += ln("Diagonal más larga", num(ang.maxLongitud_m, 2) + " m");
+    for (i = 0; i < VISTAS.PESTANAS.length; i++) {
+      p = VISTAS.PESTANAS[i];
+      $("v-" + p.id).innerHTML = pintaVista(p, m3);
     }
-
-    $("v-portico").innerHTML =
-      '<div class="lienzo">' + svg + leyenda([
-        ["columna y bridas", "var(--tinta)"], ["alma", "var(--tinta-2)"],
-        ["columna hastial", "var(--tinta-2)"]]) + "</div>" +
-      '<div class="fichas">' +
-        ficha("El pórtico", "eje 0 · el hastial, con sus columnas intermedias", cuerpo) +
-      "</div>";
-  }
-
-  /* ---------- PLANTA DE TECHO · donde se ve el camino de carga ---------- */
-  function pintaPlanta(m3) {
-    var sup = {};
-    var i, n;
-    for (i = 0; i < m3.nudos.length; i++) {
-      n = m3.nudos[i];
-      if (n.clase === "superior") sup[n.id] = n;
-    }
-    var nudos = [], barras = [];
-    for (var k in sup) if (sup.hasOwnProperty(k)) nudos.push(sup[k]);
-    for (i = 0; i < m3.barras.length; i++) {
-      var b = m3.barras[i];
-      if (sup[b.i] && sup[b.j]) barras.push(b);
-    }
-    var svg = dibuja(nudos, barras,
-      function (q) { return q.z_m; }, function (q) { return q.x_m; }, 460);
-
-    var cam = m3.camino;
-    var cuerpo =
-      ln("Paños arriostrados · techo", "[" + cam.panosTecho.join(", ") + "]", "", "MT.no.diafragma",
-        "La cobertura no es diafragma rígido (E.020 Art. 18.2): el reparto lo hace esto o no lo hace nadie.") +
-      ln("Paños arriostrados · fachada", "[" + cam.panosFachada.join(", ") + "]") +
-      ln("¿En el mismo paño?", cam.alineados ? "sí" : "no",
-        cam.alineados ? "ok" : "no", "MT.mismo.pano") +
-      ln("Recorrido por el alero", num(cam.recorridoMaximoAlero_m, 2) + " m",
-        cam.recorridoMaximoAlero_m > 0 ? "no" : "ok", "", cam.nota);
-    for (var h = 0; h < cam.desdeHastiales.length; h++) {
-      var d = cam.desdeHastiales[h];
-      cuerpo += ln("Desde el " + esc(d.desde), num(d.recorrido_m, 2) + " m", "", "MT.hastial");
-    }
-
-    var techo = MONTAJE.planoTecho(m3);
-    var mk = techo.maxwell;
-    var cuerpo2 =
-      ln("Conteo del plano del techo", "grado " + mk.grado + " · " + esc(mk.veredicto),
-        "", "G.maxwell") +
-      ln("Y el rango dice", techo.esMecanismo ? "MECANISMO" : "estable",
-        techo.esMecanismo ? "no" : "ok", "G.rango", techo.apoyosNota) +
-      ln("¿Es diafragma?", "no", "no", "MT.no.diafragma",
-        "Sin el arriostre, este mismo plano da grado positivo en el conteo y MECANISMO " +
-        "en el rango. Son doce barras las que separan una cosa de la otra.");
-
-    $("v-planta").innerHTML =
-      '<div class="lienzo">' + svg + leyenda([
-        ["bridas superiores y correas", "var(--suave)"],
-        ["ARRIOSTRE DE TECHO", "var(--succion)"]]) + "</div>" +
-      '<div class="fichas">' +
-        ficha("El camino de carga", "hastial → techo → alero → fachada → suelo", cuerpo,
-          cam.alineados ? "bien" : "") +
-        ficha("El plano del techo", "la E.020 Art. 18.2 en números", cuerpo2) +
-      "</div>";
-  }
-
-  /* ---------- ELEVACIÓN LONGITUDINAL · la dilatación ---------- */
-  function pintaElev(m3) {
-    var alero = {};
-    var i, n, b;
-    for (i = 0; i < m3.nudos.length; i++) {
-      n = m3.nudos[i];
-      if (n.x_m < 1e-9) alero[n.id] = n;      /* la fachada x = 0 */
-    }
-    var nudos = [], barras = [];
-    for (var k in alero) if (alero.hasOwnProperty(k)) nudos.push(alero[k]);
-    for (i = 0; i < m3.barras.length; i++) {
-      b = m3.barras[i];
-      if (alero[b.i] && alero[b.j]) barras.push(b);
-    }
-    var svg = dibuja(nudos, barras,
-      function (q) { return q.z_m; }, function (q) { return q.y_m; }, 330);
-
-    var di = m3.dilatacion;
-    var cuerpo =
-      ln("Pórticos · separación", m3.ejes.porticos + " · " + num(m3.ejes.sepPorticos_m, 3) + " m",
-        "", "MT.ejes", m3.ejes.ajustada ?
-          "ajustada: se pidió " + num(m3.ejes.sepPedida_m, 2) + " m y no cabía entera" : "") +
-      ln("Puntos fijos", "[" + di.puntosFijos_m.map(function (x) { return num(x, 1); }).join(", ") + "] m") +
-      ln("Longitud que NO puede dilatar", num(di.longitudPresa_m, 2) + " m",
-        di.longitudPresa_m > 0 ? "no" : "ok", "MT.termica", di.nota) +
-      ln("Dilata libre hacia cada extremo",
-        num(di.libreExtremoInicial_m, 2) + " y " + num(di.libreExtremoFinal_m, 2) + " m") +
-      ln("ΔT de norma para metal", di.deltaT_C + " °C", "", "MT.deltaT") +
-      ln("Alargamiento", "no se calcula", "", "MT.alfa",
-        "α a temperatura ambiente no está en ninguna fuente del proyecto. El AISC sí da " +
-        "uno, pero es el de incendio y el texto lo condiciona a más de 66 °C.");
-
-    $("v-elev").innerHTML =
-      '<div class="lienzo">' + svg + leyenda([
-        ["columnas y vigas de alero", "var(--tinta)"],
-        ["ARRIOSTRE DE FACHADA", "var(--succion)"]]) + "</div>" +
-      '<div class="fichas">' +
-        ficha("La fachada x = 0", "y lo que cuesta decidir dónde van los arriostres", cuerpo) +
-      "</div>";
-  }
-
-  /* ---------- 3D · todavía no, y se dice ---------- */
-  function pintaTresD() {
-    $("v-tresd").innerHTML = '<div class="aviso"><b>Todavía no.</b> La vista 3D es ' +
-      '<code>vista3d.js</code>, el renderizador WebGL que se adapta del de Retícula, ' +
-      'y no está escrito. Aquí no hay una maqueta provisional a propósito: una vista ' +
-      'que parece el modelo y no lo es engaña más que una pestaña vacía. El modelo 3D ' +
-      'SÍ existe —lo monta <code>montaje.js</code> y las otras tres pestañas son ' +
-      'proyecciones suyas—; lo que falta es dibujarlo.</div>';
   }
 
   /* ---------- pestañas ---------- */
-  var VISTAS = ["portico", "planta", "elev", "tresd"];
+  var IDS = VISTAS.PESTANAS.map(function (p) { return p.id; });
   $("pestanas").addEventListener("click", function (ev) {
     var b = ev.target.closest ? ev.target.closest("button[data-v]") : null;
     if (!b) return;
     var v = b.getAttribute("data-v"), i;
-    for (i = 0; i < VISTAS.length; i++) {
-      $("v-" + VISTAS[i]).hidden = (VISTAS[i] !== v);
+    for (i = 0; i < IDS.length; i++) {
+      $("v-" + IDS[i]).hidden = (IDS[i] !== v);
     }
     var bs = $("pestanas").querySelectorAll("button[data-v]");
     for (i = 0; i < bs.length; i++) {

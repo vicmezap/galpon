@@ -1,0 +1,53 @@
+{
+  "seccion": "interfaz",
+  "titulo": "La interfaz · qué se enseña y con qué derecho",
+  "modulos": ["vistas.js"],
+  "version": 1,
+  "fecha": "2026-09-30",
+  "regla": "Ningún número entra al código sin fila aquí. Sin fuente primaria leída, no entra.",
+  "estados": {
+    "verificado": "leído en el texto original de la fuente",
+    "adoptado": "criterio de fuente reconocida, no normativa; se cita y se declara",
+    "conflicto": "dos fuentes válidas dan valores distintos; hay decisión tomada",
+    "sin_fuente": "criterio propio del proyectista; se adopta y se declara",
+    "pendiente": "falta el documento o falta leerlo"
+  },
+  "magnitudes": [
+    {
+      "id": "V.procedencia",
+      "grupo": "La regla del proyecto, en pantalla",
+      "magnitud": "Ningún número se enseña sin poder decir de dónde sale",
+      "valor": "norma · entrada · geometría · conteo · medido",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "decisión de arquitectura del complemento",
+      "nota": "La regla del proyecto dice que ningún número entra al código sin fila en el inventario. En pantalla eso se convierte en algo distinto y más exigente: ninguna cifra se muestra sin declarar su procedencia, y las procedencias son estas cinco y ninguna más. «norma» OBLIGA a dar el id de una fila del inventario, y entonces la cifra lleva su botón de fuente; las otras cuatro PROHÍBEN darlo, porque atribuirle a una norma un número que salió de contar barras es peor que no citar nada. Una línea sin procedencia, o con procedencia y fuente a la vez, hace que lineas() LANCE. Antes de esta fila el panel enseñaba veintitrés cifras y solo doce decían de dónde venían; las otras once pasaban por ciertas sin más aval que estar escritas en negrita."
+    },
+    {
+      "id": "V.no.duplica",
+      "grupo": "La regla del proyecto, en pantalla",
+      "magnitud": "La vista no vuelve a implementar las reglas del motor",
+      "valor": "la vista comprueba la FORMA; la física la comprueba el motor",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "decisión de arquitectura del complemento",
+      "nota": "valida() solo mira si el campo está vacío, si es un número y si cae en el rango de pantalla. NO comprueba que haya arriostre de techo, ni que la correa caiga en el nudo, ni que el peralte exista: eso lo comprueban generador.js y montaje.js, y comprobarlo dos veces es garantizar que algún día las dos copias discrepen y gane la equivocada. Cuando el motor se niega, la vista enseña SU mensaje entero, con su artículo de norma, sin resumirlo ni suavizarlo."
+    },
+    {
+      "id": "V.limites",
+      "grupo": "La regla del proyecto, en pantalla",
+      "magnitud": "Los topes de los campos son de pantalla, no de diseño",
+      "valor": "afordancia · el motor no los conoce",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": true,
+      "clave": true,
+      "fuente": "decisión de arquitectura del complemento",
+      "nota": "Que el campo de la luz empiece en 2 m no significa que una luz de 1,5 m esté prohibida por nada: significa que un cuadro de texto necesita un tope y ese es el que se puso. NO SON CRITERIOS DE DISEÑO y por eso no llevan fila propia ni cita: si llevaran una, en tres meses alguien los defendería en una memoria de cálculo. Van marcados como «limiteDePantalla» en el propio código para que no se puedan confundir, y el motor sigue aceptando lo que acepte."
+    }
+  ]
+}

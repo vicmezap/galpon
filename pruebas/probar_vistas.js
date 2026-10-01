@@ -1,0 +1,241 @@
+/* =====================================================================
+   probar_vistas.js — las cuatro pestañas, como datos
+
+   LA COMPROBACIÓN QUE DA SENTIDO AL MÓDULO es la conversa de la que había
+   en E6c.  Allí se comprobaba que los botones de «fuente» apuntaran a filas
+   que existen, y eso pasaba — y aun así, de las veintitrés cifras que
+   enseñaba el panel, once salían a pantalla sin decir de dónde venían.  No
+   estaban mal: estaban sin avalar, que delante de un plano es lo mismo.
+
+   Aquí se comprueba que NO HAYA NI UNA sin procedencia declarada, barriendo
+   las tres pestañas reales con un galpón de verdad.  Y que las cinco
+   procedencias se respeten: «norma» obliga a dar la fila, las otras cuatro
+   prohíben citarla.
+   ===================================================================== */
+"use strict";
+
+const { comp, cerca, cierto, lanza, fin } = require("./_comun.js");
+const V = require("../src/vistas.js");
+const MON = require("../src/montaje.js");
+const INV = require("../src/inventario.js");
+
+const D = {
+  luz_m: 20, largo_m: 60, sepPorticos_m: 6, alturaColumna_m: 6,
+  paneles: 6, peralteApoyo_m: 1.2, pendiente: 0.20,
+  cuerdas: "dos_aguas", alma: "howe",
+  panosArriostradosTecho: [5], panosArriostradosFachada: [5],
+  columnasHastiales: [5, 10, 15]
+};
+const m3 = MON.monta(D);
+
+/* ================================================================
+   1 · LA REGLA, EN SU FORMA FUERTE · fila V.procedencia
+   ================================================================ */
+const todas = V.todasLasLineas(m3);
+cierto("el panel enseña más de treinta cifras", todas.length >= 30);
+
+comp("NI UNA SOLA sin procedencia declarada",
+  todas.filter((t) => !t.linea.origen).map((t) => t.ficha + " · " + t.linea.q), []);
+comp("y ninguna con una procedencia inventada",
+  todas.filter((t) => V.ORIGENES.indexOf(t.linea.origen) < 0)
+    .map((t) => t.linea.q), []);
+
+/* Las cinco, y cada una usada de verdad: si una no se usa nunca, sobra. */
+const porOrigen = {};
+for (const t of todas) porOrigen[t.linea.origen] = (porOrigen[t.linea.origen] || 0) + 1;
+comp("las cinco procedencias son las declaradas", V.ORIGENES.slice().sort(),
+  ["conteo", "entrada", "geometria", "medido", "norma"]);
+comp("y las cinco se usan", V.ORIGENES.filter((o) => !porOrigen[o]), []);
+
+/* «norma» obliga a la fila; las otras cuatro la prohíben. */
+const deNorma = todas.filter((t) => t.linea.origen === "norma");
+cierto("hay al menos una docena de cifras normativas", deNorma.length >= 12);
+comp("todas citan su fila", deNorma.filter((t) => !t.linea.fuente).map((t) => t.linea.q), []);
+comp("y todas las filas citadas existen",
+  deNorma.filter((t) => !INV.existe(t.linea.fuente)).map((t) => t.linea.fuente), []);
+comp("NINGUNA de las otras cuatro cita una fila",
+  todas.filter((t) => t.linea.origen !== "norma" && t.linea.fuente)
+    .map((t) => t.linea.q + " -> " + t.linea.fuente), []);
+
+/* Y lo citado no es decorativo: son las filas que sostienen los módulos. */
+const citadas = Array.from(new Set(deNorma.map((t) => t.linea.fuente))).sort();
+for (const id of ["G.maxwell", "MT.no.diafragma", "MT.termica", "MT.deltaT", "MT.alfa"]) {
+  cierto("se cita " + id + " en pantalla", citadas.indexOf(id) >= 0);
+}
+cierto("y la que no se puede usar también se enseña, para que se vea el hueco",
+  citadas.indexOf("MT.alfa") >= 0 && INV.fila("MT.alfa").estado === "pendiente");
+
+/* ================================================================
+   2 · LA GUARDA DE ln()
+   ================================================================ */
+lanza("una procedencia inventada PARA", () => V.ln("x", "1", "a_ojo"), "no existe");
+lanza("y nombra las cinco que hay", () => V.ln("x", "1", "a_ojo"), "V.procedencia");
+lanza("«norma» sin la fila PARA", () => V.ln("x", "1", "norma"),
+  "no da la fila del inventario");
+lanza("y explica por qué importa", () => V.ln("x", "1", "norma"),
+  "sin que nadie la pueda");
+lanza("«norma» con una fila que no existe PARA",
+  () => V.ln("x", "1", "norma", { fuente: "NO.EXISTE" }), "NO EXISTE");
+lanza("una procedencia que NO es norma y además cita PARA",
+  () => V.ln("x", "1", "conteo", { fuente: "G.maxwell" }), "es peor que no");
+cierto("una línea bien formada no lanza y conserva lo suyo",
+  V.ln("Paso", "1,667 m", "geometria").origen === "geometria" &&
+  V.ln("Paso", "1,667 m", "geometria").fuente === undefined);
+
+/* ================================================================
+   3 · LOS CAMPOS DE ENTRADA
+   ================================================================ */
+comp("hay catorce campos", V.ENTRADAS.length, 14);
+comp("en tres grupos", V.grupos().length, 3);
+comp("y los grupos no pierden ningún campo",
+  V.grupos().reduce((a, g) => a + g.campos.length, 0), V.ENTRADAS.length);
+comp("los ids no se repiten",
+  V.ENTRADAS.length, new Set(V.ENTRADAS.map((e) => e.id)).size);
+comp("todo campo tiene etiqueta",
+  V.ENTRADAS.filter((e) => !e.etiqueta).map((e) => e.id), []);
+
+/* Un campo puede citar una fila, y si lo hace tiene que existir: se
+   comprueba al CARGAR el módulo, no aquí, porque un id mal escrito es un
+   botón que revienta al pulsarlo y eso lo descubre el usuario. */
+comp("los campos que citan una fila la citan bien",
+  V.ENTRADAS.filter((e) => e.fuente && !INV.existe(e.fuente)).map((e) => e.id), []);
+cierto("el peralte cita su pendiente, que es la que dice que no hay fuente",
+  V.ENTRADAS.filter((e) => e.id === "h0")[0].fuente === "G.peralte");
+
+/* LOS TOPES SON DE PANTALLA · fila V.limites.  Llevan el nombre puesto
+   para que nadie los defienda en una memoria de cálculo. */
+const conTope = V.ENTRADAS.filter((e) => e.limiteDePantalla);
+cierto("los campos numéricos llevan tope", conTope.length >= 8);
+comp("y el tope se llama limiteDePantalla, no «mínimo» ni «máximo»",
+  V.ENTRADAS.filter((e) => e.min !== undefined || e.max !== undefined), []);
+cierto("la fila del inventario dice que no son criterios de diseño",
+  /NO SON CRITERIOS DE DISE/.test(INV.fila("V.limites").nota));
+
+/* ================================================================
+   4 · valida() MIRA LA FORMA Y NADA MÁS · fila V.no.duplica
+   ================================================================ */
+const bien = {
+  luz: 20, largo: 60, sep: 6, hcol: 6, ajusta: false,
+  cuerdas: "dos_aguas", alma: "howe", pend: 20, pendi: 8, pan: 6, h0: 1.2,
+  at: "5", af: "5", ch: "5, 10, 15"
+};
+cierto("con datos buenos no hay nada que decir", V.valida(bien).ok === true);
+
+const vacio = V.valida(Object.assign({}, bien, { luz: NaN }));
+cierto("un campo que no es número se detecta", vacio.ok === false);
+comp("y se dice cuál", vacio.malos[0].campo, "luz");
+
+const fuera = V.valida(Object.assign({}, bien, { luz: 1 }));
+cierto("un valor fuera del tope de pantalla se detecta", fuera.ok === false);
+cierto("Y SE MARCA COMO TOPE DE PANTALLA, no como criterio",
+  fuera.malos[0].limiteDePantalla === true);
+cierto("el mensaje nombra el rango", /2 a 120 m/.test(fuera.malos[0].que));
+
+const opcion = V.valida(Object.assign({}, bien, { alma: "fink" }));
+cierto("un alma que no existe se detecta en el formulario", opcion.ok === false);
+
+/* LO QUE valida() NO HACE, Y ES DELIBERADO: no sabe nada de física. */
+cierto("valida() NO se entera de que faltan arriostres: eso es del motor",
+  V.valida(Object.assign({}, bien, { at: "", af: "" })).ok === true);
+lanza("y el motor sí se entera",
+  () => MON.monta(Object.assign({}, D, { panosArriostradosTecho: [] })),
+  "NO HAY ARRIOSTRE DE TECHO");
+cierto("valida() lo dice de sí mismo", /FORMA/.test(V.valida(bien).nota));
+cierto("y cita su fila", /arquitectura/.test(V.valida(bien).art));
+
+/* ================================================================
+   5 · EL RECHAZO NO SE ABLANDA
+   ================================================================ */
+let pr = null;
+try { MON.monta(Object.assign({}, D, { panosArriostradosTecho: [] })); }
+catch (e) { pr = V.problema(e); }
+cierto("problema() devuelve algo pintable", !!pr);
+cierto("con el mensaje ENTERO del motor, sin resumir",
+  /NO HAY ARRIOSTRE DE TECHO/.test(pr.mensaje) &&
+  /E\.020 Art\. 18/.test(pr.mensaje) &&
+  pr.mensaje.split("\n").length >= 8);
+cierto("y deja claro que no hay modelo", pr.hayModelo === false);
+cierto("y por qué no se dibuja nada igualmente",
+  /puerta de atr[áa]s/.test(pr.porQueNoSeDibuja));
+cierto("el título dice que no es un aviso", /no es un aviso/.test(pr.titulo));
+
+/* ================================================================
+   6 · LAS PESTAÑAS Y SUS PROYECCIONES
+   ================================================================ */
+comp("son cuatro", V.PESTANAS.length, 4);
+comp("tres reales y una que todavía no",
+  V.PESTANAS.filter((p) => p.real).length, 3);
+const td = V.PESTANAS.filter((p) => !p.real)[0];
+comp("la que falta es la 3D", td.id, "tresd");
+cierto("y nombra el módulo que la hará", /vista3d\.js/.test(td.porque));
+cierto("y explica por qué no hay maqueta provisional",
+  /enga[ñn]a m[áa]s que una pesta[ñn]a vac[íi]a/.test(td.porque));
+comp("una pestaña sin fichas es la que no es real", V.fichas("tresd", m3), []);
+comp("y sin dibujo", V.dibujo("tresd", m3), null);
+lanza("una pestaña que no existe PARA", () => V.pestana("planta3"), "no existe");
+
+/* LAS TRES PROYECCIONES, y cada una mira un par de ejes distinto. */
+const dP = V.dibujo("portico", m3), dT = V.dibujo("planta", m3), dE = V.dibujo("elev", m3);
+comp("el pórtico se dibuja en (x, y)", [dP.ejeX, dP.ejeY], ["x_m", "y_m"]);
+comp("la planta de techo en (z, x)", [dT.ejeX, dT.ejeY], ["z_m", "x_m"]);
+comp("la elevación en (z, y)", [dE.ejeX, dE.ejeY], ["z_m", "y_m"]);
+cierto("las tres traen nudos y barras",
+  dP.nudos.length > 20 && dT.nudos.length > 100 && dE.nudos.length > 10);
+cierto("y las tres, leyenda", dP.leyenda.length && dT.leyenda.length && dE.leyenda.length);
+cierto("la planta destaca el arriostre de techo",
+  dT.leyenda.some((x) => /ARRIOSTRE DE TECHO/.test(x[0])));
+cierto("y la elevación el de fachada",
+  dE.leyenda.some((x) => /ARRIOSTRE DE FACHADA/.test(x[0])));
+
+/* Las barras de cada proyección existen de verdad en el modelo. */
+const ids = new Set(m3.barras.map((b) => b.id));
+for (const [n, d] of [["planta", dT], ["elevación", dE]]) {
+  comp("todas las barras de la " + n + " son del modelo",
+    d.barras.filter((b) => !ids.has(b.id)).length, 0);
+}
+
+/* ================================================================
+   7 · LAS FICHAS CAMBIAN CON EL GALPÓN
+   Si las líneas fueran texto fijo, esto pasaría igual. No lo son.
+   ================================================================ */
+const otro = MON.monta(Object.assign({}, D, {
+  panosArriostradosTecho: [0, 9], panosArriostradosFachada: [0, 9]
+}));
+const buscaLinea = (mm, pest, q) => {
+  for (const f of V.fichas(pest, mm)) {
+    for (const l of f.lineas) if (l.q === q) return l;
+  }
+  return null;
+};
+const presa1 = buscaLinea(m3, "elev", "Longitud que NO puede dilatar");
+const presa2 = buscaLinea(otro, "elev", "Longitud que NO puede dilatar");
+comp("con un paño al centro no hay nada preso", presa1.v, "0,00 m");
+comp("con dos en los extremos, 54 m", presa2.v, "54,00 m");
+comp("y el estado cambia de bien a mal", [presa1.estado, presa2.estado], ["ok", "no"]);
+
+const hast1 = buscaLinea(m3, "planta", "Desde el hastial z = 0");
+const hast2 = buscaLinea(otro, "planta", "Desde el hastial z = 0");
+comp("y el recorrido desde el hastial, al revés", [hast1.v, hast2.v], ["30,00 m", "0,00 m"]);
+
+/* La ficha del camino de carga se marca «bien» solo si están alineados. */
+const desalineado = MON.monta(Object.assign({}, D, {
+  panosArriostradosTecho: [2], panosArriostradosFachada: [7]
+}));
+comp("alineados: la ficha va en verde",
+  V.fichas("planta", m3)[0].estado, "bien");
+comp("desalineados: no", V.fichas("planta", desalineado)[0].estado, null);
+
+/* ================================================================
+   8 · LAS FILAS DEL INVENTARIO
+   ================================================================ */
+for (const id of ["V.procedencia", "V.no.duplica", "V.limites"]) {
+  cierto("la fila " + id + " existe y tiene fuente",
+    INV.existe(id) && !!INV.fila(id).fuente);
+}
+cierto("V.procedencia cuenta el agujero que lo originó",
+  /veintitr[ée]s/.test(INV.fila("V.procedencia").nota) &&
+  /doce/.test(INV.fila("V.procedencia").nota));
+cierto("V.no.duplica dice por qué no se copian las reglas",
+  /discrepen/.test(INV.fila("V.no.duplica").nota));
+
+fin();

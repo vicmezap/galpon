@@ -75,6 +75,7 @@ MODULOS = [
     "arriostres.js",     # lee ACERO y RIOSTRAS
     "generador.js",      # lee MODELO y SOLVER
     "montaje.js",        # lee GENERADOR
+    "vistas.js",        # lee GENERADOR y MONTAJE
     "proyecto.js",
 ]
 
