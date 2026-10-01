@@ -54,7 +54,12 @@ jobs:
       - name: Las pruebas, ANTES de publicar
         run: node pruebas/correr.js
 
+      # enablement: true crea el sitio de Pages si no existe todavía, en vez
+      # de fallar el primer despliegue pidiendo que alguien lo active a mano
+      # en los ajustes del repositorio.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:
