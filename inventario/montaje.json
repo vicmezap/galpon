@@ -1,0 +1,139 @@
+{
+  "seccion": "montaje",
+  "titulo": "Montaje del galpón · el sistema en tres planos",
+  "modulos": [
+    "montaje.js"
+  ],
+  "version": 1,
+  "fecha": "2026-09-30",
+  "regla": "Ningún número entra al código sin fila aquí. Sin fuente primaria leída, no entra.",
+  "estados": {
+    "verificado": "leído en el texto original de la fuente",
+    "adoptado": "criterio de fuente reconocida, no normativa; se cita y se declara",
+    "conflicto": "dos fuentes válidas dan valores distintos; hay decisión tomada",
+    "sin_fuente": "criterio propio del proyectista; se adopta y se declara",
+    "pendiente": "falta el documento o falta leerlo"
+  },
+  "magnitudes": [
+    {
+      "id": "MT.ejes",
+      "grupo": "Convenio",
+      "magnitud": "Sistema de ejes del galpón",
+      "valor": "x transversal (la luz)  ·  y vertical  ·  z longitudinal (el largo)",
+      "unidad": "m",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "decisión de arquitectura del complemento",
+      "nota": "Todo lo escrito hasta E5 vive en (x, y): el pórtico transversal. Al montar el galpón entero aparece z y hay que fijarlo UNA VEZ, porque el error de confundir la luz con el largo no produce un número raro sino un galpón plausible y equivocado. x va de columna a columna cruzando la nave; z va de pórtico a pórtico a lo largo. El plano (x,y) es el del pórtico, el (x,z) el del techo y el (y,z) el de la fachada longitudinal."
+    },
+    {
+      "id": "MT.dos.direcciones",
+      "grupo": "Lo que la norma exige del conjunto",
+      "magnitud": "Resistencia lateral en las dos direcciones principales",
+      "valor": "obligatorio en AMBAS direcciones",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.030-2026 Art. 6, inciso d)",
+      "nota": "«Debe tomarse en cuenta la importancia de los siguientes aspectos: (…) d) Resistencia adecuada, EN AMBAS DIRECCIONES PRINCIPALES, frente a las cargas laterales.» En un galpón la transversal la resuelve el pórtico y se ve enseguida; la longitudinal no tiene pórtico ninguno —son correas y cobertura— y si nadie la mira, no existe. Es el fallo más común y el más caro: la nave se diseña entera en su plano y se cae en el otro."
+    },
+    {
+      "id": "MT.continuidad",
+      "grupo": "Lo que la norma exige del conjunto",
+      "magnitud": "Continuidad estructural y líneas sucesivas de resistencia",
+      "valor": "continuidad en planta y en elevación  ·  redundancia",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.030-2026 Art. 6, incisos e) y h)",
+      "nota": "«e) Continuidad estructural, tanto en planta como en elevación. (…) h) Inclusión de líneas sucesivas de resistencia (redundancia estructural).» De aquí sale la comprobación del camino de carga: que la fuerza que entra por el hastial pueda llegar al suelo sin cortarse. Un arriostre de techo que no descarga en un arriostre de fachada es una continuidad rota, y la rotura no se ve en ningún ratio."
+    },
+    {
+      "id": "MT.no.diafragma",
+      "grupo": "Lo que la norma exige del conjunto",
+      "magnitud": "El techo metálico no es diafragma rígido",
+      "valor": "hay que suplirlo con arriostre en el plano del techo",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.020 Art. 18, incisos 18.1 y 18.2",
+      "nota": "18.1: «Se supondrá que las cargas horizontales sobre la estructura son distribuidas a columnas, pórticos y muros por los sistemas de pisos y techo que actúan como diafragmas horizontales.» 18.2: «CUANDO la existencia de aberturas, la excesiva relación largo/ancho (…) O LA FLEXIBILIDAD DEL SISTEMA DE PISO Ó TECHO NO PERMITAN SU COMPORTAMIENTO COMO DIAFRAGMA RÍGIDO, la rigidez de cada columna y muro estructural tomará en cuenta las deflexiones adicionales (…) mediante algún método reconocido de análisis.» Una cobertura TR-4 sobre correas no es un diafragma rígido —y un galpón tiene además la relación largo/ancho que el propio 18.2 nombra—, así que el 18.1 NO se puede invocar: el reparto lo hace el arriostre de techo, que es una armadura horizontal de verdad, o no lo hace nadie."
+    },
+    {
+      "id": "MT.plano.solver",
+      "grupo": "Cómo se analiza",
+      "magnitud": "El modelo es 3D, el análisis es en planos",
+      "valor": "se monta en 3D y se resuelve por planos con el solucionador de pórtico",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "decisión de arquitectura del complemento",
+      "nota": "solver.js es de pórtico PLANO y se queda así: un solucionador espacial es otro proyecto. El montaje 3D existe para la geometría, el metrado, el dibujo y —sobre todo— para sacar de él los submodelos planos que sí se resuelven: el pórtico transversal, la armadura horizontal del techo y el arriostre de fachada. Es como se diseña un galpón a mano y es defendible; lo que no es defendible es montar el 3D y dar por hecho que alguien lo analizó."
+    },
+    {
+      "id": "MT.hastial",
+      "grupo": "Camino de carga",
+      "magnitud": "Dónde descarga la columna hastial",
+      "valor": "mitad al suelo, mitad al plano del techo",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": true,
+      "clave": true,
+      "fuente": "consecuencia de la E.030 Art. 6 e) · continuidad estructural",
+      "nota": "La columna del hastial recibe el viento frontal y salva la altura de la nave. Abajo apoya en la cimentación; arriba no tiene dónde apoyar salvo el plano del techo, así que ahí es donde entra la fuerza longitudinal al sistema. Si el plano del techo no tiene arriostre, esa reacción de arriba no tiene contra qué reaccionar: la columna hastial se convierte en un voladizo que nadie diseñó como voladizo."
+    },
+    {
+      "id": "MT.mismo.pano",
+      "grupo": "Camino de carga",
+      "magnitud": "Arriostre de techo y de fachada, en el mismo paño",
+      "valor": "mismo paño  ·  o viga de alero que los una",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "consecuencia de la E.030 Art. 6 e) · continuidad estructural",
+      "nota": "El arriostre de techo entrega su reacción en el alero. Si el arriostre de fachada está en otro paño, esa reacción tiene que recorrer el alero hasta llegar a él, y el que lo recorre es la viga de alero trabajando a AXIAL, no a flexión como se la suele dibujar. Poniéndolos en el mismo paño el recorrido es cero y la viga de alero solo amarra. No es un capricho de dibujo: es la diferencia entre una barra de amarre y un puntal cargado."
+    },
+    {
+      "id": "MT.termica",
+      "grupo": "Dilatación",
+      "magnitud": "La dilatación térmica hay que considerarla",
+      "valor": "obligatorio considerarla",
+      "unidad": "°C",
+      "estado": "verificado",
+      "editable": true,
+      "clave": true,
+      "fuente": "E.020 Art. 15  ·  AISC 360-22 §L6",
+      "nota": "E.020 Art. 15: «El diseño de edificaciones tomará en cuenta las fuerzas y los movimientos que resulten de un cambio mínimo de temperatura de 20 °C para construcciones de concreto y/o albañilería y DE 30 °C PARA CONSTRUCCIONES DE METAL.» AISC §L6: «The effects of thermal expansion and contraction of a building shall be considered.» Las dos lo exigen y ninguna de las dos es opcional. MUERDE EN LA COLOCACIÓN DE LOS ARRIOSTRES: arriostrar los dos paños extremos deja el galpón entero preso entre dos puntos fijos; arriostrar uno solo lo deja dilatar desde ahí hacia los dos lados. La decisión que acorta el camino de carga es la que alarga la longitud que no puede dilatar."
+    },
+    {
+      "id": "MT.deltaT",
+      "grupo": "Dilatación",
+      "magnitud": "Variación mínima de temperatura para construcciones de metal",
+      "valor": "30",
+      "unidad": "°C",
+      "estado": "verificado",
+      "editable": true,
+      "clave": true,
+      "fuente": "E.020 Art. 15",
+      "nota": "«El diseño de edificaciones tomará en cuenta las fuerzas y los movimientos que resulten de un cambio mínimo de temperatura de 20 °C para construcciones de concreto y/o albañilería y de 30 °C para construcciones de metal.» Es un MÍNIMO, no un valor fijo: la norma dice «cambio mínimo», así que en un sitio con más oscilación térmica se sube. Va en fila aparte de MT.termica para que se pueda pedir con num() en vez de sacarlo de un texto a tirones."
+    },
+    {
+      "id": "MT.alfa",
+      "grupo": "Dilatación",
+      "magnitud": "Coeficiente de dilatación térmica del acero a temperatura ambiente",
+      "valor": "(falta la fuente)",
+      "unidad": "1/°C",
+      "estado": "pendiente",
+      "editable": true,
+      "clave": true,
+      "fuente": "no está en la E.020, ni en la E.090, ni en el AISC 360-22 fuera del caso de incendio",
+      "nota": "Lo que falta es el α a temperatura ambiente, y es un pendiente con trampa incluida. El AISC 360-22 SÍ da uno, en el Apéndice 4 §4.2.3a: «For structural and reinforcing steels: FOR CALCULATIONS AT TEMPERATURES ABOVE 150 °F (66 °C), the coefficient of thermal expansion is 7.8 × 10⁻⁶/°F (1.4 × 10⁻⁵/°C).» Es el coeficiente PARA INCENDIO y el propio texto lo condiciona a más de 66 °C; tomarlo para el salto ambiental de 30 °C de la E.020 sería la misma falta que tomar el 1/24 del larguero para el peralte del tijeral (fila G.peralte): una cita real, sacada de su párrafo. BLOQUEA el cálculo del alargamiento en milímetros y de la fuerza térmica; NO bloquea la comprobación de dónde van los arriostres, que es de topología y se hace igual: la longitud que no puede dilatar se mide en metros sin necesidad de α."
+    }
+  ]
+}

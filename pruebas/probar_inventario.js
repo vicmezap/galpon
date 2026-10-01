@@ -23,9 +23,9 @@ cierto("hay más de 250 filas", r.total > 250);
 comp("no queda ninguna fila sin fuente («criterio propio»)", r.sin_fuente, 0);
 
 const secs = INV.secciones().sort();
-comp("están las once secciones", secs, [
+comp("están las doce secciones", secs, [
   "cargas", "cimentacion", "compresion", "conexiones", "corte-flexocompresion",
-  "estabilidad", "flexion", "geometria", "perfiles", "sismo", "traccion"
+  "estabilidad", "flexion", "geometria", "montaje", "perfiles", "sismo", "traccion"
 ].sort());
 
 /* ---------- consultas que deben funcionar ---------------------------- */
@@ -90,7 +90,7 @@ comp("todo conflicto tiene su decisión escrita", sinDecision, 0);
    J.anclaje.concreto · ACI 318 Cap. 17 es una norma de pago y no está en la
    carpeta. Faltan SOLO las ecuaciones del lado del concreto: el requisito
    (E.060 15.8.3.3) y el refuerzo (E.060 7.10.5.6) sí están leídos. */
-const PENDIENTES_CONOCIDOS = ["J.anclaje.concreto", "G.peralte"];
+const PENDIENTES_CONOCIDOS = ["J.anclaje.concreto", "G.peralte", "MT.alfa"];
 const pendientes = INV.ids().filter((id) => INV.fila(id).estado === "pendiente").sort();
 comp("los pendientes son exactamente los conocidos", pendientes,
   PENDIENTES_CONOCIDOS.slice().sort());

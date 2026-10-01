@@ -21,19 +21,19 @@ No es una buena intención: está en `src/inventario.js` y la comprueba
 `pruebas/probar_inventario.js`. Pedir una magnitud que no existe **lanza**, no
 devuelve `undefined`. Un conflicto sin decisión escrita rompe la prueba.
 
-El inventario son **359 filas en `inventario/*.json`**, una por cada número,
+El inventario son **369 filas en `inventario/*.json`**, una por cada número,
 fórmula, límite y criterio que el complemento calcula, con su artículo de norma
 o su página de libro:
 
 ```
-310 verificado   ·   18 adoptado   ·   29 conflicto   ·   0 criterio propio   ·   2 pendientes
+315 verificado   ·   22 adoptado   ·   29 conflicto   ·   0 criterio propio   ·   3 pendientes
 ```
 
 *Verificado* = leído en el texto original. *Adoptado* = fuente reconocida pero
 no normativa, citada. *Conflicto* = dos normas discrepan y la decisión está
 escrita. *Pendiente* = falta el documento.
 
-Hay **dos pendientes**, y los dos son documentos que faltan, no cálculos sin
+Hay **tres pendientes**, y los tres son documentos que faltan, no cálculos sin
 hacer:
 
 **`J.anclaje.concreto`** — las ecuaciones del lado del concreto del perno de
@@ -46,6 +46,13 @@ llama «la relación más conveniente de peralte a claro ≈ 1/24» está en el
 párrafo de **largueros** y es del larguero; el 1/25 de la AASHTO es de puentes
 y el 1/20 es contra vibración de entrepisos. Así que el peralte del tijeral es
 dato de entrada obligatorio y `generador.js` se niega a inventarlo.
+
+**`MT.alfa`** — el coeficiente de dilatación térmica del acero a temperatura
+ambiente. El AISC 360-22 sí da uno, en el Apéndice 4: es el de **incendio**, y
+el propio texto lo condiciona a temperaturas sobre 66 °C. Tomarlo para el salto
+ambiental de 30 °C que manda la E.020 Art. 15 sería la misma falta que la del
+párrafo anterior. Así que la longitud que no puede dilatar se da en metros y el
+alargamiento en milímetros no se calcula.
 
 La lista de pendientes está **fijada por nombre en la prueba**: cerrar uno es
 una línea menos ahí, y abrir uno nuevo sale en rojo.
@@ -102,12 +109,13 @@ src/
   proyecto.js      guardar y abrir el proyecto .json
   bundle.js        alDiaOMuere() · ¿estoy probando lo que acabo de escribir?
   generador.js     el tijeral paramétrico · 4 cuerdas × 4 almas · Maxwell y rango
+  montaje.js       el galpón entero en tres planos · el camino de carga
 inventario/
-  *.json           las 359 filas, once secciones
+  *.json           las 369 filas, doce secciones
 pruebas/
   correr.js        el runner
   _comun.js        comp · cerca · cierto · lanza · fin
-  probar_*.js      una por módulo · 1557 comprobaciones
+  probar_*.js      una por módulo · 1664 comprobaciones
 catalogos/
   aisc.json        1575 perfiles laminados    · AISC Shapes Database v13
   fam.json          391 perfiles soldados     · serie VS/CS/CVS, ABNT NBR 5884
@@ -158,7 +166,7 @@ verificable en Node y en CI. Es la rebanada vertical, el primer hito real.
 | **E3** motor | modelo · solver · estabilidad · solo-tracción | ✅ |
 | **E4** AISC | caps. D, E, F, G y H con doble referencia | ✅ |
 | **E5** piezas | elemento · bucle · correas · tijeral · columnas · arriostres | ✅ |
-| **E6** interfaz | **generador** · vistas · vista3d · tablero | 🔸 en curso |
+| **E6** interfaz | **generador · montaje** · vistas · vista3d · tablero | 🔸 en curso |
 | **E7** conexiones | placa base · Cap. J | ⬜ |
 | **E8** cimentación | pedestal · zapatas | ⬜ |
 | **E9** salida | hojas · metrado · planos | ⬜ |
