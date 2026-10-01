@@ -1,0 +1,199 @@
+{
+  "seccion": "analisis",
+  "titulo": "El análisis del pórtico",
+  "modulos": [
+    "analisis.js"
+  ],
+  "version": 1,
+  "fecha": "2026-10-01",
+  "regla": "Ningún número entra al código sin fila aquí. Sin fuente primaria leída, no entra.",
+  "estados": {
+    "verificado": "leído en el texto original de la fuente",
+    "adoptado": "criterio de fuente reconocida, no normativa; se cita y se declara",
+    "conflicto": "dos fuentes válidas dan valores distintos; hay decisión tomada",
+    "sin_fuente": "criterio propio del proyectista; se adopta y se declara",
+    "pendiente": "falta el documento; no se usa hasta tenerlo"
+  },
+  "magnitudes": [
+    {
+      "id": "A.sistema",
+      "grupo": "El modelo",
+      "magnitud": "Sistema estructural del pórtico: base y unión columna–tijeral",
+      "valor": "base empotrada ó articulada  ·  tijeral apoyado ó unión rígida  ·  articulada + apoyado = mecanismo, se niega",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "decisión del proyectista · columnas.js, fila S.pendulo",
+      "nota": "NO TIENE VALOR POR OMISIÓN, y es a propósito: columnas.js ya lo dejó escrito —«no lo decide este módulo: lo decide el proyectista»—. Cambia los momentos de la columna, la deriva, la placa base, los pernos y la zapata, y con base empotrada y tijeral apoyado el galpón es candidato a péndulo invertido (R₀ = 2,5, fila S.pendulo). Las tres combinaciones estables: EMPOTRADA + APOYADO, columnas en voladizo con el tijeral simplemente apoyado encima; ARTICULADA + RÍGIDA, la columna sube hasta la brida superior y el par de bridas hace la rodilla; EMPOTRADA + RÍGIDA, la más rígida. ARTICULADA + APOYADO es un mecanismo: nada da rigidez lateral, la columna queda articulada en los dos extremos. El módulo se niega con ese motivo antes de que el solucionador lo descubra como una matriz singular. LA UNIÓN RÍGIDA NECESITA PERALTE EN EL APOYO: sin él la brida superior y la inferior llegan al mismo nudo y no hay par que dé momento; también se niega."
+    },
+    {
+      "id": "A.portico.tipico",
+      "grupo": "El modelo",
+      "magnitud": "Qué pórtico se analiza",
+      "valor": "el pórtico interior central · ancho tributario = media de las dos separaciones vecinas",
+      "unidad": "m",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "decisión de alcance · montaje.js, fila MT.plano.solver",
+      "nota": "Los pórticos interiores son iguales entre sí y son los más cargados: llevan el ancho tributario entero. Los de fachada llevan la mitad, pero además las columnas hastiales y el arriostre de fachada (fila MT.hastial), y su análisis es otro modelo. NO SE ANALIZAN TODAVÍA, y el módulo lo dice en vez de dejar suponer que el pórtico de fachada está cubierto por el interior: tiene menos carga, pero un sistema distinto."
+    },
+    {
+      "id": "A.reparto.techo",
+      "grupo": "Las cargas",
+      "magnitud": "Cómo llegan las cargas de techo al pórtico",
+      "valor": "a los nudos de la brida superior, por longitud tributaria de cada tramo × ancho tributario",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "montaje.js: una correa sobre cada nudo de brida superior · fila G.correa.nudo",
+      "nota": "La correa cae en el nudo —así lo monta montaje.js—, así que cada tramo de brida superior entre dos nudos reparte su carga mitad a cada extremo. La carga muerta va sobre la SUPERFICIE inclinada, porque es el peso de la plancha por metro cuadrado de plancha. La nieve va sobre la PROYECCIÓN HORIZONTAL, porque la E.020 Art. 11.3 lo dice textual en los tres incisos. El viento va NORMAL a cada tramo, sobre su superficie: presión hacia el techo, succión hacia fuera."
+    },
+    {
+      "id": "A.Lr.area",
+      "grupo": "Las cargas",
+      "magnitud": "La carga viva de techo, ¿sobre la superficie o sobre la proyección?",
+      "valor": "sobre la superficie inclinada",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": true,
+      "clave": true,
+      "fuente": "E.020 Art. 7.1, que no lo dice · Art. 11.3, que sí lo dice para la nieve",
+      "nota": "LA E.020 NO LO DICE para la carga viva. El Art. 7.1 da los kgf/m² y calla sobre el área; el Art. 11.3, para la nieve, escribe «sobre la proyección horizontal» en sus tres incisos, lo que hace más llamativo el silencio del 7.1. Se adopta la superficie inclinada porque es la que da más carga: la diferencia es √(1 + s²), un 2 % con pendiente del 20 % y un 6 % con 20°. La reducción del Art. 10 se sigue calculando con el área tributaria horizontal, como en el visor de cargas, que da menos reducción y también queda del lado seguro."
+    },
+    {
+      "id": "A.viento.casos",
+      "grupo": "Las cargas",
+      "magnitud": "Los estados de viento que se analizan",
+      "valor": "2 direcciones transversales × cada Ci (Tabla 5) × cada Ce del faldón a barlovento (Tabla 4)  +  viento longitudinal",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.020 Art. 12.1, 12.4 y 12.5, Tablas 4 y 5 · viento.js",
+      "nota": "El viento entra como ESTADOS FÍSICOS, cada uno con todas sus superficies a la vez (Art. 12.1: presiones y succiones simultáneas). Transversal: de izquierda a derecha y de derecha a izquierda; en cada una, una corrida por cada Ci de la Tabla 5 y por cada Ce del faldón a barlovento —la Tabla 4 da dos para inclinaciones de hasta 60°, uno de presión y otro de succión—. Un tramo de techo es BARLOVENTO si sube en la dirección del viento y SOTAVENTO si baja; un tramo plano cuenta como barlovento, que trae la succión de −0,7 y queda del lado seguro frente al −0,6 de sotavento. LONGITUDINAL: el viento paralelo a la cumbrera pone todo el techo y los dos muros largos a −0,7 (superficies paralelas a la dirección del viento) y, con la presión interior, LEVANTA el pórtico: es a menudo el caso que gobierna la brida inferior a compresión. Las aberturas se dan por dirección, porque el mismo portón es barlovento en una y sotavento en la otra (viento.js lo explica)."
+    },
+    {
+      "id": "A.viento.signo",
+      "grupo": "Las cargas",
+      "magnitud": "El ± de las combinaciones con viento y sismo",
+      "valor": "el factor se aplica con su magnitud a cada estado físico; el ± lo cubren las dos direcciones",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.090 §1.4.1, ecuaciones 1.4-5 y 1.4-6, leídas en la página renderizada",
+      "nota": "La E.090 escribe «1,2D ± 1,0E + …» y «0,9D ± (1,3W ó 1,0E)»: el signo es ±, no −. pdftotext lo pierde y hubo que renderizar la página para verlo. Significa que la carga lateral puede actuar en cualquier sentido. Como aquí el viento se genera como estados físicos en las DOS direcciones, el ± ya está cubierto, y el factor se aplica con su magnitud. Multiplicar un estado físico por −1,3 convertiría la succión real del techo en presión: un viento que no existe. OJO: combinaciones.js guarda la 1.4-6 como «0,9 D − 1,3 W», con el signo como texto; este módulo usa el valor absoluto del factor de W y de E."
+    },
+    {
+      "id": "A.muro",
+      "grupo": "Las cargas",
+      "magnitud": "El viento en los muros largos",
+      "valor": "repartido sobre la columna hasta su cabeza · la franja de encima, a los nudos",
+      "unidad": "kgf/m",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "columnas.js: los largueros traspasan el viento del cerramiento a la columna",
+      "nota": "El cerramiento llega hasta el alero, a la altura de la brida superior. La columna lo recibe repartido —w = Ph × ancho tributario— a lo largo de su altura, porque los largueros están lo bastante juntos para tratarlo así (columnas.js). Con el tijeral apoyado, la columna acaba en la brida inferior y la franja que queda entre las dos bridas no tiene columna detrás: se lleva mitad al nudo inferior y mitad al superior del apoyo."
+    },
+    {
+      "id": "A.pesopropio",
+      "grupo": "Las cargas",
+      "magnitud": "El peso propio de la estructura",
+      "valor": "barras del pórtico por su perfil · correas y vigas de alero por su perfil × ancho tributario · arriostres no",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.090 §1.4.1: D incluye el peso propio de los elementos",
+      "nota": "Sale del perfil asignado: peso_kgfm del catálogo. Cada barra del pórtico deja la mitad de su peso en cada extremo; cada correa deja en su nudo el peso de un ancho tributario; las vigas de alero, igual en el alero. Los ARRIOSTRES NO SE CUENTAN: están solo en algunos paños y su peso repartido entre pórticos es del orden de las tolerancias de la cobertura. Queda dicho aquí para que nadie crea que están."
+    },
+    {
+      "id": "A.segundo.orden",
+      "grupo": "El análisis",
+      "magnitud": "El segundo orden: dos análisis de primer orden amplificados",
+      "valor": "nt con el ladeo impedido · lt con la reacción invertida · Mr = B1·Mnt + B2·Mlt · Pr = Pnt + B2·Plt",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC 360-22 Apéndice 8.1, ecuaciones A-8-1 y A-8-2 y su User Note · C2.1",
+      "nota": "Textual: «two first-order elastic analyses are (1) restrained against lateral translation (nt), and (2) lateral translation (lt)». Se hace literalmente así: un apoyo ficticio en x en la cabeza de columna para el nt, y su reacción, cambiada de signo y sin el apoyo, para el lt. El procedimiento está limitado a estructuras que llevan la gravedad «primarily through nominally vertical columns», que es el galpón. B1 se toma 1,0 para las barras que no están comprimidas, como dice la definición. Va con la rigidez reducida 0,80 del Método Directo (fila E.C2.k080), y la deriva ΔH de Pe,story sale del análisis lt con esa rigidez (fila E.A8.Pestory)."
+    },
+    {
+      "id": "A.nocional",
+      "grupo": "El análisis",
+      "magnitud": "Cuándo y en qué sentido van las cargas nocionales",
+      "valor": "solo gravedad: en los dos sentidos · con viento: solo si B2 > 1,7, en el sentido del viento",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC 360-22 C2.2b(b), su User Note, y C2.2b(d)",
+      "nota": "C2.2b(d) permite poner las nocionales solo en las combinaciones de gravedad cuando el segundo orden no pasa de 1,7 veces el primero. B2 es esa razón para el piso, así que se calcula y, si alguna combinación con viento pasa de 1,7, se le añaden. La User Note de C2.2b(b) dice el sentido: sin carga lateral, en los dos sentidos —aquí son dos corridas por cada combinación de gravedad—; con carga lateral, en el de la resultante. En un pórtico plano los dos sentidos son +x y −x."
+    },
+    {
+      "id": "E.C2.taub.alt",
+      "grupo": "El análisis",
+      "magnitud": "Alternativa a τb < 1: una nocional adicional",
+      "valor": "τb = 1,0 en todas las barras si se añade 0,001·Yi en todos los niveles y en todas las combinaciones",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC 360-22 C2.3(c)",
+      "nota": "Textual: «in lieu of using τb < 1.0, where αPr/Pns > 0.5, it is permissible to use τb = 1.0 for all noncomposite members if a notional load of 0.001Yi is applied at all levels, in the direction specified in Section C2.2b(b), in all load combinations». Es lo que hace este módulo si alguna columna pasa de α·Pr/Pns = 0,5: en vez de reducir la rigidez de esa barra e iterar, repite el análisis con la nocional adicional en todas las combinaciones. En un galpón las columnas rara vez pasan del 0,5, y el módulo dice si hizo falta."
+    },
+    {
+      "id": "A.B1.tramo",
+      "grupo": "El análisis",
+      "magnitud": "La longitud de B1 en las columnas",
+      "valor": "Lc1 = longitud de cada tramo de columna (K = 1)",
+      "unidad": "cm",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC 360-22 A-8-5 y fila E.C3.K",
+      "nota": "Con la unión rígida la columna son dos tramos —de la base a la brida inferior y de ahí a la superior— y la brida inferior la sujeta en su plano en ese nudo. Cada tramo lleva su B1 con su longitud y K = 1 (fila E.C3.K). Cm es 1,0 cuando el tramo tiene viento repartido (fila E.A8.Cm.transv, conservador) y 0,6 − 0,4·M1/M2 si no."
+    },
+    {
+      "id": "A.Mr.max",
+      "grupo": "El análisis",
+      "magnitud": "El momento máximo dentro de un tramo de columna",
+      "valor": "Mr,max = B1·máx|Mnt(x)| + B2·máx|Mlt(x)|",
+      "unidad": "kgf·cm",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC A-8-1, aplicada a los máximos",
+      "nota": "Con viento repartido el momento nt tiene un máximo dentro del tramo, y el lt —sin carga en el tramo— es lineal y su máximo está en un extremo. Sumar los dos máximos aunque no caigan en el mismo punto queda del lado seguro, y la diferencia en una columna de galpón es pequeña porque el máximo lt casi siempre está en la base, donde también está el nt."
+    },
+    {
+      "id": "A.reacciones.casos",
+      "grupo": "Lo que sale",
+      "magnitud": "Las reacciones que se pasan a la cimentación",
+      "valor": "por CASO sin factorizar (D, Lr, S, cada W), primer orden, rigidez nominal",
+      "unidad": "kgf · kgf·cm",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "filas J.costura y Z.costura",
+      "nota": "Es la consecuencia de arquitectura de J.costura: el acero y el concreto combinan con factores distintos, así que a la cimentación no se le pasan reacciones combinadas sino los casos, y la E.060 arma las suyas. Van con rigidez nominal y primer orden porque son cargas de servicio sin factorizar."
+    },
+    {
+      "id": "A.acero.Pns",
+      "grupo": "El análisis",
+      "magnitud": "El acero con que se comprueba τb",
+      "valor": "el que declara el proyecto · Pns = Fy·Ag",
+      "unidad": "kgf/cm²",
+      "estado": "adoptado",
+      "editable": true,
+      "clave": true,
+      "fuente": "AISC C2.3(b) · filas MAT.A36.Fy y MAT.A572.Fy",
+      "nota": "El análisis solo necesita el acero para un control: si alguna columna pasa de α·Pr/Pns = 0,5 (fila E.C2.taub). No hay valor por omisión en el módulo; la pantalla le pasa el del paso Datos, y mientras ese paso no exista lo dice en pantalla."
+    }
+  ]
+}

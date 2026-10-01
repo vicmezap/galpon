@@ -113,7 +113,16 @@
 
   /* ---------- LO QUE SE GUARDA, Y NADA MÁS · fila L.solo.entradas ------ */
   const CLAVES = ["formato", "nombre", "parametros", "secciones", "ediciones",
-    "sitio", "vista", "guardado"];
+    "sitio", "sistema", "vista", "guardado"];
+
+  /* Los datos del sitio y de las cargas.  Misma regla que PARAMETROS: una
+     clave que no está aquí PARA al guardar, en vez de perderse en silencio. */
+  const SITIO = ["espesorCobertura_mm", "Dotras_kgfm2", "hayNieve", "Qs_kgfm2",
+    "V_kmh", "tipoEdificacion", "aberturas", "acero"];
+
+  /* El sistema estructural · fila A.sistema.  Sin valor por omisión: lo decide
+     el proyectista, y un modelo nuevo no lo trae. */
+  const SISTEMA = { base: ["empotrada", "articulada"], union: ["apoyado", "rigida"] };
 
   /* Los parámetros reconocidos.  Una clave nueva aquí es una línea; una
      clave nueva colada sin estar aquí sería un dato que se pierde al
@@ -143,6 +152,7 @@
       /* las capas geométricas · fila L.suelto */
       ediciones: o.ediciones ? o.ediciones.slice() : [],
       sitio: o.sitio || {},
+      sistema: o.sistema || null,
       vista: o.vista || {},
       guardado: null
     };
@@ -370,8 +380,22 @@
         "libro: parámetros desconocidos: " + sobranP.join(", ") + "\n" +
         "  Añádelos a PARAMETROS si son de verdad parámetros del galpón.");
     }
+    const sobranS = Object.keys(modelo.sitio || {}).filter((k) => SITIO.indexOf(k) < 0);
+    if (sobranS.length) {
+      throw new Error(
+        "libro: datos de sitio desconocidos: " + sobranS.join(", ") + "\n" +
+        "  Añádelos a SITIO si son de verdad datos del sitio o de las cargas.");
+    }
+    if (modelo.sistema) {
+      for (const k of Object.keys(SISTEMA)) {
+        exige(SISTEMA[k].indexOf(modelo.sistema[k]) >= 0,
+          "sistema." + k + " es " + SISTEMA[k].join(" ó ") + ", no «" + modelo.sistema[k] + "»");
+      }
+      const otras = Object.keys(modelo.sistema).filter((k) => !SISTEMA[k]);
+      exige(!otras.length, "el sistema trae claves desconocidas: " + otras.join(", "));
+    }
     const o = {};
-    for (const k of CLAVES) if (modelo[k] !== undefined) o[k] = modelo[k];
+    for (const k of CLAVES) if (modelo[k] !== undefined && modelo[k] !== null) o[k] = modelo[k];
     o.formato = FORMATO;
     return o;
   }
@@ -499,7 +523,7 @@
   return {
     ART, HOJA_MODELO, HOJA_RESULTADOS, HOJAS, VISIBILIDAD,
     TROZO, MAX_FILAS, TROZO_MSG, RANGO, MARCA, FORMATO,
-    CLAVES, PARAMETROS, TIPOS,
+    CLAVES, PARAMETROS, TIPOS, SITIO, SISTEMA,
     nuevo, valida, clona, edita, validaEdicion, aplica, olvidaEdiciones,
     parametrosEditables, asignaPerfil, perfilDe, perfilesHuerfanos,
     paraGuardar, serializa, deserializa,

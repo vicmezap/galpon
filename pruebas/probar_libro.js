@@ -381,4 +381,22 @@ cierto("L.solo.entradas se apoya en la regla que ya existía",
 cierto("L.formato avisa de que se niega a adivinar",
   /adivinar/.test(INV.fila("L.formato").nota));
 
+/* ================================================================
+   EL SITIO Y EL SISTEMA · lo que necesita el análisis
+   ================================================================ */
+const conSitio = L.nuevo({ sitio: { espesorCobertura_mm: 0.4, V_kmh: 75, hayNieve: false,
+  aberturas: "repartidas", acero: "A36" }, sistema: { base: "empotrada", union: "rigida" } });
+const vuelta = L.deserializa(L.serializa(conSitio, "2026-10-01"));
+comp("los datos del sitio se guardan y vuelven", vuelta.modelo.sitio, conSitio.sitio);
+comp("el sistema también", vuelta.modelo.sistema, { base: "empotrada", union: "rigida" });
+comp("un modelo nuevo NO trae sistema: lo decide el proyectista (fila A.sistema)",
+  L.nuevo({}).sistema, null);
+cierto("y sin sistema se guarda igual, sin la clave", L.paraGuardar(L.nuevo({})).sistema === undefined);
+lanza("un dato de sitio desconocido PARA, no se pierde en silencio",
+  () => L.paraGuardar(L.nuevo({ sitio: { velocidad: 75 } })), "desconocidos");
+lanza("un sistema con valores inventados PARA",
+  () => L.paraGuardar(L.nuevo({ sistema: { base: "semirrígida", union: "rigida" } })), "empotrada");
+lanza("y con claves de más también",
+  () => L.paraGuardar(L.nuevo({ sistema: { base: "empotrada", union: "rigida", R: 4 } })), "desconocidas");
+
 fin();

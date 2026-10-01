@@ -85,6 +85,7 @@ MODULOS = [
     "conexiones.js",     # lee ACERO y UNIDADES · E7, Cap. J
     "generador.js",      # lee MODELO y SOLVER
     "montaje.js",        # lee GENERADOR
+    "analisis.js",       # lee MODELO, SOLVER, ESTABILIDAD, VIENTO, COMBINACIONES y MONTAJE
     "vista3d.js",       # funciones puras de camara y proyeccion
     "vistas.js",        # lee GENERADOR, MONTAJE y VISTA3D
     "libro.js",         # el modelo dentro del libro de Excel
