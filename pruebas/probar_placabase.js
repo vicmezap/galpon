@@ -351,4 +351,98 @@ cierto("J.anclaje.geometria dice que hace el anclaje plausible, no verificado",
 cierto("y que el AISC 360-22 no trae el espesor de la placa",
   /NO trae el espesor/.test(INV.fila("J.base.cantilever").nota));
 
+
+/* ================================================================
+   LA PLACA CON MOMENTO · McCormac-Csernak, Apéndice D
+   W14×120 (d = 14,5 · bf = 14,7 · tf = 0,94 · tw = 0,59 plg), placa de
+   20 × 28 plg, f'c = 3 klb/plg², A36. Las fórmulas no dependen de las
+   unidades, así que se le pasan las del libro tal cual: klb, plg, klb/plg².
+   McCormac supone √(A2/A1) ≥ 2 (φc·Fp = 0,65·1,7·3 = 3,32): A2 = 4·A1.
+   ================================================================ */
+const W14 = { d_cm: 14.5, bf_cm: 14.7, tf_cm: 0.94, tw_cm: 0.59, B_cm: 20, N_cm: 28,
+  fc_kgcm2: 3, Fy_kgcm2: 36, A2_cm2: 4 * 20 * 28 };
+{
+  /* D-1 · Pu = 620 klb, Mu = 225 klb-pie: e = 4,35 plg, dentro de los patines */
+  const r = P.momento(Object.assign({}, W14, { Pu_kgf: 620, Mu_kgfcm: 225 * 12 }));
+  comp("D-1 · la resultante cae dentro de los patines: los pernos no tiran", [r.caso, r.T_kgf],
+    ["sin tracción en los pernos", 0]);
+  cerca("D-1 · φc·Fp = 0,65·1,7·3 = 3,32 klb/plg² (J8 con el tope)", r.fp_kgcm2, 0.65 * 1.7 * 3, 1e-12);
+  cerca("D-1 · presión máxima 2,139 klb/plg²", r.presion.qmax_kgcm2, 2.139, 2e-3);
+  cerca("D-1 · y mínima 0,075, todavía en compresión", r.presion.qmin_kgcm2, 0.075, 0.02);
+  cerca("D-1 · momento en el centro del patín 51,12 klb-plg/plg", r.placa.Mcompresion_kgfcm_cm, 51.12, 1e-3);
+  cerca("D-1 · con el módulo ELÁSTICO de McCormac, t = 3,08 plg", r.placa.tElastico_cm, 3.08, 1e-3);
+  cerca("D-1 · transversal: n = 4,12 plg y 1,107·4,12²/2 = 9,40", r.placa.Mtransversal_kgfcm_cm, 9.40, 1e-3);
+  cerca("D-1 · con el PLÁSTICO de F11-1, t = √(4·Mu/(0,9·Fy))", r.placa.t_cm,
+    Math.sqrt(4 * r.placa.Mu_kgfcm_cm / (0.9 * 36)), 1e-12);
+  cerca("el elástico sale √1,5 veces el plástico: el 22 % de más de McCormac",
+    r.placa.tElastico_cm / r.placa.t_cm, Math.sqrt(1.5), 1e-12);
+}
+{
+  /* D-2 · el momento sube a 460 klb-pie. McCormac redondea e a 8,90 plg; se le
+     da ese mismo momento, 620·8,90, para comparar cifra por cifra */
+  const r = P.momento(Object.assign({}, W14, { Pu_kgf: 620, Mu_kgfcm: 620 * 8.90, f_cm: 8.5, nPorLado: 2,
+    db_cm: 1.375, Ab_cm2: 1.485, Fy_perno_kgcm2: 36, Fu_perno_kgcm2: 58 }));
+  comp("D-2 · la resultante sale de los patines: tiran los pernos", r.caso, "pernos en tracción");
+  cerca("D-2 · Tu = 620·(8,90 − 6,78)/15,28 = 86,02 klb", r.T_kgf, 86.02, 1e-3);
+  cerca("D-2 · Ru = Pu + Tu = 706,02 klb", r.C_kgf, 706.02, 1e-4);
+  cerca("D-2 · el triángulo mide 3·7,22 = 21,66 plg", r.presion.contacto_cm, 21.66, 1e-9);
+  cerca("D-2 · presión máxima 3,26 klb/plg² < 3,32", r.presion.qmax_kgcm2, 3.26, 1e-3);
+  cerca("D-2 · momento en el centro del patín 75,41 klb-plg/plg", r.placa.Mcompresion_kgfcm_cm, 75.41, 2e-3);
+  cerca("D-2 · t elástico 3,74 plg, como McCormac", r.placa.tElastico_cm, 3.74, 1e-3);
+  cerca("D-2 · el perno: por perno 43,01 klb contra la rotura 0,75·0,75·58·1,485",
+    r.pernos.rotura_kgf, 0.75 * 0.75 * 58 * 1.485, 1e-12);
+  cierto("D-2 · y la FLUENCIA, que McCormac no mira, gobierna por poco (48,1 contra 48,5)",
+    r.pernos.gobierna === "fluencia en el área bruta" && r.pernos.ratio > 0.89 && r.pernos.ratio < 0.9);
+  cerca("D-2 · el lado de los pernos: T·(f − a)/B = 86,02·1,72/20", r.placa.Mtraccion_kgfcm_cm,
+    86.02 * (8.5 - 6.78) / 20, 1e-3);
+  cerca("D-2 · la soldadura: C = T = Mu/(d − tf) = 407,08 klb (con su e redondeado, 406,9)",
+    r.soldadura.Ff_kgf, 620 * 8.90 / 13.56, 1e-12);
+  cerca("D-2 · en 2·14,7 − 0,59 = 28,81 plg por patín", r.soldadura.L_cm, 28.81, 1e-12);
+}
+{
+  /* CUANDO LA COLUMNA TIRA · fila J.base.momento.todo.traccion */
+  const base = Object.assign({}, W14, { f_cm: 8.5, nPorLado: 2, db_cm: 1.375, Fy_perno_kgcm2: 36,
+    Fu_perno_kgcm2: 58 });
+  const r = P.momento(Object.assign({}, base, { Pu_kgf: -40, Mu_kgfcm: 100 }));
+  comp("con tracción grande y poco momento, tiran las dos filas", r.caso, "todo en tracción");
+  cerca("T1 = 40/2 + 100/(2·8,5)", r.T_kgf, 20 + 100 / 17, 1e-12);
+  cerca("y la suma de las dos filas es la tracción entera", r.T_kgf + r.T2_kgf, 40, 1e-12);
+  /* en la frontera, C = 0, las dos hipótesis dan lo mismo: M = −P·f */
+  const Mf = 40 * 8.5;
+  const izq = P.momento(Object.assign({}, base, { Pu_kgf: -40, Mu_kgfcm: Mf * (1 + 1e-9) }));
+  const der = P.momento(Object.assign({}, base, { Pu_kgf: -40, Mu_kgfcm: Mf * (1 - 1e-9) }));
+  cerca("en C = 0 no hay salto: la tracción de un lado es la misma con las dos fórmulas",
+    izq.T_kgf, der.T_kgf, 1e-6);
+  cierto("(y de verdad está a cada lado de la frontera)", izq.caso === "pernos en tracción" && der.caso === "todo en tracción");
+  cerca("la soldadura suma la mitad de la tracción a cada patín", r.soldadura.Ff_kgf, 100 / 13.56 + 20, 1e-12);
+  /* ENTRE N/6 Y LOS PATINES: triángulo, y todavía sin pernos */
+  const tri = P.momento(Object.assign({}, W14, { Pu_kgf: 620, Mu_kgfcm: 620 * 6 }));
+  comp("con e = 6 plg (más que N/6 = 4,67, menos que a = 6,78) los pernos aún no tiran",
+    [tri.caso, tri.presion.forma], ["sin tracción en los pernos", "triángulo"]);
+  cerca("y el triángulo es el de siempre: qmax = 2P/(B·3·(N/2 − e))", tri.presion.qmax_kgcm2,
+    2 * 620 / (20 * 3 * (14 - 6)), 1e-12);
+  /* sin momento y en compresión, la placa queda en presión uniforme */
+  const u = P.momento(Object.assign({}, W14, { Pu_kgf: 620, Mu_kgfcm: 0 }));
+  cerca("sin momento la presión es uniforme, P/(B·N)", u.presion.qmax_kgcm2, 620 / 560, 1e-12);
+}
+{
+  /* LAS GUARDAS */
+  lanza("con los pernos en tracción hacen falta f y los pernos por fila",
+    () => P.momento(Object.assign({}, W14, { Pu_kgf: 620, Mu_kgfcm: 620 * 8.9 })), ["f_cm"]);
+  lanza("la placa más corta que el perfil no tiene sentido",
+    () => P.momento(Object.assign({}, W14, { N_cm: 14, Pu_kgf: 620, Mu_kgfcm: 0 })), ["más larga que el perfil"]);
+  /* A2 desde el pedestal */
+  const a2 = P.A2DesdePedestal({ B_cm: 30, N_cm: 40, pedB_cm: 45, pedL_cm: 50 });
+  cerca("A2: la placa crece hasta el primer borde del pedestal (50/40 antes que 45/30)", a2.A2_cm2,
+    1.25 * 1.25 * 30 * 40, 1e-9);
+  lanza("una placa que no cabe en el pedestal se rechaza",
+    () => P.A2DesdePedestal({ B_cm: 50, N_cm: 40, pedB_cm: 45, pedL_cm: 50 }), ["no cabe en el pedestal"]);
+  const t = P.momento(Object.assign({}, W14, { Pu_kgf: 620, Mu_kgfcm: 2700, t_cm: 2 }));
+  cerca("con espesor dado, su ratio es Mu/(φb·Fy·t²/4)", t.placa.ratio,
+    t.placa.Mu_kgfcm_cm / (0.9 * 36 * 4 / 4), 1e-12);
+  comp("y si no llega, no cumple y lo dice", [t.cumple, t.gobierna], [false, "flexión de la placa"]);
+}
+cierto("J.base.momento.t dice que McCormac usa el elástico y por cuánto",
+  /22 %/.test(INV.fila("J.base.momento.t").nota) && /F11-1/.test(INV.art("J.base.momento.t")));
+
 fin();

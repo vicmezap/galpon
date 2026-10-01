@@ -709,6 +709,78 @@
       "clave": true,
       "fuente": "AISC J4.4, ecuación J4-6",
       "nota": "Una cartela corta no pandea: si Lc/r ≤ 25 se toma la fluencia. Si es más esbelta, el módulo NO la calcula: se niega y remite a acero.compresion(), que es donde está el Capítulo E entero. La E.090 §10.5.3 solo dice que se haga «un análisis por un estado límite apropiado», sin número. La User Note del AISC avisa que K no tiene por qué ser 1 aunque se use el Método Directo."
+    },
+    {
+      "id": "J.base.A2",
+      "grupo": "Placa base",
+      "magnitud": "A2 cuando la placa apoya en un pedestal",
+      "valor": "el rectángulo de la placa agrandado hasta el primer borde del pedestal: A2 = k²·B·N, k = mín(bp/B, lp/N)",
+      "unidad": "cm²",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC 360-22 J8, definición de A2",
+      "nota": "Textual: «A2 = maximum area of the portion of the supporting surface that is geometrically similar to and concentric with the loaded area». Sobre un pedestal rectangular, la porción semejante y concéntrica más grande es la placa escalada hasta tocar el lado que llega primero. Si la placa no cabe en el pedestal, A2 < A1 y se rechaza."
+    },
+    {
+      "id": "J.base.momento.metodo",
+      "grupo": "Placa base con momento",
+      "magnitud": "Cómo se reparte la presión y cuándo tiran los pernos",
+      "valor": "e = M/P ≤ (d − tf)/2: presión lineal sin tracción, los pernos no trabajan · e > (d − tf)/2: T = (M − P·a)/(f + a), con la compresión C = P + T en triángulo y su resultante en el centro del patín",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "McCormac-Csernak, Diseño de Estructuras de Acero, Apéndice D, Ejemplos D-1 y D-2 (pp. 688-696)",
+      "nota": "EL AISC 360-22 NO LO TRAE: J8 es solo el aplastamiento, y J9 remite al Design Guide 1 (fila J.dg1), que no está en la carpeta. Zapata 9.7 solo cubre la placa con carga axial. La fuente leída es McCormac, Ap. D: con la resultante dentro de los patines la placa comprime y la presión es lineal (D-1: 620 klb, 225 klb-pie, presiones 0,075 y 2,139 klb/plg²); con la resultante fuera, «la resultante de esta compresión está localizada en el centro del patín» y la tracción del perno sale de tomar momentos respecto a ese punto (D-2: 460 klb-pie, Tu = 86,02 klb, triángulo de 21,66 plg y 3,26 klb/plg²). a = (d − tf)/2 es la distancia del eje al centro del patín y f la del eje a la fila de pernos. El DG1 usa un bloque rectangular de esfuerzos, que da otra posición de la resultante: cuando entre el DG1, esta fila se revisa. La presión límite es la de J8 con su φc (fila J.base.phi)."
+    },
+    {
+      "id": "J.base.momento.t",
+      "grupo": "Placa base con momento",
+      "magnitud": "Espesor de la placa con momento",
+      "valor": "t = √( 4·Mu / (φb·Fy) ) con Mu por unidad de ancho · φb = 0,90",
+      "unidad": "cm",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC 360-22 F11-1 y F11.2(a) · φb de F1",
+      "nota": "F11-1: para barras rectangulares Mn = Mp = Fy·Z ≤ 1,5·Fy·Sx, y F11.2(a): el pandeo lateral-torsional no aplica a barras rectangulares flexionadas respecto a su eje menor, que es como trabaja una placa. Por unidad de ancho Z = t²/4 (y 1,5·S = 1,5·t²/6 = t²/4: el tope no recorta nada). Es el MISMO criterio plástico de la fórmula de Zapata para la placa axial (fila J.base.t). McCORMAC USA EL ELÁSTICO, t = √(6·Mu/(φb·Fy)): 3,08 plg en el D-1 y 3,74 plg en el D-2, un 22 % más que el plástico (√1,5). Se informa al lado, pero manda la norma."
+    },
+    {
+      "id": "J.base.momento.secciones",
+      "grupo": "Placa base con momento",
+      "magnitud": "Dónde se mide el momento de la placa",
+      "valor": "lado comprimido: en el centro del patín · lado de los pernos: T·(f − a)/B · transversal: presión media·n²/2 con n = (B − 0,8·bf)/2",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "McCormac-Csernak Ap. D, Ejemplos D-1 y D-2 · el lado de los pernos, por equilibrio",
+      "nota": "McCormac: «se supone que la sección crítica por flexión está en el centro del patín del lado en que la compresión es mayor», y en el D-1 revisa la dirección transversal con la presión media (1,107 klb/plg²) y n = 4,12 plg. El lado de los pernos no lo revisa en el D-2; aquí se añade con la misma sección crítica, el centro del patín, repartiendo la tracción en el ancho B. Si los pernos caen dentro de los patines no hay voladizo de ese lado."
+    },
+    {
+      "id": "J.base.momento.todo.traccion",
+      "grupo": "Placa base con momento",
+      "magnitud": "Cuando la columna tira más de lo que el momento comprime",
+      "valor": "las dos filas en tracción: T1 = −P/2 + M/(2f), T2 = −P/2 − M/(2f)",
+      "unidad": "kgf",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "equilibrio · empalma con J.base.momento.metodo en C = 0",
+      "nota": "Con levantamiento (0,9·D + 1,25·W en un techo liviano) la fórmula de McCormac da C = P + T ≤ 0: no queda compresión bajo la placa. Entonces tiran las dos filas, y su reparto sale de la estática con las filas a ±f. En C = 0 las dos fórmulas dan lo mismo (T = −P, T2 = 0), así que no hay salto. No es un número nuevo: es la misma estática con la otra hipótesis de contacto."
+    },
+    {
+      "id": "J.base.momento.soldadura",
+      "grupo": "Placa base con momento",
+      "magnitud": "La fuerza en la soldadura de cada patín con la placa",
+      "valor": "Ff = Mu/(d − tf) (+ |Pu|/2 si la columna tira) · cordón de 2·bf − tw por patín, sin el aumento por dirección",
+      "unidad": "kgf",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "McCormac-Csernak Ejemplo D-2 (p. 694-695) · AISC J2.4",
+      "nota": "McCormac: «C = T = Mu/(d − tf) = 407,08 klb» y longitud por patín 2·(14,7) − 0,590 = 28,81 plg. Con la columna en tracción se le suma la mitad de la tracción a cada patín. El AISC J2.4(b) permitiría el factor 1 + 0,5·sen^1,5θ por ser carga transversal al cordón; no se toma, como McCormac: del lado seguro. En el ejemplo McCormac divide entre 28,41 en vez de 28,81 (sale 0,643 plg y no 0,634): errata suya."
     }
   ]
 }

@@ -77,7 +77,9 @@
     "J.anclaje.solo.traccion", "J.anclaje.geometria", "J.anclaje.horiz",
     "J.anclaje.E060.capacidad", "J.anclaje.E060.confinamiento",
     "J.llave.aplast", "J.llave.flexion",
-    "J.costura", "J.dg1", "T.fluencia", "T.rotura"
+    "J.costura", "J.dg1", "T.fluencia", "T.rotura",
+    "J.base.A2", "J.base.momento.metodo", "J.base.momento.t", "J.base.momento.secciones",
+    "J.base.momento.todo.traccion", "J.base.momento.soldadura"
   ]);
 
   /* Los tres φ de la misma superficie · filas J.base.phi y Z.tres.phi */
@@ -412,6 +414,170 @@
     return r;
   }
 
+  /* ---------- A2 DESDE EL PEDESTAL · fila J.base.A2 ---------------------
+     «la mayor porción de la superficie de apoyo geométricamente semejante a
+     la placa y concéntrica con ella»: el rectángulo de la placa agrandado
+     hasta tocar el primer borde del pedestal. */
+  function A2DesdePedestal(d) {
+    exige(d.B_cm > 0 && d.N_cm > 0, "A2DesdePedestal() necesita la placa, B_cm y N_cm");
+    exige(d.pedB_cm > 0 && d.pedL_cm > 0, "A2DesdePedestal() necesita el pedestal, pedB_cm y pedL_cm");
+    exige(d.B_cm <= d.pedB_cm + 1e-9 && d.N_cm <= d.pedL_cm + 1e-9,
+      "la placa (" + d.B_cm + " × " + d.N_cm + " cm) no cabe en el pedestal (" + d.pedB_cm + " × " +
+      d.pedL_cm + " cm): A2 sería menor que A1 y el pedestal no la sostiene entera");
+    const k = Math.min(d.pedB_cm / d.B_cm, d.pedL_cm / d.N_cm);
+    return { A2_cm2: k * k * d.B_cm * d.N_cm, escala: k, art: ART["J.base.A2"] };
+  }
+
+  /* La presión bajo la placa sin tracción: trapecio o triángulo, con la
+     resultante R a la distancia e del centro, hacia +x */
+  function contacto(R, e, B, N) {
+    const ae = Math.abs(e);
+    exige(ae < N / 2, "la resultante de la compresión cae fuera de la placa (e = " + ae.toFixed(2) +
+      " cm, N/2 = " + (N / 2).toFixed(2) + " cm): no hay presión que la equilibre");
+    if (ae <= N / 6) {
+      const q0 = R / (B * N);
+      const qa = q0 * (1 - 6 * ae / N), qb = q0 * (1 + 6 * ae / N);
+      return { forma: "trapecio", qmax: qb, qmin: qa, contacto_cm: N,
+        q: (x) => qa + (qb - qa) * (x + N / 2) / N };
+    }
+    const a = 3 * (N / 2 - ae), qmax = 2 * R / (B * a);
+    return { forma: "triángulo", qmax: qmax, qmin: 0, contacto_cm: a,
+      q: (x) => { const t = x - (N / 2 - a); return t <= 0 ? 0 : qmax * t / a; } };
+  }
+  function integra(f, a, b) {
+    if (!(b > a)) return 0;
+    const n = 400, h = (b - a) / n;
+    let s = f(a) + f(b);
+    for (let i = 1; i < n; i++) s += f(a + i * h) * (i % 2 ? 4 : 2);
+    return s * h / 3;
+  }
+
+  /* ---------- LA PLACA CON MOMENTO · filas J.base.momento.* ------------
+     La columna empotrada del galpón le da a la placa P y M a la vez.  El AISC
+     360-22 solo trae el aplastamiento (J8); cómo se reparte la presión y cómo
+     entran los pernos es del Design Guide 1, que no está en la carpeta (fila
+     J.dg1).  Lo que sí está es McCormac-Csernak, Apéndice D, con DOS ejemplos
+     resueltos que la prueba reproduce:
+       · e = M/P dentro de los patines: la placa entera comprime, presión lineal
+         (trapecio o triángulo) y los pernos no trabajan (Ejemplo D-1)
+       · e fuera: los pernos del otro lado tiran; la compresión se supone con
+         su resultante en el centro del patín comprimido, repartida en
+         triángulo, y la tracción sale de tomar momentos respecto a ese punto
+         (Ejemplo D-2)
+     El espesor NO es el de McCormac: él usa el módulo elástico (6·M/φFy) y el
+     AISC F11-1 da a una barra rectangular su momento plástico, Fy·Z = Fy·t²/4
+     por unidad de ancho, y el pandeo lateral no aplica a una placa que
+     flexiona como losa (fila J.base.momento.t).  Es lo mismo que hace Zapata
+     en la placa con carga axial, así que las dos fórmulas del módulo son
+     coherentes.  El elástico se da al lado: sale un 22 % más grueso. */
+  function momento(d) {
+    const P = d.Pu_kgf, M = Math.abs(d.Mu_kgfcm || 0);
+    exige(typeof P === "number", "momento() necesita Pu_kgf (+ compresión, − tracción)");
+    exige(d.d_cm > 0 && d.bf_cm > 0 && d.tf_cm > 0, "momento() necesita d_cm, bf_cm y tf_cm del perfil");
+    exige(d.B_cm > 0 && d.N_cm > 0, "momento() necesita la placa, B_cm y N_cm");
+    exige(d.N_cm > d.d_cm, "la placa (N = " + d.N_cm + " cm) tiene que ser más larga que el perfil (d = " +
+      d.d_cm + " cm) en la dirección del momento");
+    exige(d.Fy_kgcm2 > 0, "momento() necesita el Fy de la placa");
+    const B = d.B_cm, N = d.N_cm;
+    const a = (d.d_cm - d.tf_cm) / 2;                   /* del eje al centro del patín */
+    const phib = (d.phi_b === undefined) ? PHI_B : d.phi_b;
+
+    /* el esfuerzo de aplastamiento que se permite, J8 */
+    const ap = aplastamiento({ B_cm: B, N_cm: N, fc_kgcm2: d.fc_kgcm2, A2_cm2: d.A2_cm2, phi_c: d.phi_c });
+    const fp = ap.phiPn_kgf / ap.A1_cm2;
+
+    const out = { Pu_kgf: P, Mu_kgfcm: M, a_cm: a, fp_kgcm2: fp, aplastamiento: ap,
+      art: ART["J.base.momento.metodo"] };
+    let T = 0, C = 0, pr = null;
+    const e = P > 0 ? M / P : Infinity;
+    out.e_cm = P > 0 ? e : null;
+    if (P > 0 && e <= a + 1e-12) {
+      out.caso = "sin tracción en los pernos";
+      out.porQue = "e = M/P = " + e.toFixed(2) + " cm cae dentro de los patines (" + a.toFixed(2) +
+        " cm): la placa comprime entera o en parte, y los pernos no tiran";
+      C = P;
+      pr = contacto(P, e, B, N);
+    } else {
+      exige(d.f_cm > 0 && d.f_cm < N / 2, "con los pernos en tracción hace falta f_cm, la distancia del " +
+        "eje de la columna a la fila de pernos, dentro de la placa");
+      exige(d.nPorLado >= 1, "con los pernos en tracción hace falta nPorLado, los pernos de cada fila");
+      const f = d.f_cm;
+      T = (M - P * a) / (f + a);
+      C = P + T;
+      if (C > 1e-9) {
+        out.caso = "pernos en tracción";
+        out.porQue = (P > 0 ? "e = " + e.toFixed(2) + " cm sale de los patines (" + a.toFixed(2) + " cm)"
+          : "la columna tira") + ": los pernos del otro lado tiran y la compresión se concentra " +
+          "bajo el patín comprimido";
+        pr = contacto(C, a, B, N);
+      } else {
+        /* la tracción neta puede más que el momento: tiran las dos filas · fila
+           J.base.momento.todo.traccion, por equilibrio, y empalma con lo anterior en C = 0 */
+        out.caso = "todo en tracción";
+        out.porQue = "la columna tira más de lo que el momento comprime: tiran las dos filas de pernos";
+        T = -P / 2 + M / (2 * f);
+        out.T2_kgf = -P / 2 - M / (2 * f);
+        C = 0;
+        out.artTodo = ART["J.base.momento.todo.traccion"];
+      }
+      out.f_cm = f;
+    }
+    out.T_kgf = T;
+    out.C_kgf = C;
+
+    /* ---- el concreto ---- */
+    if (pr) {
+      out.presion = { forma: pr.forma, qmax_kgcm2: pr.qmax, qmin_kgcm2: pr.qmin, contacto_cm: pr.contacto_cm };
+      out.ratioAplastamiento = pr.qmax / fp;
+    } else {
+      out.presion = null;
+      out.ratioAplastamiento = 0;
+    }
+
+    /* ---- la placa · las tres secciones de McCormac, fila J.base.momento.secciones ---- */
+    const Mc = pr ? integra((x) => pr.q(x) * (x - a), a, N / 2) : 0;
+    const Mt = T > 0 && d.f_cm > a ? T * (d.f_cm - a) / B : 0;
+    const n = (B - 0.80 * d.bf_cm) / 2;
+    const Mn = pr && n > 0 ? (pr.qmax + pr.qmin) / 2 * n * n / 2 : 0;
+    const Mp = Math.max(Mc, Mt, Mn);
+    out.placa = {
+      Mcompresion_kgfcm_cm: Mc, Mtraccion_kgfcm_cm: Mt, Mtransversal_kgfcm_cm: Mn, n_cm: n,
+      gobierna: Mp === Mc ? "lado comprimido, en el centro del patín" :
+        (Mp === Mt ? "lado de los pernos, en el centro del patín" : "dirección transversal, a 0,8·bf"),
+      Mu_kgfcm_cm: Mp, phi_b: phib,
+      t_cm: Math.sqrt(4 * Mp / (phib * d.Fy_kgcm2)),
+      tElastico_cm: Math.sqrt(6 * Mp / (phib * d.Fy_kgcm2)),
+      art: ART["J.base.momento.t"], artSecciones: ART["J.base.momento.secciones"]
+    };
+    if (d.t_cm !== undefined) {
+      out.placa.tDado_cm = d.t_cm;
+      out.placa.ratio = Mp / (phib * d.Fy_kgcm2 * d.t_cm * d.t_cm / 4);
+    }
+
+    /* ---- los pernos ---- */
+    if (T > 0) {
+      out.pernos = anclajesTraccion(Object.assign({}, d, { nPernos: d.nPorLado, Tu_kgf: T }));
+      if (out.T2_kgf > 0) out.pernos.otraFila_kgf = out.T2_kgf;
+    }
+
+    /* ---- la soldadura columna-placa: la fuerza en cada patín · fila J.base.momento.soldadura ---- */
+    out.soldadura = {
+      Ff_kgf: M / (d.d_cm - d.tf_cm) + Math.max(0, -P) / 2,
+      L_cm: 2 * d.bf_cm - (d.tw_cm || 0),
+      art: ART["J.base.momento.soldadura"]
+    };
+
+    const ratios = [{ que: "aplastamiento del concreto", ratio: out.ratioAplastamiento }];
+    if (out.placa.ratio !== undefined) ratios.push({ que: "flexión de la placa", ratio: out.placa.ratio });
+    if (out.pernos) ratios.push({ que: "pernos a tracción", ratio: out.pernos.ratio });
+    out.ratios = ratios;
+    const peor = ratios.reduce((x, y) => (y.ratio > x.ratio ? y : x));
+    out.gobierna = peor.que;
+    out.ratioMaximo = peor.ratio;
+    out.cumple = peor.ratio <= 1 + 1e-9;
+    return out;
+  }
+
   /* ---------- LA PLACA ENTERA ------------------------------------------
      Compresión y levantamiento son DOS casos y los dos se miran.  Si hay
      cortante y no hay llave, se exige: repartirlo entre los pernos sin
@@ -487,6 +653,7 @@
   return {
     ART, PHI_C, PHI_B, PHI_P, PHI_T_FLUENCIA, PHI_T_ROTURA, FACTOR_ROSCA,
     aplastamiento, areaNecesaria, voladizos, espesorVoladizo, espesorLineas,
-    espesor, anclajesTraccion, geometriaAnclajes, llaveDeCorte, verifica
+    espesor, anclajesTraccion, geometriaAnclajes, llaveDeCorte, verifica,
+    A2DesdePedestal, contacto, momento
   };
 });
