@@ -113,7 +113,12 @@
 
   /* ---------- LO QUE SE GUARDA, Y NADA MÁS · fila L.solo.entradas ------ */
   const CLAVES = ["formato", "nombre", "parametros", "secciones", "ediciones",
-    "sitio", "sistema", "vista", "guardado"];
+    "sitio", "sistema", "diseno", "vista", "guardado"];
+
+  /* Los datos de diseño · misma regla: lo que no está en la lista PARA. */
+  const DISENO = ["arriostreInferior_m", "separacionLargueros_m", "LbColumna_m", "cartela",
+    "separadores_cm", "conexionSeparadores", "condicionesE5", "uniones", "soldadura_cm",
+    "pernosPorLinea", "diametroPerno", "arriostreComprobado"];
 
   /* Los datos del sitio y de las cargas.  Misma regla que PARAMETROS: una
      clave que no está aquí PARA al guardar, en vez de perderse en silencio. */
@@ -154,6 +159,7 @@
       ediciones: o.ediciones ? o.ediciones.slice() : [],
       sitio: o.sitio || {},
       sistema: o.sistema || null,
+      diseno: o.diseno || {},
       vista: o.vista || {},
       guardado: null
     };
@@ -387,6 +393,11 @@
         "libro: datos de sitio desconocidos: " + sobranS.join(", ") + "\n" +
         "  Añádelos a SITIO si son de verdad datos del sitio o de las cargas.");
     }
+    const sobranD = Object.keys(modelo.diseno || {}).filter((k) => DISENO.indexOf(k) < 0);
+    if (sobranD.length) {
+      throw new Error("libro: datos de diseño desconocidos: " + sobranD.join(", ") +
+        ". Añádelos a DISENO si son de verdad datos de diseño.");
+    }
     if (modelo.sistema) {
       for (const k of Object.keys(SISTEMA)) {
         exige(SISTEMA[k].indexOf(modelo.sistema[k]) >= 0,
@@ -524,7 +535,7 @@
   return {
     ART, HOJA_MODELO, HOJA_RESULTADOS, HOJAS, VISIBILIDAD,
     TROZO, MAX_FILAS, TROZO_MSG, RANGO, MARCA, FORMATO,
-    CLAVES, PARAMETROS, TIPOS, SITIO, SISTEMA,
+    CLAVES, PARAMETROS, TIPOS, SITIO, SISTEMA, DISENO,
     nuevo, valida, clona, edita, validaEdicion, aplica, olvidaEdiciones,
     parametrosEditables, asignaPerfil, perfilDe, perfilesHuerfanos,
     paraGuardar, serializa, deserializa,

@@ -49,7 +49,7 @@
     "T.An.agujero", "T.An.zigzag",
     "T.bloque.aisc", "T.bloque.Ubs", "T.bloque.divergencia",
     "T.rotura.corte", "T.rotura.trac",
-    "T.esbeltez", "T.varillas", "T.varillas.Rn", "T.varillas.Ab", "T.varillas.manda",
+    "T.esbeltez", "T.varillas", "T.varillas.Rn", "T.varillas.Ab", "T.varillas.manda", "C.E4.2L",
     "C.Pn", "C.phi", "C.Fn.a", "C.Fn.b", "C.Fe", "C.Lc", "C.esbeltez",
     "C.identicas", "C.nomenclatura", "C.estados", "C.Fn.frontera",
     "C.B4a", "C.B4a.c1", "C.B4a.c2", "C.B4a.c3", "C.B4a.c4", "C.B4a.c5",
@@ -591,13 +591,24 @@
     }
 
     const lr = Lc / r;
-    const fe = Fe({ lr: lr });
+    let fe = Fe({ lr: lr });
+    /* EL E4 · fila C.E4.2L.  Si quien llama trae un Fe torsional o
+       flexotorsional, manda el menor de los dos: el de flexión con Lc/r y el
+       que viene de fuera.  Así el E3 sigue igual y el E4 entra sin copiarlo. */
+    let feOrigen = "flexión (E3)";
+    if (d.Fe_kgcm2 !== undefined) {
+      if (!(d.Fe_kgcm2 > 0)) throw new Error("acero: compresion() · Fe_kgcm2 tiene que ser > 0");
+      if (d.Fe_kgcm2 < fe.Fe_kgcm2) {
+        fe = { Fe_kgcm2: d.Fe_kgcm2 };
+        feOrigen = d.feOrigen || "torsional o flexotorsional (E4)";
+      }
+    }
     const fn = Fn({ Fy_kgcm2: mat.Fy, Fe_kgcm2: fe.Fe_kgcm2 });
     const Pn = fn.Fn_kgcm2 * Ag;
 
     const out = {
       Pn_kgf: Pn, phi: PHI_C, Pd_kgf: PHI_C * Pn,
-      Fn_kgcm2: fn.Fn_kgcm2, Fe_kgcm2: fe.Fe_kgcm2, lr: lr,
+      Fn_kgcm2: fn.Fn_kgcm2, Fe_kgcm2: fe.Fe_kgcm2, lr: lr, feOrigen: feOrigen,
       tramo: fn.tramo, razonFyFe: fn.razon,
       lrFrontera: lrFrontera(mat.Fy),
       Ag_cm2: Ag, Fy_kgcm2: mat.Fy,

@@ -163,7 +163,7 @@ src/
   libro.js         el modelo en el libro · serializa, trocea, y las capas de edición
   panel.js         lo que enseña el panel de tareas · es un lanzador, no la aplicación
 inventario/
-  *.json           las filas del inventario, catorce secciones (el total lo da inventario.html)
+  *.json           las filas del inventario, quince secciones (el total lo da inventario.html)
 pruebas/
   correr.js        el runner
   _comun.js        comp · cerca · cierto · lanza · fin

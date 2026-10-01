@@ -1,0 +1,67 @@
+{
+  "seccion": "diseno",
+  "titulo": "El diseño del pórtico",
+  "modulos": [
+    "diseno.js"
+  ],
+  "version": 1,
+  "fecha": "2026-10-01",
+  "regla": "Ningún número entra al código sin fila aquí. Sin fuente primaria leída, no entra.",
+  "estados": {
+    "verificado": "leído en el texto original de la fuente",
+    "adoptado": "criterio de fuente reconocida, no normativa; se cita y se declara",
+    "conflicto": "dos fuentes válidas dan valores distintos; hay decisión tomada",
+    "sin_fuente": "criterio propio del proyectista; se adopta y se declara",
+    "pendiente": "falta el documento; no se usa hasta tenerlo"
+  },
+  "magnitudes": [
+    {
+      "id": "D.DIS.longitudes",
+      "grupo": "El diseño del pórtico",
+      "magnitud": "Las longitudes de pandeo de cada barra",
+      "valor": "K = 1 · brida superior: el paño (una correa en cada nudo) · brida inferior: fuera del plano, cada cuánto se arriostra · diagonal y montante: su longitud · columna: altura en el plano, largueros fuera",
+      "unidad": "cm",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC 360-22 C3 (fila E.C3.K) · montaje.js",
+      "nota": "Con el Método Directo K = 1 y lo que importa es la longitud NO ARRIOSTRADA. La brida superior tiene una correa sobre cada nudo —así lo monta montaje.js—, así que fuera del plano mide un paño, siempre que la correa se gane el Apéndice 6 (fila E.C3.arriostre). La brida inferior no tiene correas: fuera del plano mide lo que el proyectista diga que separa sus arriostres laterales, y es el dato que decide el levantamiento. La columna: la altura de cada tramo en el plano, la separación de largueros fuera, y para el pandeo lateral-torsional el Lb que dé el proyectista —el ala interior no la sujeta el larguero sin tornapuntas—."
+    },
+    {
+      "id": "D.DIS.E5",
+      "grupo": "El diseño del pórtico",
+      "magnitud": "La diagonal de ángulo simple sin las condiciones del E5",
+      "valor": "no se verifica: es flexo-compresión del Cap. H y se marca como control esencial que falta",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC 360-22 E5 · fila C.E5.cond",
+      "nota": "El E5 permite tratar un ángulo simple conectado por un lado como barra axial, con una esbeltez efectiva que ya incluye la excentricidad, si se cumplen cinco condiciones. Si el proyectista no las confirma, la barra es una viga-columna del Cap. H con el momento de la excentricidad, y eso no está conectado aquí. Calcularla como axial sin el E5 ignoraría la excentricidad: daría un ratio bajo y falso. Por eso no se calcula y la barra NO cumple."
+    },
+    {
+      "id": "D.DIS.cartela",
+      "grupo": "El diseño del pórtico",
+      "magnitud": "La separación de los ángulos dobles",
+      "valor": "en contacto · cartela de 3/8\" · cartela de 3/4\": elige ry, ro y H del catálogo",
+      "unidad": "plg",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "catálogo AISC Shapes Database v13, columnas sep0 / sep38 / sep34",
+      "nota": "El radio de giro fuera del plano de un 2L depende de cuánto separa la cartela los dos ángulos, y el catálogo lo trae tabulado para tres separaciones. Con los ángulos en contacto continuo el lado saliente es caso 1 de la Tabla B4.1a; separados por la cartela, caso 3, que es más estricto."
+    },
+    {
+      "id": "D.DIS.unicos",
+      "grupo": "El diseño del pórtico",
+      "magnitud": "Qué combinaciones se verifican en cada barra",
+      "valor": "barras del tijeral: la mayor tracción y la mayor compresión · columnas: todas",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "elemento.js · AISC 360-22 Cap. H",
+      "nota": "Una barra del tijeral solo tiene axial, y su ratio crece con |N| en cada signo: basta la combinación de mayor tracción y la de mayor compresión. La columna es viga-columna, y la combinación que gobierna la interacción del Cap. H no tiene por qué ser la de mayor axial ni la de mayor momento: se verifican todas."
+    }
+  ]
+}

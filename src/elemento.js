@@ -116,8 +116,10 @@
           "giro que gobierna");
       }
       const c = AC.compresion({ acero: acero, Ag_cm2: p.A_cm2, Lc_cm: Lc, r_cm: r,
-        noEsbelta: d.noEsbelta, elementos: d.elementosEsbeltez, Pu_kgf: Pcomp });
-      ratios.push({ estado: "compresión · pandeo por flexión, " + c.tramo,
+        noEsbelta: d.noEsbelta, elementos: d.elementosEsbeltez, Pu_kgf: Pcomp,
+        Fe_kgcm2: L.Fe_kgcm2, feOrigen: L.feOrigen });
+      ratios.push({ estado: "compresión · pandeo " + (c.feOrigen === "flexión (E3)"
+        ? "por flexión" : c.feOrigen) + ", " + c.tramo,
         valor: c.ratio, capacidad_kgf: c.Pd_kgf, art: c.art, cap: "E" });
       Pc = c.Pd_kgf;
       /* El arriostre que define Lc tiene que ganárselo · fila E.C3.arriostre */

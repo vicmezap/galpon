@@ -580,6 +580,18 @@
       "editable": false,
       "fuente": "AISC E7-6 y E7-7",
       "nota": "EL 0,45·E/Fy ES UN TOPE DURO: por encima el HSS redondo queda FUERA del alcance del capítulo y no hay ecuación que aplicar. Con A36 el tope es D/t = 363."
+    },
+    {
+      "id": "C.E4.2L",
+      "grupo": "Pandeo torsional y flexotorsional",
+      "magnitud": "El E4 es obligatorio en las secciones de simetría simple: los 2L",
+      "valor": "Fe = el menor de Fex (en el plano) y el flexotorsional E4-3, con Fey por la esbeltez modificada del E6",
+      "unidad": "kgf/cm²",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC 360-22 E4, párrafo de alcance, y E6.1",
+      "nota": "Textual del E4: «This section applies to singly symmetric and unsymmetric members, certain doubly symmetric members [...] all without slender elements». Un ángulo doble es de simetría simple, así que a las bridas 2L de un tijeral les toca el E4 además del E3. NO SE COMPROBABA: acero.compresion() solo hacía el pandeo por flexión, y las funciones del E4 —roH, Fez, FeSimpleSimetria— estaban escritas y sin usar. Salió al conectar el paso Diseño. Con el eje y como eje de simetría (los lados verticales espalda con espalda), la E4-3 combina Fey con Fez; Fey va con la esbeltez MODIFICADA del E6 —los dos ángulos solo están unidos por separadores—, que usa la separación entre separadores y el rz de un ángulo. J del 2L es el doble del J de un ángulo, y ro y H salen del catálogo para la separación de la cartela. El término con Cw se omite, como permite la User Note (fila C.E4.Cw)."
     }
   ]
 }

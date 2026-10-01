@@ -1,0 +1,184 @@
+/* =====================================================================
+   probar_diseno.js — el ratio de cada barra del pórtico
+
+   Lo que más importa no es el número: es que LO QUE NO SE PUDO COMPROBAR
+   NO CUENTE COMO COMPROBADO.  Una diagonal sin las condiciones del E5, unos
+   separadores demasiado lejos o una columna de ala no compacta tienen que
+   salir como «no cumple», aunque su ratio sea bajo.
+
+   El E4 se valida con McCormac, Ejemplo 6-9: una WT10.5×66 con pandeo
+   flexotorsional, resuelta paso a paso.  Es una te y no un 2L, pero la
+   ecuación E4-3 es la misma y es lo que el 2L usa.
+   ===================================================================== */
+"use strict";
+
+const { comp, cerca, cierto, lanza, fin } = require("./_comun.js");
+const DI = require("../src/diseno.js");
+const A = require("../src/analisis.js");
+const AC = require("../src/acero.js");
+const MON = require("../src/montaje.js");
+const P = require("../src/perfiles.js");
+const UN = require("../src/unidades.js");
+const INV = require("../src/inventario.js");
+
+const KSI = UN.KSI_KGCM2, PLG = UN.PULGADA_CM, K = UN.KIP_KGF;
+
+comp("todas las filas que cita el módulo existen", Object.keys(DI.ART).filter((id) => !INV.existe(id)), []);
+
+/* ================================================================
+   1 · EL E4 · McCormac 6-9, WT10.5×66, A992
+   ================================================================ */
+const ey = DI.feFlexotorsional({ Fey_kgcm2: 42.66 * KSI, J_cm4: 5.62 * Math.pow(PLG, 4),
+  Cw_cm6: 23.4 * Math.pow(PLG, 6), Lcz_cm: 240 * PLG, Ag_cm2: 19.4 * PLG * PLG,
+  ro2: 21.16 * PLG * PLG, H: 0.84517 });
+/* McCormac usa G = 11 200 ksi; el proyecto, MAT.G = 784 000 kgf/cm² (11 151 ksi). E igual. */
+cerca("McCORMAC 6-9 · Fez = 153,62 ksi (G del proyecto un 0,4 % distinto)", ey.Fez_kgcm2 / KSI, 153.62, 0.006);
+cerca("McCORMAC 6-9 · Fe flexotorsional = 40,42 ksi", ey.Fe_kgcm2 / KSI, 40.42, 0.004);
+cierto("y Fe ≤ Fey: el flexotorsional nunca es mayor que el de flexión", ey.Fe_kgcm2 <= 42.66 * KSI);
+/* con el Fe de fuera, compresion() toma el menor: aquí manda la flexión en x */
+const A992 = { Fy_kgcm2: 50 * KSI, Fu_kgcm2: 65 * KSI };
+const cx = AC.compresion(Object.assign({ Ag_cm2: 19.4 * PLG * PLG, Lc_cm: 300 * PLG, r_cm: 3.06 * PLG,
+  noEsbelta: true, Fe_kgcm2: ey.Fe_kgcm2 }, A992));
+cerca("McCORMAC 6-9 · manda la flexión en x: Pn = 480,3 klb", cx.Pn_kgf / K, 480.3, 0.003);
+comp("y lo dice", cx.feOrigen, "flexión (E3)");
+const cft = AC.compresion(Object.assign({ Ag_cm2: 19.4 * PLG * PLG, Lc_cm: 120 * PLG, r_cm: 3.06 * PLG,
+  noEsbelta: true, Fe_kgcm2: ey.Fe_kgcm2, feOrigen: "flexotorsional (E4)" }, A992));
+cerca("si la x fuera corta, mandaría el E4: Pn = 577,9 klb", cft.Pn_kgf / K, 577.9, 0.004);
+comp("y diría que es el flexotorsional", cft.feOrigen, "flexotorsional (E4)");
+
+/* ================================================================
+   2 · EL PÓRTICO
+   ================================================================ */
+const m3 = MON.monta({ luz_m: 20, largo_m: 60, sepPorticos_m: 6, alturaColumna_m: 6, paneles: 6,
+  peralteApoyo_m: 1.2, pendiente: 0.20, cuerdas: "dos_aguas", alma: "howe",
+  panosArriostradosTecho: [5], panosArriostradosFachada: [5] });
+const N = { "columna": "W10X33", "brida superior": "2L3X3X1/4", "brida inferior": "2L3X3X1/4",
+  "diagonal": "L3X3X1/4", "montante": "L3X3X1/4", "correa": "C8X11.5", "viga de alero": "C8X11.5" };
+const sec = (b) => (N[b.clase] ? P.busca(N[b.clase]) : null);
+const r = A.analiza({ m3: m3, seccion: sec, acero: "A36", sistema: { base: "empotrada", union: "rigida" },
+  cargas: { D_kgfm2: 8.35, Lr_kgfm2: 20.1, viento: { V_kmh: 75, aberturas: "repartidas", tipo: 1 },
+    sismo: { zona: "Z4", suelo: "S2", categoria: "C", sistema: "OMF" } } });
+const DZ = { arriostreInferior_m: 3.33, separacionLargueros_m: 1.5, LbColumna_m: 3, cartela: "3/8",
+  separadores_cm: 60, conexionSeparadores: "requintado", condicionesE5: true, uniones: "soldadas",
+  soldadura_cm: 10, arriostreComprobado: true };
+const corre = (dz, sc) => DI.verificaPortico({ analisis: r, m3: m3, seccion: sc || sec, acero: "A36", diseno: dz });
+
+/* ---- sin datos, se piden, sin rellenar ninguno ---- */
+const v0 = corre({});
+comp("sin datos no se verifica", v0.ok, false);
+comp("y se pide cada dato de diseño", v0.faltan.map((f) => f.campo).sort(),
+  ["di_ap6", "di_arrinf", "di_cart", "di_consep", "di_e5", "di_larg", "di_lb", "di_sep", "di_un"]);
+comp("con uniones soldadas, se pide la longitud de soldadura",
+  corre(Object.assign({}, DZ, { soldadura_cm: undefined })).faltan.map((f) => f.campo), ["di_sold"]);
+comp("con empernadas, los pernos",
+  corre(Object.assign({}, DZ, { uniones: "empernadas" })).faltan.map((f) => f.campo), ["di_pern"]);
+
+/* ---- con todo ---- */
+const v = corre(DZ);
+comp("con todo, se verifica", v.ok, true);
+comp("todas las barras del pórtico", v.resumen.total, Object.keys(r.barras).length);
+cierto("cada barra tiene ratio", Object.keys(v.barras).every((k) => typeof v.barras[k].ratio === "number"));
+comp("las cinco clases, con su peor barra", Object.keys(v.porClase).sort(),
+  ["brida inferior", "brida superior", "columna", "diagonal", "montante"]);
+
+/* ---- LA TRACCIÓN REHECHA A MANO: la brida inferior ---- */
+const bi = v.barras.BI3;
+const pBI = P.busca("2L3X3X1/4"), L1 = P.busca("L3X3X1/4");
+const Ubi = 1 - L1.xbar_cm / 10;
+const tBI = r.barras.BI3.traccion.Pr_kgf;
+const capBI = Math.min(0.9 * 2530 * pBI.A_cm2, 0.75 * 4080 * Ubi * pBI.A_cm2);
+cierto("la brida inferior se verifica también en COMPRESIÓN (levantamiento)", bi.verificadas === 2);
+cierto("y su ratio no es menor que el de la tracción hecha a mano: la envolvente toma el peor",
+  bi.ratio >= tBI / capBI - 1e-12);
+{
+  /* la tracción sola, para compararla exacta */
+  const EL = require("../src/elemento.js");
+  const t = EL.verifica({ id: "BI3", perfil: pBI, acero: "A36", An_cm2: pBI.A_cm2, U: Ubi,
+    fuerzas: { Pu_kgf: tBI }, longitudes: {} });
+  cerca("la tracción de la brida inferior es exactamente la de la cuenta a mano", t.ratio, tBI / capBI, 1e-12);
+}
+
+/* ---- EL E4 ENTRA EN LAS BRIDAS COMPRIMIDAS ---- */
+const bs = v.barras.BS4;
+cierto("la brida superior comprimida lleva su E4", bs.E4 && bs.E4.Fe_kgcm2 > 0);
+cierto("con Fe flexotorsional ≤ Fey", bs.E4.Fe_kgcm2 <= bs.E4.Fey_kgcm2 + 1e-9);
+
+/* ---- LO QUE NO SE PUEDE COMPROBAR, NO CUMPLE ---- */
+const sinE5 = corre(Object.assign({}, DZ, { condicionesE5: false }));
+const dsin = Object.keys(sinE5.barras).map((k) => sinE5.barras[k]).filter((x) => x.clase === "diagonal");
+cierto("SIN LAS CONDICIONES DEL E5, ninguna diagonal comprimida cumple",
+  dsin.filter((x) => x.verificadas === 2).every((x) => !x.cumple && x.faltanEsenciales));
+cierto("y dice por qué: es flexo-compresión del Cap. H",
+  dsin.some((x) => x.omitidos.some((o) => /Cap\. H/.test(o.motivo))));
+const lejos = corre(Object.assign({}, DZ, { separadores_cm: 300 }));
+cierto("SEPARADORES DEMASIADO LEJOS: la brida comprimida no cumple aunque su ratio sea bajo",
+  !lejos.barras.BS4.cumple && lejos.barras.BS4.omitidos.some((o) => /separadores/.test(o.que) && o.esencial));
+cierto("y dice la separación máxima", lejos.barras.BS4.omitidos.some((o) => /como máximo/.test(o.motivo)));
+cierto("los separadores lejos BAJAN la capacidad: la esbeltez modificada crece",
+  lejos.barras.BS4.ratio >= v.barras.BS4.ratio);
+const brida = corre(Object.assign({}, DZ, { arriostreInferior_m: 20 }));
+cierto("SIN ARRIOSTRE en la brida inferior (20 m), su compresión de levantamiento sube",
+  brida.barras.BI3.ratio > v.barras.BI3.ratio);
+const pocos = corre(Object.assign({}, DZ, { uniones: "empernadas", pernosPorLinea: 2, diametroPerno: '5/8"' }));
+cierto("con 2 pernos por línea el U no se puede tomar del caso 8, y se dice",
+  Object.keys(pocos.barras).some((k) => pocos.barras[k].omitidos.some((o) => /retraso|U/.test(o.que + o.motivo))));
+/* una columna de ala no compacta con A36: no se calcula por F2 */
+const noComp = (b) => (b.clase === "columna" ? P.busca("W6X15") : sec(b));
+const rN = A.analiza({ m3: m3, seccion: noComp, acero: "A36", sistema: { base: "empotrada", union: "rigida" },
+  cargas: { D_kgfm2: 8.35, Lr_kgfm2: 20.1, viento: { V_kmh: 75, aberturas: "repartidas", tipo: 1 } } });
+const vN = DI.verificaPortico({ analisis: rN, m3: m3, seccion: noComp, acero: "A36", diseno: DZ });
+cierto("W6X15: bf/2tf = " + P.busca("W6X15").bf_2tf + " > 10,8 con A36: el ala NO es compacta",
+  P.busca("W6X15").bf_2tf > 0.38 * Math.sqrt(AC.E_ACERO / 2530));
+cierto("y la columna no se da por buena por F2: falta F3", !vN.barras.C0.cumple &&
+  vN.barras.C0.omitidos.some((o) => /no compacta/.test(o.que)));
+
+/* ---- CASOS QUE DISTINGUEN: con los perfiles de arriba estos controles no
+   deciden, y un mutante que los rompía sobrevivía. ---- */
+{
+  /* EL E4, comprobado contra el catálogo: J del 2L = 2·J del ángulo, ro y H de la cartela */
+  const L1b = P.busca("L3X3X1/4"), p2 = P.busca("2L3X3X1/4");
+  const g = A.geometria(m3, r.sistema, r.eje);
+  const bs4 = g.truss.filter((b) => b.id.split("@")[0] === "BS4")[0];
+  const a = g.nudos.filter((n) => n.id === bs4.i)[0], c = g.nudos.filter((n) => n.id === bs4.j)[0];
+  const Lc = Math.hypot(c.x_m - a.x_m, c.y_m - a.y_m) * 100;
+  const e6 = AC.esbeltezModificada({ lr0: Lc / p2.ry_sep38_cm, a_cm: 60, ri_cm: L1b.rz_cm, conexion: "requintado" });
+  const fe = DI.feFlexotorsional({ Fey_kgcm2: Math.PI * Math.PI * AC.E_ACERO / (e6.lrm * e6.lrm),
+    J_cm4: 2 * L1b.J_cm4, Lcz_cm: Lc, Ag_cm2: p2.A_cm2, ro2: p2.ro_sep38_cm * p2.ro_sep38_cm, H: p2.H_sep38 });
+  cerca("el Fe flexotorsional de la brida es el de la E4-3 con los datos del catálogo",
+    v.barras.BS4.E4.Fe_kgcm2, fe.Fe_kgcm2, 1e-12);
+  /* EL E6: con separadores a 100 cm, a/ri pasa de 40 y la esbeltez se modifica */
+  const s100 = corre(Object.assign({}, DZ, { separadores_cm: 100 }));
+  cierto("separadores a 100 cm: a/ri > 40 y la esbeltez SE MODIFICA (E6-2)",
+    s100.barras.BS4.E6 && s100.barras.BS4.E6.lrm > s100.barras.BS4.E6.lr0);
+  const s30 = corre(Object.assign({}, DZ, { separadores_cm: 30 }));
+  cierto("a 30 cm no: a/ri ≤ 40 y la esbeltez se queda", s30.barras.BS4.E6 &&
+    s30.barras.BS4.E6.lrm === s30.barras.BS4.E6.lr0);
+  cerca("y Fey se calcula con la esbeltez modificada", s100.barras.BS4.E4.Fey_kgcm2,
+    Math.PI * Math.PI * AC.E_ACERO / Math.pow(s100.barras.BS4.E6.lrm, 2), 1e-12);
+  /* EL U DE LA SOLDADURA: con 5 cm gobierna la rotura y U decide */
+  const s5 = corre(Object.assign({}, DZ, { soldadura_cm: 5 }));
+  const U5 = 1 - L1b.xbar_cm / 5;
+  const t3 = r.barras.BI3.traccion.Pr_kgf;
+  cierto("con 5 cm de soldadura la rotura gobierna la tracción (U = " + U5.toFixed(3) + ")",
+    0.75 * 4080 * U5 < 0.9 * 2530);
+  cierto("y el ratio de la brida inferior es al menos Pu/(0,75·Fu·U·Ag)",
+    s5.barras.BI3.ratio >= t3 / (0.75 * 4080 * U5 * p2.A_cm2) - 1e-12);
+  /* EL CASO B4 DEL 2L: b/t = 14 es esbelto separado (caso 3, λr 12,8) y no en contacto (caso 1, 15,9) */
+  const p35 = (b) => (b.clase === "brida superior" ? P.busca("2L3-1/2X3-1/2X1/4") : sec(b));
+  const rr = A.analiza({ m3: m3, seccion: p35, acero: "A36", sistema: r.sistema,
+    cargas: { D_kgfm2: 8.35, Lr_kgfm2: 20.1, viento: { V_kmh: 75, aberturas: "repartidas", tipo: 1 } } });
+  const sepd = DI.verificaPortico({ analisis: rr, m3: m3, seccion: p35, acero: "A36", diseno: DZ });
+  const cont = DI.verificaPortico({ analisis: rr, m3: m3, seccion: p35, acero: "A36",
+    diseno: Object.assign({}, DZ, { cartela: "0" }) });
+  cierto("2L3½×3½×¼ SEPARADO por la cartela: el lado es esbelto (caso 3) y la brida no se da por buena",
+    !sepd.barras.BS4.cumple && sepd.barras.BS4.faltanEsenciales);
+  cierto("EN CONTACTO continuo (caso 1) no es esbelto y se verifica", cont.barras.BS4.ratio > 0 &&
+    !cont.barras.BS4.omitidos.some((o) => o.esencial));
+}
+
+/* ---- la columna: lo que dice columnas.verifica en la combinación que gobierna ---- */
+const c0 = v.barras.C0;
+cierto("la columna se verifica en TODAS las combinaciones", c0.verificadas === r.corridas.length);
+cierto("y gobierna la interacción del Cap. H o un estado individual con su capítulo", !!c0.capitulo);
+
+fin();

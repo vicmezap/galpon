@@ -23,8 +23,8 @@ cierto("hay más de 250 filas", r.total > 250);
 comp("no queda ninguna fila sin fuente («criterio propio»)", r.sin_fuente, 0);
 
 const secs = INV.secciones().sort();
-comp("están las catorce secciones", secs, [
-  "analisis", "cargas", "cimentacion", "compresion", "conexiones", "corte-flexocompresion",
+comp("están las quince secciones", secs, [
+  "analisis", "cargas", "diseno", "cimentacion", "compresion", "conexiones", "corte-flexocompresion",
   "estabilidad", "flexion", "geometria", "interfaz", "montaje", "perfiles",
   "sismo", "traccion"
 ].sort());
