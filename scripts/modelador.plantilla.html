@@ -301,6 +301,13 @@ svg.zp .barra.fina { stroke-width:1; }
 svg.zp .pres { fill:var(--aviso); fill-opacity:.18; stroke:var(--aviso); stroke-width:1.4; }
 svg.zp .pres.no { fill:var(--alerta); stroke:var(--alerta); }
 svg.zp text { font-family:var(--cifra); font-size:14px; fill:var(--tinta-2); }
+svg.zp .placa { fill:var(--acero); fill-opacity:.35; stroke:var(--acero); stroke-width:1.4; }
+svg.zp .placa.planta { fill:none; stroke-dasharray:6 4; }
+svg.zp .perno { stroke:var(--tinta); stroke-width:2.2; }
+svg.zp circle.perno { fill:var(--ficha); stroke-width:1.6; }
+svg.zp .varilla { stroke:var(--acero); stroke-width:1.8; fill:none; }
+svg.zp .varilla.fina { stroke-width:1; stroke-opacity:.7; }
+svg.zp circle.punto { fill:var(--acero); stroke:none; }
 .ley { display:flex; gap:14px; flex-wrap:wrap; font-family:var(--cifra); font-size:10px;
   color:var(--suave); margin-top:6px; }
 .ley i { display:inline-block; width:18px; height:0; border-top:3px solid; vertical-align:middle;
@@ -907,8 +914,30 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
       '" height="' + f((dc.sobre + dc.Df - dc.h) * k) + '"/>';
     h += '<rect class="conc" x="' + f(X(-dc.L / 2)) + '" y="' + f(Y(dc.Df - dc.h)) + '" width="' + f(dc.L * k) +
       '" height="' + f(dc.h * k) + '"/>';
-    /* la parrilla de abajo, y la de arriba si hace falta */
+    /* las barras del pedestal, bajando hasta la parrilla y con su gancho */
     var yb = Y(dc.Df - dc.rec);
+    if (dc.pedestal) {
+      var xb = dc.pedL / 2 - dc.pedestal.aEje, yt = Y(-dc.sobre + dc.pedestal.aEje), yg = yb - 3;
+      [-1, 1].forEach(function (sg) {
+        h += '<polyline class="varilla" points="' + f(X(sg * xb)) + "," + f(yt) + " " + f(X(sg * xb)) + "," + f(yg) +
+          " " + f(X(sg * (xb + 15))) + "," + f(yg) + '"/>';
+      });
+      for (var jb = 1; jb <= dc.pedestal.ns; jb++) {
+        var xs = -xb + 2 * xb * jb / (dc.pedestal.ns + 1);
+        h += '<line class="varilla fina" x1="' + f(X(xs)) + '" y1="' + f(yt) + '" x2="' + f(X(xs)) + '" y2="' + f(yg) + '"/>';
+      }
+    }
+    /* la placa y los pernos */
+    if (dc.placa) {
+      var tp = Math.max(dc.placa.t * k, 3), ytop = Y(-dc.sobre);
+      h += '<rect class="placa" x="' + f(X(-dc.placa.N / 2)) + '" y="' + f(ytop - tp) + '" width="' + f(dc.placa.N * k) +
+        '" height="' + f(tp) + '"/>';
+      [-1, 1].forEach(function (sg) {
+        h += '<line class="perno" x1="' + f(X(sg * dc.placa.f)) + '" y1="' + f(ytop - tp - 8) + '" x2="' +
+          f(X(sg * dc.placa.f)) + '" y2="' + f(Y(-dc.sobre + dc.placa.Ld)) + '"/>';
+      });
+    }
+    /* la parrilla de abajo, y la de arriba si hace falta */
     h += '<line class="barra" x1="' + f(X(-dc.L / 2 + dc.rec)) + '" y1="' + f(yb) + '" x2="' + f(X(dc.L / 2 - dc.rec)) +
       '" y2="' + f(yb) + '"/>';
     if (dc.barrasSup) {
@@ -927,7 +956,8 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
         (pm[0] > 0 ? "end" : "start") + '">' + n2(dc.presion.qmax, 3) + " kgf/cm²</text>";
     }
     /* las cotas de la sección */
-    h += '<text x="' + f(X(0)) + '" y="' + f(Y(-dc.sobre) - 8) + '" text-anchor="middle">L = ' + n2(dc.L, 0) +
+    h += '<text x="' + f(X(0)) + '" y="' + f(Y(-dc.sobre) - (dc.placa ? Math.max(dc.placa.t * k, 3) + 18 : 8)) +
+      '" text-anchor="middle">L = ' + n2(dc.L, 0) +
       " cm · h = " + n2(dc.h, 0) + " cm</text>";
     h += '<text x="' + f(X(dc.L / 2 + 8)) + '" y="' + f(Y(0) - 7) + '">terreno</text>';
     h += '<text x="' + f(X(dc.L / 2 + 8)) + '" y="' + f(Y(dc.Df) - 4) + '">Df = ' + n2(dc.Df, 0) + "</text>";
@@ -948,6 +978,34 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     }
     h += '<rect class="ped" x="' + f(px + (dc.L - dc.pedL) / 2 * k) + '" y="' + f(py + (dc.B - dc.pedB) / 2 * k) +
       '" width="' + f(dc.pedL * k) + '" height="' + f(dc.pedB * k) + '"/>';
+    var cx = px + dc.L * k / 2, cy = py + dc.B * k / 2;
+    if (dc.placa) {
+      h += '<rect class="placa planta" x="' + f(cx - dc.placa.N / 2 * k) + '" y="' + f(cy - dc.placa.B / 2 * k) +
+        '" width="' + f(dc.placa.N * k) + '" height="' + f(dc.placa.B * k) + '"/>';
+    }
+    if (dc.pedestal) {
+      var ax = dc.pedL / 2 - dc.pedestal.aEje, ay = dc.pedB / 2 - dc.pedestal.aEje, rb = 2.6;
+      for (var ib = 0; ib < dc.pedestal.nb; ib++) {
+        var yy2 = -ay + 2 * ay * (dc.pedestal.nb > 1 ? ib / (dc.pedestal.nb - 1) : 0.5);
+        [-1, 1].forEach(function (sg) {
+          h += '<circle class="punto" cx="' + f(cx + sg * ax * k) + '" cy="' + f(cy + yy2 * k) + '" r="' + rb + '"/>';
+        });
+      }
+      for (var js = 1; js <= dc.pedestal.ns; js++) {
+        var xx2 = -ax + 2 * ax * js / (dc.pedestal.ns + 1);
+        [-1, 1].forEach(function (sg) {
+          h += '<circle class="punto" cx="' + f(cx + xx2 * k) + '" cy="' + f(cy + sg * ay * k) + '" r="' + rb + '"/>';
+        });
+      }
+    }
+    if (dc.placa) {
+      for (var ip = 0; ip < dc.placa.n; ip++) {
+        var yp = (ip - (dc.placa.n - 1) / 2) * dc.placa.sep;
+        [-1, 1].forEach(function (sg) {
+          h += '<circle class="perno" cx="' + f(cx + sg * dc.placa.f * k) + '" cy="' + f(cy + yp * k) + '" r="4"/>';
+        });
+      }
+    }
     h += '<text x="' + f(px + dc.L * k / 2) + '" y="' + f(py - 8) + '" text-anchor="middle">planta · B = ' +
       n2(dc.B, 0) + " cm</text>";
     return h + "</svg>";
@@ -972,7 +1030,8 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     var z = c.z, dc = RESULTADOS.dibujoCimentacion(c);
     var ley = '<div class="ley"><span><i style="border-top-color:var(--aviso)"></i>presión de servicio · ' +
       esc(dc.presion.combo) + " · base " + esc(dc.presion.base) + " · " + esc(dc.presion.forma || "—") + "</span>" +
-      '<span><i style="border-top-color:var(--acero)"></i>parrilla</span></div>';
+      '<span><i style="border-top-color:var(--acero)"></i>acero de refuerzo</span>' +
+      '<span><i style="border-top-color:var(--tinta)"></i>pernos de anclaje</span></div>';
     $("centro").innerHTML = '<div class="hoja"><h2>Cimentación</h2><p class="lead">zapata ' +
       n2(z.zapata.B_cm, 0) + " × " + n2(z.zapata.L_cm, 0) + " × " + n2(z.zapata.h_cm, 0) + " cm · " +
       (z.auto ? "las medidas mínimas que cumplen" : "las medidas dadas") + " · " +

@@ -243,6 +243,11 @@ cierto("y del anclaje del perno, pendiente de norma", z.avisos.some((x) => /J\.a
 const recBajo = Z.verifica(Object.assign({}, D0, { concreto: Object.assign({}, D0.concreto, { rec_cm: 5 }) }), dims);
 cierto("un recubrimiento de 5 cm contra el suelo NO cumple (70 mm, fila Z.rec)",
   recBajo.fallas.indexOf("recubrimiento") >= 0);
+const conPed = Z.disena(Object.assign({}, D0, { hMinPedestal_cm: 52 }));
+cierto("con el mínimo que piden las barras del pedestal, el peralte sube a 55 (pasos de 5)", conPed.zapata.h_cm === 55);
+cierto("y con medidas dadas por debajo, falla por el anclaje del pedestal",
+  Z.verifica(Object.assign({}, D0, { hMinPedestal_cm: 52 }), dims).fallas.indexOf("anclaje del pedestal") >= 0 &&
+  Z.verifica(D0, dims).fallas.indexOf("anclaje del pedestal") < 0);
 const sinMu = Z.disena(Object.assign({}, D0, { suelo: Object.assign({}, D0.suelo, { mu: undefined }) }));
 cierto("sin μ se dice que el deslizamiento no se comprobó", sinMu.avisos.some((x) => /deslizamiento/.test(x)));
 

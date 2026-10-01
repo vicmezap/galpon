@@ -199,7 +199,10 @@ comp("NI UNA línea de Diseño sin procedencia válida",
    6 · CIMENTACIÓN · E8
    ================================================================ */
 const CZ = { sigmaAdm_kgfcm2: 1.5, esNeta: false, Df_cm: 150, gammaRelleno_kgfm3: 1800, sc_kgfm2: 500,
-  fc_kgcm2: 210, grado: "60", rec_cm: 7.5, barra: "5/8", pedB_cm: 40, pedL_cm: 60, sobreTerreno_cm: 20 };
+  fc_kgcm2: 210, grado: "60", rec_cm: 7.5, barra: "5/8", pedB_cm: 40, pedL_cm: 60, sobreTerreno_cm: 20,
+  pedBarra: "5/8", pedEstribo: "3/8", pedRec_cm: 4, junta: "rugosa",
+  placaB_cm: 30, placaN_cm: 40, pernoF_cm: 14, pernosFila: 1, pernoD: "1-1/4", pernoMat: "A36",
+  pernoLd_cm: 40, electrodo: "E70", llaveL_cm: 15, llaveH_cm: 10, llaveT_cm: 2.5, grout_cm: 2.5 };
 comp("de los datos a los campos y de vuelta, idéntico",
   R.leeCimentacion(R.valoresDeCimentacion(CZ)), CZ);
 comp("un campo vacío NO se guarda como cero", R.leeCimentacion({ sigma: "", df: "", neta: "" }), {});
@@ -249,7 +252,40 @@ const czMal = R.cimentacion(m3, Object.assign({}, mok, { cimentacion: Object.ass
   { B_cm: 80, L_cm: 80, h_cm: 40 }) }), P, ok);
 const avMal = R.avisosResultados(null, null, czMal);
 cierto("una zapata dada que no cumple es un ERROR en Comprobación, con su paso",
-  avMal.length === 1 && avMal[0].nivel === "error" && avMal[0].paso === "cimen" && /no cumple/.test(avMal[0].que));
+  avMal.some((x) => x.nivel === "error" && x.paso === "cimen" && /La zapata no cumple/.test(x.que)));
+/* ---- el pedestal y la placa, dentro ---- */
+cierto("EL PERALTE QUE VUELVE: la zapata buscada sube hasta anclar las barras del pedestal",
+  cz.z.zapata.h_cm >= cz.ped.anclaje.hMin_cm - 1e-9 && cz.ped.anclaje.cumple && cz.z.zapata.h_cm > 40);
+cerca("y el pedestal mide Df − h + lo que sobresale", cz.ped.peso_kgf,
+  2400e-6 * 40 * 60 * (150 - cz.z.zapata.h_cm + 20), 1e-9);
+{
+  const z40 = R.cimentacion(m3, Object.assign({}, mok, { cimentacion: Object.assign({}, CZ,
+    { B_cm: 200, L_cm: 200, h_cm: 40 }) }), P, ok);
+  cierto("con la zapata dada de 40 cm, fallan la zapata y el pedestal por el anclaje",
+    z40.z.fallas.indexOf("anclaje del pedestal") >= 0 && z40.ped.fallas.indexOf("anclaje en la zapata") >= 0);
+  comp("y con 50 cm, no", czm.z.fallas.indexOf("anclaje del pedestal"), -1);
+}
+{
+  /* la placa: una fila por corrida y por base, con las fuerzas del tramo de columna del pie */
+  comp("la placa se mira en todas las corridas, en las dos bases", cz.placa.filas.length, 2 * ok.r.corridas.length);
+  const f0 = cz.placa.filas[0], fz = ok.r.corridas[0].fuerzas["C0@" + ok.r.eje];
+  cerca("con Pu = −Pr del pie de la columna, que ya lleva B2", f0.m.Pu_kgf, -fz.Pr_kgf, 1e-9);
+  cerca("y el momento del extremo de abajo", f0.m.Mu_kgfcm, Math.abs(fz.Mi_kgfcm), 1e-9);
+  cerca("A2 sale del pedestal: 30×40 crece hasta 40/30 = 1,33", cz.placa.A2.A2_cm2, Math.pow(40 / 30, 2) * 1200, 1e-9);
+  cerca("y llega al aplastamiento: fp = 0,65·0,85·f'c·√(A2/A1)", cz.placa.filas[0].m.fp_kgcm2,
+    0.65 * 0.85 * 210 * (40 / 30), 1e-9);
+  const delgada = R.cimentacion(m3, Object.assign({}, mok, { cimentacion: Object.assign({}, CZ, { placaT_cm: 0.6 }) }), P, ok);
+  cierto("una placa de 6 mm no llega y Comprobación lo da como error",
+    delgada.placa.fallas.indexOf("espesor de la placa") >= 0 &&
+    R.avisosResultados(null, null, delgada).some((x) => x.nivel === "error" && x.paso === "cimen" &&
+      /La placa base no cumple/.test(x.que)));
+  const sinLlave = R.cimentacion(m3, Object.assign({}, mok, { cimentacion: Object.assign({}, CZ, { llaveL_cm: undefined }) }), P, ok);
+  cierto("sin llave de corte no diseña: la pide, porque los pernos no toman el cortante",
+    !sinLlave.ok && sinLlave.faltas.some((f) => f.campo === "ci_lll" && /llave/.test(f.que)));
+  const dz = R.dibujoCimentacion(cz);
+  cierto("el dibujo lleva el pedestal armado y la placa con sus pernos",
+    dz.pedestal.nb === cz.ped.seccion.nb && dz.placa.N === 40 && dz.placa.n === 1);
+}
 comp("NI UNA línea de Cimentación sin procedencia válida",
   cz.fichas.reduce((a, f) => a.concat(f.lineas), []).concat(czm.fichas.reduce((a, f) => a.concat(f.lineas), []))
     .filter((l) => V.ORIGENES.indexOf(l.origen) < 0).map((l) => l.q), []);

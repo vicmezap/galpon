@@ -414,6 +414,9 @@ comp("y no el de Diseño", pinto(M.dom, "lado-diseno").hidden, true);
 const fci = pinto(M.dom, "fci").innerHTML;
 cierto("el formulario pide el suelo, el concreto y el pedestal",
   /ci_sigma/.test(fci) && /ci_neta/.test(fci) && /ci_fc/.test(fci) && /ci_grado/.test(fci) && /ci_pedb/.test(fci));
+cierto("y el armado del pedestal, la placa, los pernos y la llave de corte",
+  ["ci_pbarra", "ci_pest", "ci_prec", "ci_junta", "ci_plb", "ci_pln", "ci_plt", "ci_pf", "ci_pnf", "ci_psep",
+    "ci_pd", "ci_pmat", "ci_pld", "ci_elec", "ci_lll", "ci_llh", "ci_llt", "ci_grout"].every((id) => fci.indexOf(id) >= 0));
 cierto("NINGÚN dato de cimentación trae valor", !/selected/.test(fci) && !/<input[^>]*value="[^"]/.test(fci));
 cierto("sin análisis no diseña, y manda al análisis",
   /todavía no se puede diseñar/.test(pinto(M.dom, "centro").innerHTML) &&

@@ -40,7 +40,8 @@
     "Z.punzon.Vc", "Z.punzon.alfa", "Z.punzon.bo", "Z.phi.corte", "Z.phi.flexion", "Z.franja",
     "Z.combos.E060", "Z.levantamiento", "Z.servicio", "Z.signo", "Z.peso", "Z.vuelco",
     "Z.deslizamiento", "Z.plano", "Z.As.min", "Z.s.max", "Z.Vc.viga", "Z.bloque", "Z.As.max",
-    "Z.rec", "Z.punzon.momento", "Z.desarrollo", "D.concreto.gamma", "N.no.viento", "J.anclaje.concreto"
+    "Z.rec", "Z.punzon.momento", "Z.desarrollo", "D.concreto.gamma", "N.no.viento", "J.anclaje.concreto",
+    "PD.anclaje.zapata"
   ]);
 
   const MPA = UN.MPA_KGCM2;
@@ -330,6 +331,8 @@
     if (aSup && (aSup.insuficiente || !aSup.cumple)) fallas.push("flexión negativa");
     if (h < hMin - 1e-9) fallas.push("peralte mínimo");
     if (co.rec_cm < REC_MIN - 1e-9) fallas.push("recubrimiento");
+    /* el peralte que piden las barras del pedestal para anclarse · fila PD.anclaje.zapata */
+    if (d.hMinPedestal_cm > 0 && h < d.hMinPedestal_cm - 1e-9) fallas.push("anclaje del pedestal");
     return {
       zapata: { B_cm: B, L_cm: L, h_cm: h }, pesos: { pedestal: Wp, zapata: Wf, relleno: Wr },
       sigmaN: sigmaN, altPedestal_cm: altPed,
@@ -370,7 +373,8 @@
     exige(Array.isArray(d.casos) && d.casos.length, "disena() necesita los casos del análisis, con sus reacciones");
     const F = faltan(d);
     if (F.length) return { ok: false, faltan: F };
-    const hMin = arriba(SOBRE_ACERO_MIN + d.concreto.rec_cm + BARRAS[d.concreto.barra]);
+    const hMin = arriba(Math.max(SOBRE_ACERO_MIN + d.concreto.rec_cm + BARRAS[d.concreto.barra],
+      d.hMinPedestal_cm || 0));
     let r;
     if (d.zapata && d.zapata.B_cm > 0 && d.zapata.L_cm > 0 && d.zapata.h_cm > 0) {
       r = verifica(d, d.zapata);
@@ -383,7 +387,8 @@
       const concretoOk = (x) => ["cortL", "cortB", "punz"].every((k) => !x.concreto[k] || x.concreto[k].ratio <= 1) &&
         (!x.concreto.aceroL || (!x.concreto.aceroL.insuficiente && x.concreto.aceroL.cumple)) &&
         (!x.concreto.aceroB || (!x.concreto.aceroB.insuficiente && x.concreto.aceroB.cumple)) &&
-        (!x.concreto.aceroSup || (!x.concreto.aceroSup.insuficiente && x.concreto.aceroSup.cumple));
+        (!x.concreto.aceroSup || (!x.concreto.aceroSup.insuficiente && x.concreto.aceroSup.cumple)) &&
+        x.fallas.indexOf("anclaje del pedestal") < 0;
       do {
         r = verifica(d, { B_cm: lado, L_cm: lado, h_cm: h });
         while (!sueloOk(r) && lado < 1500) { lado += PASO; r = verifica(d, { B_cm: lado, L_cm: lado, h_cm: h }); }
@@ -406,5 +411,5 @@
   }
 
   return { ART, PHI_V, PHI_F, INC_TEMPORAL, SISMO_SUELO, REC_MIN, GRADOS, BARRAS,
-    presion, integra, combosServicio, combosE060, estados, verifica, faltan, disena };
+    presion, integra, combosServicio, combosE060, estados, deBase, suma, verifica, faltan, disena };
 });

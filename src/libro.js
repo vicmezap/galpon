@@ -117,7 +117,10 @@
 
   /* Los datos de la cimentación · misma regla. */
   const CIMENTACION = ["sigmaAdm_kgfcm2", "esNeta", "Df_cm", "gammaRelleno_kgfm3", "sc_kgfm2", "mu",
-    "fc_kgcm2", "grado", "rec_cm", "barra", "pedB_cm", "pedL_cm", "sobreTerreno_cm", "B_cm", "L_cm", "h_cm"];
+    "fc_kgcm2", "grado", "rec_cm", "barra", "pedB_cm", "pedL_cm", "sobreTerreno_cm", "B_cm", "L_cm", "h_cm",
+    "pedBarra", "pedEstribo", "pedRec_cm", "junta",
+    "placaB_cm", "placaN_cm", "placaT_cm", "pernoF_cm", "pernosFila", "pernoSep_cm", "pernoD", "pernoMat",
+    "pernoLd_cm", "llaveL_cm", "llaveH_cm", "llaveT_cm", "grout_cm", "electrodo"];
 
   /* Los datos de diseño · misma regla: lo que no está en la lista PARA. */
   const DISENO = ["arriostreInferior_m", "separacionLargueros_m", "LbColumna_m", "cartela",

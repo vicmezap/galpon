@@ -18,12 +18,15 @@
     module.exports = definir(require("./inventario.js"), require("./vistas.js"),
       require("./e020.js"), require("./viento.js"), require("./combinaciones.js"),
       require("./analisis.js"), require("./libro.js"), require("./e030.js"),
-      require("./diseno.js"), require("./zapatas.js"));
+      require("./diseno.js"), require("./zapatas.js"), require("./pedestal.js"), require("./placabase.js"),
+      require("./conexiones.js"), require("./acero.js"));
   } else {
     raiz.RESULTADOS = definir(raiz.INVENTARIO, raiz.VISTAS, raiz.E020, raiz.VIENTO,
-      raiz.COMBINACIONES, raiz.ANALISIS, raiz.LIBRO, raiz.E030, raiz.DISENO, raiz.ZAPATAS);
+      raiz.COMBINACIONES, raiz.ANALISIS, raiz.LIBRO, raiz.E030, raiz.DISENO, raiz.ZAPATAS,
+      raiz.PEDESTAL, raiz.PLACABASE, raiz.CONEXIONES, raiz.ACERO);
   }
-})(typeof self !== "undefined" ? self : this, function (INV, V, E020, VI, CB, AN, LIBRO, E030, DI, ZA) {
+})(typeof self !== "undefined" ? self : this, function (INV, V, E020, VI, CB, AN, LIBRO, E030, DI, ZA, PD, PB,
+  CX, AC) {
   "use strict";
 
   const ART = INV.declara("resultados.js", [
@@ -36,7 +39,11 @@
     "T.U.c2", "T.U.c8", "C.E4.2L",
     "Z.sigma.neta", "Z.inc30", "Z.levantamiento", "Z.deslizamiento", "Z.punzon.momento", "Z.Vc.viga",
     "Z.As.min", "Z.s.max", "Z.rec", "Z.peralte.min", "Z.vuelco", "Z.servicio",
-    "Z.bloque", "Z.franja", "Z.peso"
+    "Z.bloque", "Z.franja", "Z.peso",
+    "PD.compatibilidad", "PD.Vs", "PD.friccion", "PD.anclaje.zapata", "PD.rho", "PD.esbeltez", "PD.rec",
+    "J.base.momento.metodo", "J.base.momento.t", "J.base.phi", "J.anclaje.acero", "J.llave.aplast",
+    "J.llave.flexion", "J.anclaje.geometria", "J.anclaje.concreto", "J.base.momento.soldadura",
+    "J.anclaje.E060.confinamiento"
   ]);
   const ln = V.ln, ficha = V.ficha;
   const n2 = (x, d) => (Math.round(x * Math.pow(10, d)) / Math.pow(10, d))
@@ -709,6 +716,14 @@
         porque: cz.z.auto ? "ni con las medidas buscadas: revisa el suelo, el desplante o el pedestal"
           : "con las medidas dadas. Borra B, L y h para que se busquen.", paso: "cimen" });
     }
+    if (cz && cz.ok && cz.ped && !cz.ped.cumple) {
+      L.push({ nivel: "error", que: "El pedestal no cumple: " + cz.ped.fallas.join(", "),
+        porque: "se arregla con sus medidas, la barra o el estribo, en Cimentación", paso: "cimen" });
+    }
+    if (cz && cz.ok && cz.placa && !cz.placa.cumple) {
+      L.push({ nivel: "error", que: "La placa base no cumple: " + cz.placa.fallas.join(", "),
+        porque: "se arregla con la placa, los pernos o la llave, en Cimentación", paso: "cimen" });
+    }
     return L;
   }
 
@@ -743,7 +758,42 @@
       { id: "pedl", clave: "pedL_cm", etiqueta: "Largo del pedestal (en el plano del pórtico)", unidad: "cm",
         tipo: "numero" },
       { id: "sobre", clave: "sobreTerreno_cm", etiqueta: "Cuánto sobresale del terreno", unidad: "cm",
-        tipo: "numero" }] },
+        tipo: "numero" },
+      { id: "pbarra", clave: "pedBarra", etiqueta: "Barra longitudinal", tipo: "opcion", fuente: "PD.rho",
+        opciones: [ELEGIR, ["1/2", "1/2\""], ["5/8", "5/8\""], ["3/4", "3/4\""], ["1", "1\""]] },
+      { id: "pest", clave: "pedEstribo", etiqueta: "Estribo", tipo: "opcion", fuente: "PD.Vs",
+        opciones: [ELEGIR, ["8mm", "8 mm"], ["3/8", "3/8\""], ["1/2", "1/2\""]] },
+      { id: "prec", clave: "pedRec_cm", etiqueta: "Recubrimiento al estribo (mín. 4 cm)", unidad: "cm",
+        tipo: "numero", fuente: "PD.rec" },
+      { id: "junta", clave: "junta", etiqueta: "La junta con la zapata", tipo: "opcion", fuente: "PD.friccion",
+        opciones: [ELEGIR, ["monolitico", "vaciado junto con la zapata (μ = 1,4)"],
+          ["rugosa", "sobre la zapata, junta rugosa de 6 mm (μ = 1,0)"],
+          ["lisa", "sobre la zapata, junta sin hacer rugosa (μ = 0,6)"]] }] },
+    { grupo: "Placa base y pernos de anclaje", campos: [
+      { id: "plb", clave: "placaB_cm", etiqueta: "Ancho de la placa B (fuera del plano)", unidad: "cm", tipo: "numero" },
+      { id: "pln", clave: "placaN_cm", etiqueta: "Largo de la placa N (en el plano)", unidad: "cm", tipo: "numero" },
+      { id: "plt", clave: "placaT_cm", etiqueta: "Espesor (vacío: se calcula el que hace falta)", unidad: "cm",
+        tipo: "numero", fuente: "J.base.momento.t" },
+      { id: "pf", clave: "pernoF_cm", etiqueta: "Del eje de la columna a cada fila de pernos", unidad: "cm",
+        tipo: "numero", fuente: "J.base.momento.metodo" },
+      { id: "pnf", clave: "pernosFila", etiqueta: "Pernos en cada fila", tipo: "numero" },
+      { id: "psep", clave: "pernoSep_cm", etiqueta: "Separación entre pernos de una fila", unidad: "cm",
+        tipo: "numero", fuente: "J.anclaje.geometria" },
+      { id: "pd", clave: "pernoD", etiqueta: "Diámetro del perno", tipo: "opcion", fuente: "J.anclaje.acero",
+        opciones: [ELEGIR, ["3/4", "3/4\""], ["7/8", "7/8\""], ["1", "1\""], ["1-1/8", "1 1/8\""],
+          ["1-1/4", "1 1/4\""]] },
+      { id: "pmat", clave: "pernoMat", etiqueta: "Acero del perno", tipo: "opcion", fuente: "J.anclaje.acero",
+        opciones: [ELEGIR, ["A36", "A36"], ["A572", "A572 Gr. 50"]] },
+      { id: "pld", clave: "pernoLd_cm", etiqueta: "Longitud embebida del perno", unidad: "cm", tipo: "numero",
+        fuente: "J.anclaje.geometria" },
+      { id: "elec", clave: "electrodo", etiqueta: "Electrodo de la soldadura columna-placa", tipo: "opcion",
+        fuente: "J.base.momento.soldadura", opciones: [ELEGIR, ["E70", "E70XX"], ["E60", "E60XX"]] }] },
+    { grupo: "Llave de corte", campos: [
+      { id: "lll", clave: "llaveL_cm", etiqueta: "Ancho de la llave", unidad: "cm", tipo: "numero", fuente: "J.llave.aplast" },
+      { id: "llh", clave: "llaveH_cm", etiqueta: "Altura embebida", unidad: "cm", tipo: "numero", fuente: "J.llave.aplast" },
+      { id: "llt", clave: "llaveT_cm", etiqueta: "Espesor de la llave", unidad: "cm", tipo: "numero", fuente: "J.llave.flexion" },
+      { id: "grout", clave: "grout_cm", etiqueta: "Espesor del grout bajo la placa", unidad: "cm", tipo: "numero",
+        fuente: "J.llave.flexion" }] },
     { grupo: "Zapata (vacío: se buscan las medidas)", campos: [
       { id: "zb", clave: "B_cm", etiqueta: "B", unidad: "cm", tipo: "numero" },
       { id: "zl", clave: "L_cm", etiqueta: "L (en el plano del pórtico)", unidad: "cm", tipo: "numero" },
@@ -763,6 +813,18 @@
     if (val.barra) c.barra = val.barra;
     pon("pedB_cm", num(val.pedb)); pon("pedL_cm", num(val.pedl)); pon("sobreTerreno_cm", num(val.sobre));
     pon("B_cm", num(val.zb)); pon("L_cm", num(val.zl)); pon("h_cm", num(val.zh));
+    if (val.pbarra) c.pedBarra = val.pbarra;
+    if (val.pest) c.pedEstribo = val.pest;
+    pon("pedRec_cm", num(val.prec));
+    if (val.junta) c.junta = val.junta;
+    pon("placaB_cm", num(val.plb)); pon("placaN_cm", num(val.pln)); pon("placaT_cm", num(val.plt));
+    pon("pernoF_cm", num(val.pf)); pon("pernosFila", num(val.pnf)); pon("pernoSep_cm", num(val.psep));
+    if (val.pd) c.pernoD = val.pd;
+    if (val.pmat) c.pernoMat = val.pmat;
+    pon("pernoLd_cm", num(val.pld));
+    if (val.elec) c.electrodo = val.elec;
+    pon("llaveL_cm", num(val.lll)); pon("llaveH_cm", num(val.llh)); pon("llaveT_cm", num(val.llt));
+    pon("grout_cm", num(val.grout));
     return c;
   }
   function valoresDeCimentacion(cz) {
@@ -774,6 +836,11 @@
     s("grado", c.grado); s("rec", c.rec_cm); s("barra", c.barra);
     s("pedb", c.pedB_cm); s("pedl", c.pedL_cm); s("sobre", c.sobreTerreno_cm);
     s("zb", c.B_cm); s("zl", c.L_cm); s("zh", c.h_cm);
+    s("pbarra", c.pedBarra); s("pest", c.pedEstribo); s("prec", c.pedRec_cm); s("junta", c.junta);
+    s("plb", c.placaB_cm); s("pln", c.placaN_cm); s("plt", c.placaT_cm); s("pf", c.pernoF_cm);
+    s("pnf", c.pernosFila); s("psep", c.pernoSep_cm); s("pd", c.pernoD); s("pmat", c.pernoMat);
+    s("pld", c.pernoLd_cm); s("elec", c.electrodo); s("lll", c.llaveL_cm); s("llh", c.llaveH_cm);
+    s("llt", c.llaveT_cm); s("grout", c.grout_cm);
     return v;
   }
 
@@ -791,13 +858,125 @@
       concreto: { fc_kgcm2: c.fc_kgcm2, grado: c.grado, rec_cm: c.rec_cm, barra: c.barra },
       pedestal: { b_cm: c.pedB_cm, l_cm: c.pedL_cm, sobreTerreno_cm: c.sobreTerreno_cm },
       zapata: (c.B_cm > 0 && c.L_cm > 0 && c.h_cm > 0) ? { B_cm: c.B_cm, L_cm: c.L_cm, h_cm: c.h_cm } : null };
-    const z = ZA.disena(d);
-    if (!z.ok) {
-      /* el pedestal tiene dos campos: se manda al primero */
-      return { ok: false, faltas: z.faltan.map((f) => ({ paso: "cimen", que: f.que,
-        campo: f.campo === "ci_ped" ? "ci_pedb" : f.campo })) };
+    const pdDatos = { b_cm: c.pedB_cm, l_cm: c.pedL_cm, fc_kgcm2: c.fc_kgcm2, grado: c.grado, barra: c.pedBarra,
+      estribo: c.pedEstribo, rec_cm: c.pedRec_cm, junta: c.junta };
+    /* lo que falta de los tres, junto y sin repetir */
+    const vistos = {}, faltas = [];
+    for (const f of ZA.faltan(d).concat(PD.faltan(pdDatos), faltanPlaca(c))) {
+      const campo = f.campo === "ci_ped" ? "ci_pedb" : f.campo;    /* el pedestal tiene dos campos */
+      if (vistos[campo]) continue;
+      vistos[campo] = true;
+      faltas.push({ paso: "cimen", que: f.que, campo: campo });
     }
-    return { ok: true, z: z, r: a.r, datos: c, fichas: fichasCimentacion(z) };
+    if (faltas.length) return { ok: false, faltas: faltas };
+
+    /* EL PERALTE QUE VUELVE · fila PD.anclaje.zapata.  La zapata da su peralte, el
+       pedestal sale de ahí (su altura es Df − h + lo que sobresale) y sus barras piden
+       un peralte para anclarse; si piden más, se rehace la zapata con ese mínimo. */
+    const est = ZA.estados(a.r.casos);
+    const combos = ZA.combosE060(est);
+    const bases = Object.keys(a.r.casos[0].reacciones);
+    const sols = [];
+    for (const cb of combos) {
+      for (const b of bases) {
+        const s = ZA.suma(cb.partes, b);
+        sols.push({ id: cb.id, base: b, P_kgf: s.P, M_kgfcm: s.M, H_kgf: s.H, factorCM: cb.factorCM });
+      }
+    }
+    let hMin = 0, z = null, ped = null;
+    for (let k = 0; k < 4; k++) {
+      z = ZA.disena(Object.assign({}, d, { hMinPedestal_cm: hMin }));
+      ped = PD.disena(Object.assign({}, pdDatos, {
+        altura_cm: Math.max(0, d.suelo.Df_cm - z.zapata.h_cm) + d.pedestal.sobreTerreno_cm,
+        solicitaciones: sols,
+        zapata: { h_cm: z.zapata.h_cm, rec_cm: c.rec_cm, barra_cm: ZA.BARRAS[c.barra] } }));
+      if (ped.anclaje.hMin_cm <= hMin + 1e-9) break;
+      hMin = ped.anclaje.hMin_cm;
+    }
+    const placa = placaBase(m3, a.r, modelo, perfiles, c, ped, z);
+    return { ok: true, z: z, ped: ped, placa: placa, r: a.r, datos: c,
+      fichas: fichasCimentacion(z).concat(fichasPedestal(ped), fichasPlaca(placa)) };
+  }
+
+  /* ---------- LA PLACA BASE: con las corridas, que son E.090 y segundo orden ---------- */
+  function faltanPlaca(c) {
+    const F = [];
+    const n = (k) => c[k] > 0;
+    if (!n("placaB_cm") || !n("placaN_cm")) F.push({ campo: "ci_plb", que: "las medidas de la placa base" });
+    if (!n("pernoF_cm")) F.push({ campo: "ci_pf", que: "dónde van las filas de pernos" });
+    if (!(c.pernosFila >= 1)) F.push({ campo: "ci_pnf", que: "cuántos pernos van en cada fila" });
+    if (!(c.pernosFila === 1 || n("pernoSep_cm"))) F.push({ campo: "ci_psep", que: "la separación entre pernos" });
+    if (!c.pernoD) F.push({ campo: "ci_pd", que: "el diámetro de los pernos" });
+    if (!c.pernoMat) F.push({ campo: "ci_pmat", que: "el acero de los pernos" });
+    if (!n("pernoLd_cm")) F.push({ campo: "ci_pld", que: "la longitud embebida de los pernos" });
+    if (!c.electrodo) F.push({ campo: "ci_elec", que: "el electrodo de la soldadura" });
+    if (!n("llaveL_cm") || !n("llaveH_cm") || !n("llaveT_cm")) {
+      F.push({ campo: "ci_lll", que: "la llave de corte: los pernos no toman el cortante (fila J.anclaje.solo.traccion)" });
+    }
+    if (!(c.grout_cm >= 0)) F.push({ campo: "ci_grout", que: "el espesor del grout" });
+    return F;
+  }
+
+  function placaBase(m3, r, modelo, perfiles, c, ped, z) {
+    const g = AN.geometria(m3, r.sistema, r.eje);
+    const secDe = seccionDesde(modelo, perfiles);
+    const mat = AC.ACEROS[modelo.sitio.acero], matP = AC.ACEROS[c.pernoMat];
+    const dp = CX.diametro(c.pernoD);
+    const A2 = PB.A2DesdePedestal({ B_cm: c.placaB_cm, N_cm: c.placaN_cm, pedB_cm: c.pedB_cm, pedL_cm: c.pedL_cm });
+    const filas = [];
+    let col = null, sec = null;
+    for (const ap of g.apoyos) {
+      col = g.columnas.filter((x) => x.i === ap.nudo || x.j === ap.nudo)[0];
+      sec = secDe(col.de ? { id: col.de, clase: "columna" } : col);
+      for (const f of r.corridas) {
+        const fz = f.fuerzas[col.id];
+        const M = col.i === ap.nudo ? fz.Mi_kgfcm : fz.Mj_kgfcm;
+        const m = PB.momento({ Pu_kgf: -fz.Pr_kgf, Mu_kgfcm: M || 0, d_cm: sec.d_cm, bf_cm: sec.bf_cm,
+          tf_cm: sec.tf_cm, tw_cm: sec.tw_cm, B_cm: c.placaB_cm, N_cm: c.placaN_cm, fc_kgcm2: c.fc_kgcm2,
+          A2_cm2: A2.A2_cm2, Fy_kgcm2: mat.Fy, t_cm: c.placaT_cm, f_cm: c.pernoF_cm, nPorLado: c.pernosFila,
+          db_cm: dp.d_cm, Fy_perno_kgcm2: matP.Fy, Fu_perno_kgcm2: matP.Fu });
+        filas.push({ combo: f.id, base: ap.nudo.split("@")[0], H_kgf: fz.Vr_kgf || 0, m: m });
+      }
+    }
+    const peor = (k) => filas.reduce((a, x) => (k(x) > k(a) ? x : a));
+    const pApl = peor((x) => x.m.ratioAplastamiento);
+    const pT = peor((x) => x.m.placa.Mu_kgfcm_cm);
+    const pPer = peor((x) => (x.m.pernos ? x.m.pernos.ratio : 0));
+    const pSol = peor((x) => x.m.soldadura.Ff_kgf);
+    const pH = peor((x) => x.H_kgf);
+    /* la soldadura: el tamaño que hace falta, contra el mínimo y el máximo */
+    const Lw = pSol.m.soldadura.L_cm;
+    const porMm = CX.filete({ w_mm: 1, L_cm: Lw, electrodo: c.electrodo }).phiRnPorCm_kgf;
+    const tPlaca = c.placaT_cm > 0 ? c.placaT_cm : pT.m.placa.t_cm;
+    const tam = CX.tamanosFilete({ t1_mm: sec.tf_cm * 10, t2_mm: tPlaca * 10, tBorde_mm: sec.tf_cm * 10 });
+    const wReq = pSol.m.soldadura.Ff_kgf / (Lw * porMm);
+    const w = Math.max(Math.ceil(wReq - 1e-9), tam.wMin_mm);
+    const soldadura = { Ff_kgf: pSol.m.soldadura.Ff_kgf, L_cm: Lw, wReq_mm: wReq, w_mm: w, wMin_mm: tam.wMin_mm,
+      wMax_mm: tam.wMax_mm, cumple: w <= tam.wMax_mm, combo: pSol.combo, base: pSol.base,
+      art: ART["J.base.momento.soldadura"] };
+    /* la llave de corte */
+    const llave = pH.H_kgf > 0 ? PB.llaveDeCorte({ Hu_kgf: pH.H_kgf, fc_kgcm2: c.fc_kgcm2, l_cm: c.llaveL_cm,
+      h_cm: c.llaveH_cm, t_cm: c.llaveT_cm, Fy_kgcm2: mat.Fy, grout_cm: c.grout_cm }) : null;
+    /* la geometría de los pernos, y si caben */
+    const ancho = (c.pernosFila - 1) * (c.pernoSep_cm || 0);
+    const alBorde = Math.min(c.pedL_cm / 2 - c.pernoF_cm, (c.pedB_cm - ancho) / 2);
+    const geo = PB.geometriaAnclajes({ db_cm: dp.d_cm, separacion_cm: c.pernosFila > 1 ? c.pernoSep_cm : undefined,
+      alBorde_cm: alBorde, Ld_cm: c.pernoLd_cm, fc_kgcm2: c.fc_kgcm2 });
+    const fondo = z ? (Math.max(0, c.Df_cm - z.zapata.h_cm) + c.sobreTerreno_cm + z.zapata.h_cm - c.rec_cm) : null;
+    const fallas = [];
+    if (pApl.m.ratioAplastamiento > 1 + 1e-9) fallas.push("aplastamiento bajo la placa");
+    if (c.placaT_cm > 0 && pT.m.placa.ratio > 1 + 1e-9) fallas.push("espesor de la placa");
+    if (pPer.m.pernos && !pPer.m.pernos.cumple) fallas.push("pernos a tracción");
+    if (!soldadura.cumple) fallas.push("soldadura");
+    if (llave && llave.cumple === false) fallas.push("llave de corte");
+    if (!geo.cumpleTodas) fallas.push("geometría de los pernos");
+    if (ancho >= c.placaB_cm) fallas.push("los pernos no caben en la placa");
+    if (fondo !== null && c.pernoLd_cm > fondo) fallas.push("el perno no cabe en el pedestal y la zapata");
+    return { seccion: sec.nombre, d_cm: sec.d_cm, bf_cm: sec.bf_cm, tf_cm: sec.tf_cm,
+      B_cm: c.placaB_cm, N_cm: c.placaN_cm, tDado_cm: c.placaT_cm > 0 ? c.placaT_cm : null,
+      A2: A2, aplastamiento: pApl, espesor: pT, pernos: pPer, soldadura: soldadura, llave: llave, geometria: geo,
+      alBorde_cm: alBorde, fondo_cm: fondo, filas: filas, fallas: fallas, cumple: !fallas.length,
+      pernoD: c.pernoD, pernosFila: c.pernosFila, pernoF_cm: c.pernoF_cm, pernoSep_cm: c.pernoSep_cm };
   }
 
   /* El dibujo de la zapata en cm: la sección en el plano del pórtico con la
@@ -817,11 +996,83 @@
       barrasL: c.aceroL && !c.aceroL.insuficiente ? c.aceroL.n : 0,
       barrasB: c.aceroB && !c.aceroB.insuficiente ? c.aceroB.n : 0,
       barrasSup: c.aceroSup && !c.aceroSup.insuficiente ? c.aceroSup.n : 0,
-      rec: d.rec_cm, cumple: z.cumple
+      rec: d.rec_cm, cumple: z.cumple,
+      pedestal: cz.ped ? { nb: cz.ped.seccion.nb, ns: cz.ped.seccion.ns, aEje: cz.ped.seccion.aEje_cm,
+        gancho: cz.ped.anclaje.l_cm } : null,
+      placa: cz.placa ? { B: cz.placa.B_cm, N: cz.placa.N_cm, t: cz.placa.tDado_cm || cz.placa.espesor.m.placa.t_cm,
+        f: cz.placa.pernoF_cm, n: cz.placa.pernosFila, sep: cz.placa.pernoSep_cm || 0,
+        Ld: cz.datos.pernoLd_cm } : null
     };
   }
 
   const cm2 = (x) => n2(x, 2) + " cm²";
+  const ok = (x) => (x ? "ok" : "no");
+
+  function fichasPedestal(p) {
+    const s = p.seccion, fx = p.flexocompresion, e = p.estribos, fr = p.friccion, an = p.anclaje;
+    const L = [
+      /* lo largo en la etiqueta y lo corto en el valor: el valor no parte línea */
+      ln("Armado: " + s.nb + " por cara y " + s.ns + " por lado", s.n + " Ø" + s.barra + "\"",
+        p.auto ? "medido" : "entrada"),
+      ln("Cuantía entre 1 % y 6 %", n2(p.cuantia.rho * 100, 2) + " %", "norma",
+        { fuente: "PD.rho", estado: ok(p.cuantia.cumple) }),
+      ln("Flexocompresión, " + (fx.donde === "junta" ? "en la junta" : "arriba"), n2(fx.ratio, 3), "norma",
+        { fuente: "PD.compatibilidad", estado: ok(fx.ratio <= 1),
+          nota: fx.combo + " · base " + fx.base + " · Pu " + t2(fx.Pu_kgf) + " · Mu " + tm(fx.Mu_kgfcm) }),
+      ln("Estribos", "Ø" + e.estribo + " @ " + e.s_cm + " cm", "norma",
+        { fuente: "PD.Vs", estado: ok(e.cumple), nota: e.porQue + " · y arriba, " + e.arriba }),
+      ln("Cortante en la junta", n2(fr.ratio, 3), "norma", { fuente: "PD.friccion", estado: ok(fr.ratio <= 1),
+        nota: "μ = " + n2(fr.mu, 1) + " · Avf " + cm2(fr.AvfEficaz_cm2) + " · " + fr.combo }),
+      ln("Anclaje de las barras en la zapata", n2(an.l_cm, 1) + " cm", "norma",
+        { fuente: "PD.anclaje.zapata", estado: an.cumple === false ? "no" : "ok",
+          nota: "manda " + (an.manda === "compresión" ? "ℓdc" : "el gancho ℓdg") + " · pide h ≥ " +
+            n2(an.hMin_cm, 1) + " cm de zapata" }),
+      ln("Recubrimiento", n2(p.recubrimiento.estribo_cm, 1) + " cm al estribo", "entrada",
+        { estado: ok(p.recubrimiento.cumple), nota: "mín. 4 cm, y 5 cm a la barra si es de 3/4\" o más (§7.7.1 b)" })
+    ];
+    if (!p.esbeltez.esPedestal) {
+      L.push(ln("Esbeltez k·ℓu/r", n2(Math.max(p.esbeltez.kLr_plano, p.esbeltez.kLr_fuera), 1), "norma",
+        { fuente: "PD.esbeltez", estado: ok(p.esbeltez.cumple), nota: "altura/lado " + n2(p.esbeltez.relacion, 2) +
+          " > 3: ya no es pedestal" }));
+    }
+    if (!p.separacion.cumple) {
+      L.push(ln("las barras no caben con 1,5·db y 40 mm libres", "NO CABEN", "medido", { estado: "no" }));
+    }
+    return [ficha("El pedestal", "columna corta a flexocompresión · E.060", L, p.cumple ? "bien" : null)];
+  }
+
+  function fichasPlaca(q) {
+    const ap = q.aplastamiento.m, es = q.espesor.m.placa, pe = q.pernos.m.pernos, so = q.soldadura;
+    const L = [
+      ln("Placa B × N", n2(q.B_cm, 0) + " × " + n2(q.N_cm, 0) + " cm", "entrada", { nota: "bajo " + q.seccion }),
+      ln("Aplastamiento del concreto", n2(ap.ratioAplastamiento, 3), "norma", { fuente: "J.base.phi",
+        estado: ok(ap.ratioAplastamiento <= 1), nota: q.aplastamiento.combo + " · " + ap.caso +
+          " · fp = " + n2(ap.fp_kgcm2, 1) + " kgf/cm²" }),
+      q.tDado_cm ? ln("Espesor de la placa", n2(es.ratio, 3), "norma", { fuente: "J.base.momento.t",
+        estado: ok(es.ratio <= 1), nota: "t = " + n2(q.tDado_cm, 2) + " cm · hace falta " + n2(es.t_cm, 2) + " cm" })
+        : ln("Espesor que hace falta", n2(es.t_cm, 2) + " cm", "norma", { fuente: "J.base.momento.t",
+          nota: es.gobierna + " · con el elástico de McCormac saldría " + n2(es.tElastico_cm, 2) + " cm" }),
+      pe ? ln("Pernos a tracción", n2(pe.ratio, 3), "norma", { fuente: "J.anclaje.acero", estado: ok(pe.cumple),
+        nota: q.pernosFila + " Ø" + q.pernoD + "\" por fila · " + t2(pe.porPerno_kgf) + " por perno · manda la " +
+          pe.gobierna + " · " + q.pernos.combo })
+        : ln("Pernos a tracción", "no tiran", "medido", { nota: "la resultante cae siempre dentro de los patines" }),
+      ln("Soldadura columna-placa", "filete de " + so.w_mm + " mm", "norma", { fuente: "J.base.momento.soldadura",
+        estado: ok(so.cumple), nota: "hacen falta " + n2(so.wReq_mm, 1) + " mm · mín. " + so.wMin_mm + ", máx. " +
+          n2(so.wMax_mm, 1) + " · " + t2(so.Ff_kgf) + " por patín en " + n2(so.L_cm, 1) + " cm" })
+    ];
+    if (q.llave) {
+      L.push(ln("Llave de corte · aplastamiento", n2(q.llave.aplastamiento.ratio, 3), "norma",
+        { fuente: "J.llave.aplast", estado: ok(q.llave.aplastamiento.cumple), nota: "Hu " + t2(q.llave.Hu_kgf) }));
+      L.push(ln("Llave de corte · flexión", n2(q.llave.flexion.ratio, 3), "norma",
+        { fuente: "J.llave.flexion", estado: ok(q.llave.flexion.cumple) }));
+    }
+    L.push(ln("Distancia de los pernos al borde del pedestal", n2(q.alBorde_cm, 1) + " cm", "norma",
+      { fuente: "J.anclaje.geometria", estado: ok(q.geometria.cumpleTodas),
+        nota: "reglas de 1983: el anclaje queda PLAUSIBLE, el cono sigue sin verificar (fila J.anclaje.concreto)" }));
+    for (const f of q.fallas.filter((x) => /caben|cabe en/.test(x))) L.push(ln(f, "NO", "medido", { estado: "no" }));
+    return [ficha("La placa base", "con las combinaciones de la E.090 y el segundo orden del análisis", L,
+      q.cumple ? "bien" : null)];
+  }
   function fichasCimentacion(z) {
     const s = z.servicio.peor, l = z.levantamiento, c = z.concreto;
     const F = [];

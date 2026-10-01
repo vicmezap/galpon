@@ -80,7 +80,7 @@
     /* la distancia libre más chica entre barras vecinas · fila PD.separacion */
     const sb = nb > 1 ? bi / (nb - 1) - db : Infinity;
     const sl = li / (ns + 1) - db;
-    return { b_cm: d.b_cm, l_cm: d.l_cm, db_cm: db, dt_cm: dt, aEje_cm: c, nb: nb, ns: ns, n: d.n,
+    return { b_cm: d.b_cm, l_cm: d.l_cm, barra: d.barra, estribo: d.estribo, db_cm: db, dt_cm: dt, aEje_cm: c, nb: nb, ns: ns, n: d.n,
       Ab_cm2: Ab, Ast_cm2: d.n * Ab, Ag_cm2: d.b_cm * d.l_cm, barras: barras,
       libre_cm: Math.min(sb, sl), dEf_cm: d.l_cm - c };
   }
