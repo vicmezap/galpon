@@ -143,4 +143,56 @@ const tr = R.tablaReacciones(ok.r);
 comp("una fila por caso sin factorizar", tr.map((x) => x.caso), ok.r.casos.map((x) => x.id));
 cerca("la D carga igual las dos bases", tr[0].B0.Ry, tr[0].B1.Ry, 1e-9);
 
+/* ================================================================
+   4 · DISEÑO
+   ================================================================ */
+comp("ningún dato de diseño trae valor de partida",
+  R.CAMPOS_DISENO.reduce((a, g) => a.concat(g.campos), [])
+    .filter((c2) => c2.tipo === "opcion" && c2.opciones[0][0] !== "").map((c2) => c2.id), []);
+const DZ = { arriostreInferior_m: 3.33, separacionLargueros_m: 1.5, LbColumna_m: 3, arriostreComprobado: true,
+  cartela: "3/8", separadores_cm: 60, conexionSeparadores: "requintado", condicionesE5: true,
+  uniones: "soldadas", soldadura_cm: 10 };
+comp("del diseño a los campos y de vuelta, idéntico", R.leeDiseno(R.valoresDeDiseno(DZ)), DZ);
+comp("la soldadura no se guarda si las uniones son empernadas",
+  R.leeDiseno({ un: "empernadas", sold: "10", pern: "4", dperno: "5/8" }),
+  { uniones: "empernadas", pernosPorLinea: 4, diametroPerno: "5/8" });
+const md0 = R.diseno(m3, mok, P);
+comp("sin datos de diseño no verifica, y manda al paso Diseño a por ellos",
+  [md0.ok, md0.faltas.every((f) => f.paso === "diseno")], [false, true]);
+const mdz = Object.assign({}, mok, { diseno: DZ });
+const dd = R.diseno(m3, mdz, P);
+comp("con todo, verifica", dd.ok, true);
+comp("todas las barras del pórtico en el dibujo", R.dibujoDiseno(dd, m3).barras.length, dd.v.resumen.total);
+cierto("cada barra con su color: cumple, no cumple o falta", R.dibujoDiseno(dd, m3).barras
+  .every((b) => ["ok", "no", "falta"].indexOf(b.cls) >= 0));
+const ldd = R.lineasDiseno(dd.v, "C0@2");
+cierto("la ficha de una columna dice su ratio y su perfil",
+  ldd.lineas.some((l) => l.q === "Ratio") && ldd.lineas.some((l) => l.q === "Perfil"));
+const sinE5 = R.diseno(m3, Object.assign({}, mok, { diseno: Object.assign({}, DZ, { condicionesE5: false }) }), P);
+const lsin = R.lineasDiseno(sinE5.v, "D0@1");
+cierto("sin el E5 la diagonal comprimida se pinta como «falta»",
+  R.dibujoDiseno(sinE5, m3).barras.some((b) => b.clase === "diagonal" && b.cls === "falta"));
+cierto("y su ficha dice FALTA, con el motivo en la nota",
+  lsin.lineas.some((l) => l.v === "FALTA" && /E5/.test(l.nota)));
+/* ---- lo que Comprobación tiene que oír ---- */
+{
+  const chica = (m) => {
+    for (const k of ["diagonal", "montante"]) m = L.asignaPerfil(m, { clase: k }, "L2X2X3/16").modelo;
+    return m;
+  };
+  const mp = chica(Object.assign({}, mok, { diseno: DZ, sistema: { base: "empotrada", union: "apoyado" },
+    sitio: Object.assign({}, SITIO, { sistemaSismico: "OMF" }) }));
+  const ap = R.analisis(m3, mp, P), dp = R.diseno(m3, mp, P, ap);
+  const av = R.avisosResultados(ap, dp);
+  cierto("Comprobación oye la deriva sísmica que no cumple", av.some((x) => /deriva sísmica/.test(x.que) && x.nivel === "error"));
+  cierto("y las barras con ratio mayor que 1, con cuáles son", av.some((x) => /ratio mayor que 1/.test(x.que) && x.cuales.length > 0));
+  comp("y el sistema sísmico que no es el de la geometría, UNA vez",
+    av.filter((x) => /sistema sísmico/.test(x.que)).length, 1);
+  cierto("cada aviso manda a su paso", av.every((x) => ["analisis", "cargas", "diseno"].indexOf(x.paso) >= 0));
+  comp("sin resultados vigentes, nada que añadir", R.avisosResultados(null, null), []);
+}
+comp("NI UNA línea de Diseño sin procedencia válida",
+  ldd.lineas.concat(lsin.lineas).concat(dd.fichas[0].lineas)
+    .filter((l) => V.ORIGENES.indexOf(l.origen) < 0).map((l) => l.q), []);
+
 fin();

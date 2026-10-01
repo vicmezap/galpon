@@ -712,11 +712,9 @@
       vistas: false, lados: ["analisis"], derecha: true,
       sub: "el pórtico interior, resuelto con el Método Directo" },
 
-    { id: "diseno", grupo: "Paso 4", nombre: "Diseño", listo: false,
-      vistas: false, lados: [],
-      hara: "una pantalla de diseño",
-      motor: "acero.js con los cinco capítulos, y las cuatro piezas de E5",
-      que: "cada barra contra su capítulo del AISC, con su doble referencia" },
+    { id: "diseno", grupo: "Paso 4", nombre: "Diseño", listo: true,
+      vistas: false, lados: ["diseno"], derecha: true,
+      sub: "el ratio de cada barra, por su capítulo del AISC" },
 
     { id: "conex", grupo: "Paso 5", nombre: "Conexiones", listo: false,
       vistas: false, lados: [],

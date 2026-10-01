@@ -17,12 +17,13 @@
   if (typeof module === "object" && module.exports) {
     module.exports = definir(require("./inventario.js"), require("./vistas.js"),
       require("./e020.js"), require("./viento.js"), require("./combinaciones.js"),
-      require("./analisis.js"), require("./libro.js"), require("./e030.js"));
+      require("./analisis.js"), require("./libro.js"), require("./e030.js"),
+      require("./diseno.js"));
   } else {
     raiz.RESULTADOS = definir(raiz.INVENTARIO, raiz.VISTAS, raiz.E020, raiz.VIENTO,
-      raiz.COMBINACIONES, raiz.ANALISIS, raiz.LIBRO, raiz.E030);
+      raiz.COMBINACIONES, raiz.ANALISIS, raiz.LIBRO, raiz.E030, raiz.DISENO);
   }
-})(typeof self !== "undefined" ? self : this, function (INV, V, E020, VI, CB, AN, LIBRO, E030) {
+})(typeof self !== "undefined" ? self : this, function (INV, V, E020, VI, CB, AN, LIBRO, E030, DI) {
   "use strict";
 
   const ART = INV.declara("resultados.js", [
@@ -30,7 +31,9 @@
     "N.Qt.c", "N.desbal.corto", "N.desbal.largo", "W.V.mapa", "W.Vh", "W.Ph", "W.C", "W.tipo",
     "A.sistema", "A.acero.Pns", "A.reacciones.casos", "SV.viento.H", "A.segundo.orden",
     "S.Z", "S.U", "S.perfil", "S.R0", "S.pendulo", "S.T.rayleigh", "S.C.estatico", "S.V", "S.CR",
-    "S.vertical", "S.despl", "S.deriva", "S.deriva.industrial", "A.sismo.sistema", "A.sismo.periodo"
+    "S.vertical", "S.despl", "S.deriva", "S.deriva.industrial", "A.sismo.sistema", "A.sismo.periodo",
+    "D.DIS.longitudes", "D.DIS.cartela", "D.DIS.E5", "E.C3.arriostre", "C.E6.a", "C.E5.cond",
+    "T.U.c2", "T.U.c8", "C.E4.2L"
   ]);
   const ln = V.ln, ficha = V.ficha;
   const n2 = (x, d) => (Math.round(x * Math.pow(10, d)) / Math.pow(10, d))
@@ -424,7 +427,7 @@
       { id: "nieve", clave: "hayNieve", etiqueta: "¿Puede acumularse nieve?", tipo: "opcion",
         fuente: "Lr.liviana", opciones: [ELEGIR, ["no", "no"], ["si", "sí"]] },
       { id: "qs", clave: "Qs_kgfm2", etiqueta: "Nieve básica del sitio Qs", unidad: "kgf/m²",
-        tipo: "numero", fuente: "N.Qs.min", soloSi: "nieve" }] },
+        tipo: "numero", fuente: "N.Qs.min", soloSi: "nieve=si" }] },
     { grupo: "Viento", campos: [
       { id: "v", clave: "V_kmh", etiqueta: "Velocidad del Mapa Eólico", unidad: "km/h",
         tipo: "numero", fuente: "W.V.mapa" },
@@ -512,9 +515,199 @@
     return (val.base && val.union) ? { base: val.base, union: val.union } : null;
   }
 
+  /* =====================================================================
+     EL PASO DISEÑO
+     ===================================================================== */
+  const SINO = [ELEGIR, ["si", "sí"], ["no", "no"]];
+  const CAMPOS_DISENO = [
+    { grupo: "Arriostramiento", campos: [
+      { id: "arrinf", clave: "arriostreInferior_m", etiqueta: "Arriostre lateral de la brida inferior cada",
+        unidad: "m", tipo: "numero", fuente: "D.DIS.longitudes" },
+      { id: "larg", clave: "separacionLargueros_m", etiqueta: "Separación de los largueros", unidad: "m",
+        tipo: "numero", fuente: "D.DIS.longitudes" },
+      { id: "lb", clave: "LbColumna_m", etiqueta: "Lb de la columna (pandeo lateral-torsional)", unidad: "m",
+        tipo: "numero", fuente: "D.DIS.longitudes" },
+      { id: "ap6", clave: "arriostreComprobado", etiqueta: "Correas, largueros y arriostres cumplen el Apéndice 6",
+        tipo: "opcion", fuente: "E.C3.arriostre", opciones: SINO }] },
+    { grupo: "Tijeral", campos: [
+      { id: "cart", clave: "cartela", etiqueta: "Ángulos dobles: separación", tipo: "opcion",
+        fuente: "D.DIS.cartela", opciones: [ELEGIR, ["0", "en contacto"], ["3/8", "cartela de 3/8\""],
+          ["3/4", "cartela de 3/4\""]] },
+      { id: "sep", clave: "separadores_cm", etiqueta: "Separadores de los ángulos dobles cada", unidad: "cm",
+        tipo: "numero", fuente: "C.E6.a" },
+      { id: "consep", clave: "conexionSeparadores", etiqueta: "Los separadores van", tipo: "opcion",
+        fuente: "C.E6.a", opciones: [ELEGIR, ["requintado", "soldados"], ["apretado", "con pernos ajustados"]] },
+      { id: "e5", clave: "condicionesE5", etiqueta: "Las barras de ángulo simple cumplen las 5 condiciones del E5",
+        tipo: "opcion", fuente: "C.E5.cond", opciones: SINO },
+      { id: "un", clave: "uniones", etiqueta: "Uniones de las barras", tipo: "opcion", fuente: "T.U.c2",
+        opciones: [ELEGIR, ["soldadas", "soldadas"], ["empernadas", "empernadas"]] },
+      { id: "sold", clave: "soldadura_cm", etiqueta: "Longitud de soldadura en la cartela", unidad: "cm",
+        tipo: "numero", fuente: "T.U.c2", soloSi: "un=soldadas" },
+      { id: "pern", clave: "pernosPorLinea", etiqueta: "Pernos por línea", tipo: "numero", fuente: "T.U.c8",
+        soloSi: "un=empernadas" },
+      { id: "dperno", clave: "diametroPerno", etiqueta: "Diámetro de los pernos", tipo: "opcion",
+        fuente: "T.U.c8", soloSi: "un=empernadas",
+        opciones: [ELEGIR, ["1/2", "1/2\""], ["5/8", "5/8\""], ["3/4", "3/4\""], ["7/8", "7/8\""],
+          ["M16", "M16"], ["M20", "M20"], ["M22", "M22"]] }] }
+  ];
+
+  function leeDiseno(val) {
+    const d = {};
+    const num = (x) => (x === "" || x === undefined || x === null || isNaN(+x)) ? undefined : +x;
+    const pon = (k, v) => { if (v !== undefined) d[k] = v; };
+    pon("arriostreInferior_m", num(val.arrinf));
+    pon("separacionLargueros_m", num(val.larg));
+    pon("LbColumna_m", num(val.lb));
+    if (val.ap6 === "si" || val.ap6 === "no") d.arriostreComprobado = val.ap6 === "si";
+    if (DI.CARTELAS[val.cart] !== undefined && val.cart !== "") d.cartela = val.cart;
+    pon("separadores_cm", num(val.sep));
+    if (val.consep === "requintado" || val.consep === "apretado") d.conexionSeparadores = val.consep;
+    if (val.e5 === "si" || val.e5 === "no") d.condicionesE5 = val.e5 === "si";
+    if (val.un === "soldadas" || val.un === "empernadas") d.uniones = val.un;
+    if (d.uniones === "soldadas") pon("soldadura_cm", num(val.sold));
+    if (d.uniones === "empernadas") {
+      pon("pernosPorLinea", num(val.pern));
+      if (val.dperno) d.diametroPerno = val.dperno;
+    }
+    return d;
+  }
+  function valoresDeDiseno(dz) {
+    const d = dz || {}, v = {};
+    const s = (k, x) => { if (x !== undefined) v[k] = String(x); };
+    s("arrinf", d.arriostreInferior_m); s("larg", d.separacionLargueros_m); s("lb", d.LbColumna_m);
+    if (typeof d.arriostreComprobado === "boolean") v.ap6 = d.arriostreComprobado ? "si" : "no";
+    s("cart", d.cartela); s("sep", d.separadores_cm); s("consep", d.conexionSeparadores);
+    if (typeof d.condicionesE5 === "boolean") v.e5 = d.condicionesE5 ? "si" : "no";
+    s("un", d.uniones); s("sold", d.soldadura_cm); s("pern", d.pernosPorLinea); s("dperno", d.diametroPerno);
+    return v;
+  }
+
+  /* El diseño entero: corre el análisis si hace falta y verifica.  Lo que
+     falte se dice con el paso al que hay que ir, como en el análisis. */
+  function diseno(m3, modelo, perfiles, an) {
+    const a = an || analisis(m3, modelo, perfiles);
+    if (!a.ok) {
+      return { ok: false, faltas: [{ paso: "analisis",
+        que: "el diseño necesita el análisis, y el análisis todavía no corre" }].concat(a.faltas) };
+    }
+    const seccion = seccionDesde(modelo, perfiles);
+    const v = DI.verificaPortico({ analisis: a.r, m3: m3, seccion: seccion, acero: modelo.sitio.acero,
+      diseno: modelo.diseno || {} });
+    if (!v.ok) {
+      return { ok: false, faltas: v.faltan.map((f) => ({ paso: "diseno", que: f.que, campo: f.campo })) };
+    }
+    return { ok: true, v: v, r: a.r, fichas: fichasDiseno(v) };
+  }
+
+  function fichasDiseno(v) {
+    const R = v.resumen;
+    const L = [
+      ln("Barras verificadas", String(R.total), "conteo"),
+      ln("Cumplen", R.cumplen + " de " + R.total, "conteo", { estado: R.cumplen === R.total ? "ok" : "no" }),
+      ln("Con un control esencial sin hacer", String(R.conOmitidosEsenciales), "conteo",
+        { estado: R.conOmitidosEsenciales ? "no" : "ok",
+          nota: R.conOmitidosEsenciales ? "no cumplen aunque su ratio sea bajo: falta comprobar algo que manda" : null }),
+      ln("La peor", R.peor.id + " · " + (R.peor.ratio === null ? "—" : n2(R.peor.ratio, 2)), "medido",
+        { estado: R.peor.ratio > 1 ? "no" : null, nota: R.peor.estado ? R.peor.estado + " · " + R.peor.combo : null })
+    ];
+    return [ficha("Resumen", "ratio = demanda / capacidad, AISC 360-22", L,
+      R.cumplen === R.total ? "bien" : null)];
+  }
+
+  function nivelRatio(x) {
+    if (x.faltanEsenciales || x.ratio === null) return "falta";
+    return x.ratio > 1 + 1e-12 ? "no" : "ok";
+  }
+
+  /* El pórtico pintado por ratio: verde cumple, rojo no, naranja discontinuo
+     si falta un control esencial.  El grosor crece con el ratio. */
+  function dibujoDiseno(dv, m3) {
+    const g = AN.geometria(m3, dv.r.sistema, dv.r.eje);
+    const barras = [];
+    for (const b of g.columnas.concat(g.truss)) {
+      const x = dv.v.barras[b.id.split("@")[0]];
+      const nivel = nivelRatio(x);
+      barras.push({ id: b.id, base: x.id, i: b.i, j: b.j, clase: b.clase, valor: x.ratio || 0,
+        nivel: nivel, cls: nivel === "ok" ? "ok" : (nivel === "no" ? "no" : "falta"),
+        peso: Math.min(1, (x.ratio || 0) / 1.5),
+        etiqueta: x.ratio === null ? "?" : n2(x.ratio, 2) });
+    }
+    return { modo: "ratio", nudos: g.nudos, barras: barras,
+      leyenda: "ratio = demanda / capacidad · el grosor crece con el ratio" };
+  }
+
+  function tablaDiseno(v) {
+    return Object.keys(v.porClase).map((k) => v.porClase[k]);
+  }
+
+  function lineasDiseno(v, idBarra) {
+    const x = v && v.barras[String(idBarra).split("@")[0]];
+    if (!x) return null;
+    const L = [
+      ln("Perfil", x.perfil, "entrada"),
+      ln("Ratio", x.ratio === null ? "no se pudo calcular" : n2(x.ratio, 3), "medido",
+        { estado: nivelRatio(x) === "ok" ? "ok" : "no", nota: x.estado ? x.estado + " · " + x.combo : null })
+    ];
+    for (const q of (x.ratios || [])) {
+      if (q.estado === x.estado) continue;
+      L.push(ln(q.estado.split(" · ")[0], n2(q.valor, 3), "medido", { nota: q.estado }));
+    }
+    for (const o of x.omitidos) {
+      /* lo que falta va en la etiqueta y la palabra corta en el valor: el valor no
+         parte línea y un texto largo ahí se montaba sobre la etiqueta */
+      L.push(ln(o.que, o.esencial ? "FALTA" : "supuesto", "medido",
+        { estado: o.esencial ? "no" : null, nota: o.motivo }));
+    }
+    return { lineas: L, cumple: x.cumple,
+      nota: x.cumple ? "cumple" : (x.faltanEsenciales ? "no cumple: falta un control esencial" : "no cumple: ratio mayor que 1") };
+  }
+
+  /* Lo que el análisis y el diseño tienen que contarle a Comprobación.  Solo
+     lo que ya está calculado: Comprobación no corre nada por su cuenta. */
+  function avisosResultados(a, d) {
+    const L = [];
+    if (a && a.ok) {
+      const r = a.r;
+      if (!r.deriva.cumple) {
+        L.push({ nivel: "error", que: "La deriva con viento de servicio no cumple: H/" +
+          Math.round(1 / r.deriva.peor.relacion), porque: "el límite es H/100 (fila SV.viento.H). " +
+          "Hace falta más rigidez lateral.", fuente: "SV.viento.H", paso: "analisis" });
+      }
+      if (r.sismo && !r.sismo.deriva.cumple) {
+        L.push({ nivel: "error", que: "La deriva sísmica no cumple: " +
+          r.sismo.deriva.relacion.toFixed(4).replace(".", ",") + " contra " +
+          r.sismo.deriva.limite.toFixed(3).replace(".", ","),
+          porque: "desplazamiento × 0,75·R contra la Tabla N° 14. Más rigidez lateral, o declarar uso " +
+            "industrial si lo es.", fuente: "S.despl", paso: "analisis" });
+      }
+      for (const x of r.avisos) {
+        if (/sale al \d+,\d %/.test(x)) L.push({ nivel: "aviso", que: "El sistema sísmico no es el de la geometría",
+          porque: x, fuente: "A.sismo.sistema", paso: "cargas" });
+      }
+    }
+    if (d && d.ok) {
+      const filas = Object.keys(d.v.barras).map((k) => d.v.barras[k]);
+      const no = filas.filter((x) => !x.faltanEsenciales && x.ratio > 1 + 1e-12);
+      const falta = filas.filter((x) => x.faltanEsenciales);
+      if (no.length) {
+        L.push({ nivel: "error", que: no.length + " barra(s) con ratio mayor que 1",
+          porque: "la peor, " + d.v.resumen.peor.id + " con " + d.v.resumen.peor.ratio.toFixed(2)
+            .replace(".", ",") + ". Se cambia el perfil en la tabla de Geometría.",
+          cuales: no.map((x) => x.id), paso: "diseno" });
+      }
+      if (falta.length) {
+        L.push({ nivel: "error", que: falta.length + " barra(s) con un control esencial sin hacer",
+          porque: "no cumplen aunque su ratio sea bajo: " + falta[0].omitidos.filter((o) => o.esencial)[0].que,
+          cuales: falta.map((x) => x.id), paso: "diseno" });
+      }
+    }
+    return L;
+  }
+
   return {
-    ART, DIRECCIONES, ACEROS, MODOS, CAMPOS_CARGAS, CAMPOS_ANALISIS,
-    leeSitio, valoresDeSitio, leeSistema,
+    ART, DIRECCIONES, ACEROS, MODOS, CAMPOS_CARGAS, CAMPOS_ANALISIS, CAMPOS_DISENO, avisosResultados,
+    leeSitio, valoresDeSitio, leeSistema, leeDiseno, valoresDeDiseno,
+    diseno, fichasDiseno, dibujoDiseno, tablaDiseno, lineasDiseno, nivelRatio,
     forma, cargas, seccionDesde, analisis, fichasAnalisis, tablaReacciones, dibujo, lineasFuerzas
   };
 });

@@ -287,6 +287,8 @@ svg.fz { width:100%; height:auto; display:block; background:var(--papel);
 svg.fz .t { stroke:var(--acero); } svg.fz .c { stroke:var(--alerta); }
 svg.fz .m { stroke:var(--aviso); } svg.fz .n { stroke:var(--linea); }
 svg.fz .sel { stroke:var(--tinta); }
+svg.fz .ok { stroke:var(--ok); } svg.fz .no { stroke:var(--alerta); }
+svg.fz .falta { stroke:var(--aviso); stroke-dasharray:6 4; }
 svg.fz text { font-family:var(--cifra); font-size:10px; fill:var(--tinta-2); }
 svg.fz .apoyo { fill:none; stroke:var(--tinta-2); stroke-width:1.4; }
 .ley { display:flex; gap:14px; flex-wrap:wrap; font-family:var(--cifra); font-size:10px;
@@ -348,6 +350,10 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     <div id="lado-analisis">
       <h3 class="sec">Modelo de análisis</h3>
       <form id="fa" autocomplete="off" onsubmit="return false"></form>
+    </div>
+    <div id="lado-diseno">
+      <h3 class="sec">Datos de diseño</h3>
+      <form id="fd" autocomplete="off" onsubmit="return false"></form>
     </div>
   </aside>
   <main class="lienzo" id="centro"></main>
@@ -446,6 +452,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     $("lado-parametros").hidden = !par;
     $("lado-cargas").hidden = a.lados.indexOf("cargas") < 0;
     $("lado-analisis").hidden = a.lados.indexOf("analisis") < 0;
+    $("lado-diseno").hidden = a.lados.indexOf("diseno") < 0;
     $("izquierda").hidden = !a.lados.length;
     $("derecha").hidden = !a.derecha;
     $("obra").className = "obra" + (a.lados.length ? "" : " sin-izq") +
@@ -470,6 +477,18 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
      Las guardas de los modulos LANZAN cuando algo es imposible, y eso se
      ve enseguida. Lo que no se ve es lo que es legal pero cuesta: el alero
      a axial, los metros que no dilatan, las clases sin perfil. */
+  /* lo que el análisis y el diseño VIGENTES tienen que decir, sumado a la lista */
+  function conResultados(c) {
+    var extra = RESULTADOS.avisosResultados(analisisVigente(), disenoVigente());
+    if (!extra.length) return c;
+    var lista = extra.concat(c.lista);
+    var cuenta = { error: 0, aviso: 0, nota: 0 };
+    lista.forEach(function (a) { cuenta[a.nivel]++; });
+    return Object.assign({}, c, { lista: lista, cuenta: cuenta, total: lista.length,
+      insignia: cuenta.error + cuenta.aviso,
+      nota: cuenta.error ? "hay " + cuenta.error + " cosa(s) que impiden seguir" : c.nota });
+  }
+
   function pintaComprobacion(fallo) {
     if (!m3) {
       /* si el galpon no se monta, ESO es lo primero que hay que comprobar */
@@ -482,7 +501,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
         '<button class="ir" data-ir="geom">ir a Geometría</button></li></ol></div>';
       return;
     }
-    var c = VISTAS.comprobacion(m3, modelo);
+    var c = conResultados(VISTAS.comprobacion(m3, modelo));
     insignia = c.insignia || null;
     pintaPasos();
     var cu = '<div class="cuenta">' +
@@ -551,8 +570,30 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
   }
   pintaForm("fc", RESULTADOS.CAMPOS_CARGAS, "ca_");
   pintaForm("fa", RESULTADOS.CAMPOS_ANALISIS, "an_");
+  pintaForm("fd", RESULTADOS.CAMPOS_DISENO, "di_");
+
+  /* LOS CAMPOS QUE DEPENDEN DE OTRO · soloSi: "campo=valor".  El de la nieve
+     básica solo con nieve; el de la soldadura solo con uniones soldadas. */
+  function actualizaSolos() {
+    var pref = { fc: "ca_", fd: "di_" };
+    for (var f in pref) {
+      var form = $(f);
+      if (!form || !form.querySelectorAll) continue;
+      Array.prototype.forEach.call(form.querySelectorAll("[data-solo]"), function (el) {
+        var q = el.getAttribute("data-solo").split("=");
+        var otro = $(pref[f] + q[0]);
+        el.hidden = !(otro && otro.value === q[1]);
+      });
+    }
+  }
+  $("fd").addEventListener("change", function () {
+    modelo.diseno = RESULTADOS.leeDiseno(valoresForm(RESULTADOS.CAMPOS_DISENO, "di_"));
+    actualizaSolos();
+    recalcula();
+  });
   $("fc").addEventListener("change", function () {
     modelo.sitio = RESULTADOS.leeSitio(valoresForm(RESULTADOS.CAMPOS_CARGAS, "ca_"));
+    actualizaSolos();
     recalcula();
   });
   $("fa").addEventListener("change", function () {
@@ -562,6 +603,8 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
   function ponSitioEnFormularios() {
     ponValores(RESULTADOS.CAMPOS_CARGAS, "ca_", RESULTADOS.valoresDeSitio(modelo.sitio));
     ponValores(RESULTADOS.CAMPOS_ANALISIS, "an_", modelo.sistema || {});
+    ponValores(RESULTADOS.CAMPOS_DISENO, "di_", RESULTADOS.valoresDeDiseno(modelo.diseno));
+    actualizaSolos();
   }
 
   function listaFaltas(faltas, conIr) {
@@ -610,8 +653,6 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
         "sin factorizar y combina con sus propios factores (fila J.costura).</p></div></div>";
     }
     $("centro").innerHTML = h + "</div>";
-    Array.prototype.forEach.call(document.querySelectorAll ? document.querySelectorAll("[data-solo]") : [],
-      function (el) { el.hidden = !(modelo.sitio && modelo.sitio.hayNieve); });
   }
 
   /* ---------- ANALISIS ----------
@@ -649,8 +690,8 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     var h = '<svg class="fz" viewBox="0 0 ' + W + " " + n2(H, 0).replace(",", ".") + '">';
     dj.barras.forEach(function (b) {
       var a = pos[b.i], c = pos[b.j];
-      var cls = dj.modo === "momento" ? (Math.abs(b.valor) > 1e-6 ? "m" : "n")
-        : (b.valor > 1e-6 ? "t" : (b.valor < -1e-6 ? "c" : "n"));
+      var cls = b.cls || (dj.modo === "momento" ? (Math.abs(b.valor) > 1e-6 ? "m" : "n")
+        : (b.valor > 1e-6 ? "t" : (b.valor < -1e-6 ? "c" : "n")));
       var sw = 1 + 6 * b.peso;
       var xy = ' x1="' + X(a.x_m).toFixed(1) + '" y1="' + Y(a.y_m).toFixed(1) + '" x2="' +
         X(c.x_m).toFixed(1) + '" y2="' + Y(c.y_m).toFixed(1) + '"';
@@ -658,7 +699,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
       h += '<line class="' + cls + '"' + xy + ' stroke-width="' + sw.toFixed(2) + '" stroke-linecap="round"/>';
       h += '<line data-barra="' + esc(b.id) + '"' + xy +
         ' stroke="transparent" stroke-width="12" style="cursor:pointer"/>';
-      if (b.etiqueta && b.peso >= 0.12) {
+      if (b.etiqueta && (b.peso >= 0.12 || dj.modo === "ratio")) {
         h += '<text x="' + ((X(a.x_m) + X(c.x_m)) / 2 + 4).toFixed(1) + '" y="' +
           ((Y(a.y_m) + Y(c.y_m)) / 2 - 4).toFixed(1) + '">' + esc(b.etiqueta) + "</text>";
       }
@@ -739,6 +780,73 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     var b = ev.target.closest ? ev.target.closest("button[data-modo]") : null;
     if (b) { modoAnalisis = b.getAttribute("data-modo"); recalcula(); }
   });
+
+  /* ---------- DISEÑO ----------
+     Usa el análisis vigente —el de la caché— y verifica cada barra. Lo que
+     no se pudo comprobar sale en naranja discontinuo y la barra NO cumple. */
+  var disenoCache = { clave: null, res: null };
+  function disenoActual() {
+    var k = claveAnalisis() + JSON.stringify(modelo.diseno || {});
+    if (disenoCache.clave !== k) {
+      var a = analisisActual();
+      disenoCache = { clave: k, res: RESULTADOS.diseno(m3, modelo, PERFILES, a) };
+    }
+    return disenoCache.res;
+  }
+  function disenoVigente() {
+    var k = claveAnalisis() + JSON.stringify(modelo.diseno || {});
+    return disenoCache.clave === k && disenoCache.res && disenoCache.res.ok ? disenoCache.res : null;
+  }
+
+  function pintaDiseno(fallo) {
+    if (!m3) {
+      $("centro").innerHTML = '<div class="hoja"><h2>Diseño</h2><p class="lead">el galpón no ' +
+        "se puede montar: " + esc(fallo ? fallo.titulo : "—") + ". Se corrige en Geometría.</p></div>";
+      $("derecha").innerHTML = "";
+      return;
+    }
+    var d = disenoActual();
+    if (!d.ok) {
+      $("centro").innerHTML = '<div class="hoja"><h2>Diseño</h2><p class="lead">todavía no se ' +
+        "puede verificar: falta lo que sigue</p>" + listaFaltas(d.faltas, true) + "</div>";
+      $("derecha").innerHTML = '<p class="nohay">El diseño compara las fuerzas de segundo orden del ' +
+        "análisis con la capacidad de cada barra, por su capítulo del AISC 360-22. Lo que no se " +
+        "puede comprobar no cuenta como comprobado.</p>";
+      return;
+    }
+    var dj = RESULTADOS.dibujoDiseno(d, m3);
+    var R = d.v.resumen;
+    var ley = '<div class="ley"><span><i style="border-top-color:var(--ok)"></i>cumple</span>' +
+      '<span><i style="border-top-color:var(--alerta)"></i>ratio mayor que 1</span>' +
+      '<span><i style="border-top-color:var(--aviso);border-top-style:dashed"></i>falta un control esencial</span>' +
+      "<span>" + esc(dj.leyenda) + "</span></div>";
+    var filas = RESULTADOS.tablaDiseno(d.v).map(function (c) {
+      var cls = c.faltanEsenciales ? "neg" : (c.ratio > 1 ? "neg" : "");
+      return "<tr><td>" + esc(c.clase) + "</td><td>" + esc(c.perfil) + '</td><td class="' + cls + '">' +
+        (c.ratio === null ? "—" : n2(c.ratio, 2)) + (c.faltanEsenciales ? " ?" : "") + "</td><td>" +
+        esc(c.barra) + "</td><td>" + (c.noCumplen ? c.noCumplen + " de " + c.cuantas : "todas") +
+        "</td><td>" + esc(c.combo || "") + "</td></tr>";
+    }).join("");
+    $("centro").innerHTML = '<div class="hoja"><h2>Diseño</h2><p class="lead">' +
+      R.cumplen + " de " + R.total + " barras cumplen · " + esc(d.r.sistema.nombre) + "</p>" +
+      dibujaFuerzas(dj, d.r) + ley +
+      '<h3>Por clase de barra</h3><div class="tarj"><div class="rueda-x"><table class="rx"><thead><tr>' +
+      "<th>clase</th><th>perfil</th><th>ratio máx.</th><th>barra</th><th>no cumplen</th><th>combinación</th>" +
+      "</tr></thead><tbody>" + filas + "</tbody></table></div>" +
+      '<p class="pie">El perfil se cambia en la tabla de perfiles de Geometría; el análisis y el ' +
+      "diseño se rehacen solos.</p></div></div>";
+
+    var sel;
+    var ld = barraSel ? RESULTADOS.lineasDiseno(d.v, barraSel) : null;
+    if (ld) {
+      sel = '<div class="tarj" style="border-left-color:' + (ld.cumple ? "var(--ok)" : "var(--alerta)") +
+        '"><h4>' + esc(barraSel.split("@")[0]) + '</h4><p class="sub">' + esc(ld.nota) + "</p>" +
+        ld.lineas.map(pintaLinea).join("") + "</div>";
+    } else {
+      sel = '<div class="tarj"><h4>Nada seleccionado</h4><p class="sub">pincha una barra del dibujo</p></div>';
+    }
+    $("derecha").innerHTML = sel + d.fichas.map(pintaFicha).join("");
+  }
 
   /* ---------- LO QUE TODAVIA NO TIENE PANTALLA ----------
      No se pone una maqueta. Un paso que parece hecho y esta vacio engana
@@ -1114,6 +1222,13 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     var lf = av ? RESULTADOS.lineasFuerzas(av.r, barraSel) : null;
     if (lf) {
       lineas = lineas.filter(function (l) { return l.q !== "Ratio"; }).concat(lf.lineas);
+      /* y si además hay un diseño vigente, el ratio de verdad en vez de «falta el diseño» */
+      var dv = disenoVigente();
+      var ld = dv ? RESULTADOS.lineasDiseno(dv.v, barraSel) : null;
+      if (ld) {
+        lineas = lineas.filter(function (l) { return l.q !== "Ratio"; })
+          .concat(ld.lineas.filter(function (l) { return l.q !== "Perfil"; }));
+      }
     }
     return '<div class="tarj" style="border-left-color:var(--alerta)"><h4>' +
       esc(s.id) + "</h4>" +
@@ -1183,7 +1298,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     /* la insignia de Comprobacion, como en Reticula: el numero de avisos en
        la propia pestana, desde el paso que sea, para no tener que entrar a
        mirar si hay */
-    var ins = m3 ? (VISTAS.comprobacion(m3, modelo).insignia || null) : 1;
+    var ins = m3 ? (conResultados(VISTAS.comprobacion(m3, modelo)).insignia || null) : 1;
     if (ins !== insignia) { insignia = ins; pintaPasos(); }
     if (!paso.listo) { pintaTodavia(paso); return; }
     /* EL GALPON SE MONTA EN CUALQUIER PASO. Antes solo se montaba al pasar
@@ -1194,6 +1309,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     if (pasoActivo === "comprob") { pintaComprobacion(fallo); return; }
     if (pasoActivo === "cargas") { pintaCargas(fallo); return; }
     if (pasoActivo === "analisis") { pintaAnalisis(fallo); return; }
+    if (pasoActivo === "diseno") { pintaDiseno(fallo); return; }
 
     if (fallo) {
       $("metricas").innerHTML = "";
@@ -1504,6 +1620,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     /* y las cargas y el sistema: sin esto se perdían al guardar y cerrar */
     m.sitio = modelo.sitio || {};
     m.sistema = modelo.sistema || null;
+    m.diseno = modelo.diseno || {};
     return m;
   }
   $("b-guardar").onclick = function () {
@@ -1554,6 +1671,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     if (m.ediciones) modelo.ediciones = m.ediciones;
     if (m.sitio) modelo.sitio = m.sitio;
     if (m.sistema) modelo.sistema = m.sistema;
+    if (m.diseno) modelo.diseno = m.diseno;
     ponSitioEnFormularios();
     recalcula();
   }

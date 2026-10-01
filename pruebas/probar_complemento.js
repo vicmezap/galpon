@@ -344,15 +344,15 @@ comp("y las capas", pinto(M.dom, "lado-ver").hidden, false);
 comp("y los parametros", pinto(M.dom, "lado-parametros").hidden, false);
 
 /* UN PASO SIN PANTALLA: se va todo lo de Geometría y se dice qué falta */
-pulsa(M.dom, "pasos", "data-paso", "diseno");
-comp("EN DISEÑO LA BARRA DE VISTAS DESAPARECE", pinto(M.dom, "vistas").hidden, true);
+pulsa(M.dom, "pasos", "data-paso", "conex");
+comp("EN CONEXIONES LA BARRA DE VISTAS DESAPARECE", pinto(M.dom, "vistas").hidden, true);
 comp("y las metricas del galpon tambien", pinto(M.dom, "metricas").hidden, true);
 comp("y el panel entero de la izquierda", pinto(M.dom, "izquierda").hidden, true);
 comp("y el de la derecha, que era la seleccion de barras",
   pinto(M.dom, "derecha").hidden, true);
 const diseno = pinto(M.dom, "centro").innerHTML;
-cierto("Diseño dice QUE enseñará y que su motor está escrito",
-  /AISC/.test(diseno) && /acero\.js/.test(diseno));
+cierto("Conexiones dice QUE enseñará y que su motor está escrito",
+  /placa/.test(diseno) && /conexiones\.js/.test(diseno));
 cierto("no se pone una maqueta, y se dice por que",
   /Todavía no hay pantalla/.test(diseno) && /engaña más que una que avisa/.test(diseno));
 cierto("y con tildes: el texto es para el proyectista, no para el compilador",
@@ -392,6 +392,20 @@ cierto("y manda a Cargas a por lo que falta allí", /data-ir="cargas"/.test(an))
 cierto("guardar lleva el sitio y el sistema, que antes se perdían",
   /m\.sitio = modelo\.sitio/.test(modeHtml) && /m\.sistema = modelo\.sistema/.test(modeHtml));
 cierto("y abrir los devuelve a los formularios", /ponSitioEnFormularios\(\)/.test(modeHtml));
+
+/* ───── DISEÑO · su panel, y sin datos dice qué falta ───── */
+pulsa(M.dom, "pasos", "data-paso", "diseno");
+comp("en Diseño va SU panel a la izquierda", pinto(M.dom, "lado-diseno").hidden, false);
+comp("con panel derecho, sin la barra de vistas",
+  [pinto(M.dom, "derecha").hidden, pinto(M.dom, "vistas").hidden], [false, true]);
+const fd = pinto(M.dom, "fd").innerHTML;
+cierto("el formulario pide el arriostre de la brida inferior, los largueros, el Lb y el E5",
+  /di_arrinf/.test(fd) && /di_larg/.test(fd) && /di_lb/.test(fd) && /di_e5/.test(fd));
+cierto("NINGÚN dato de diseño trae valor", !/selected/.test(fd) && !/<input[^>]*value="[^"]/.test(fd));
+cierto("la soldadura y los pernos solo salen según la unión", /data-solo="un=soldadas"/.test(fd) &&
+  /data-solo="un=empernadas"/.test(fd));
+cierto("sin datos no verifica, y lo dice", /todavía no se puede verificar/.test(pinto(M.dom, "centro").innerHTML));
+cierto("guardar lleva los datos de diseño", /m\.diseno = modelo\.diseno/.test(modeHtml));
 
 /* INICIO · un tablero de verdad, no una pestana vacia */
 pulsa(M.dom, "pasos", "data-paso", "inicio");
