@@ -455,4 +455,141 @@ cierto("V.procedencia cuenta el agujero que lo originó",
 cierto("V.no.duplica dice por qué no se copian las reglas",
   /discrepen/.test(INV.fila("V.no.duplica").nota));
 
+/* ================================================================
+   LOS PASOS · CADA UNO CON SU ARMAZON
+
+   ESTABA MAL Y SE VEIA: la barra de vistas -Portico, Planta, Elevacion,
+   3D- y el panel de la izquierda -Ver y Datos- son de GEOMETRIA, y se
+   colaban en los once pasos. Al entrar en Cargas seguias viendo las capas
+   de barras y los parametros del tijeral, que alli no pintan nada.
+
+   Se comprueba AQUI y no mirando la pagina porque mirando es como se
+   colo: el armazon parecia el de todos los pasos porque era el de todos.
+   ================================================================ */
+/* UNO O NINGUNO, PERO NUNCA UN TypeError. Una prueba que muere no informa:
+   el corredor solo imprime en fin(), asi que un [0] sobre un filtro vacio se
+   lleva por delante las comprobaciones que venian detras. Bajo un mutante es
+   justo cuando el filtro se queda vacio, o sea justo cuando mas falta hace
+   que la prueba HABLE. */
+const uno = (a, campo) => (a.length === 1 && a[0][campo] !== undefined)
+  ? a[0][campo] : ("no hay exactamente uno: " + a.length);
+
+comp("son once pasos", V.PASOS.length, 11);
+comp("y los del diagrama, en orden",
+  V.PASOS.map((p) => p.id),
+  ["inicio", "datos", "geom", "cargas", "analisis", "diseno", "conex",
+    "cimen", "comprob", "hojas", "cad"]);
+comp("ninguno repite id", V.PASOS.length,
+  V.PASOS.filter((p, i, a) => a.map((x) => x.id).indexOf(p.id) === i).length);
+comp("y todos dicen a que grupo del diagrama pertenecen",
+  V.PASOS.filter((p) => !p.grupo).map((p) => p.id), []);
+
+/* LA BARRA DE VISTAS ES DE GEOMETRIA, Y DE NADIE MAS */
+comp("SOLO Geometria lleva la barra de cuatro vistas",
+  V.PASOS.filter((p) => p.vistas).map((p) => p.id), ["geom"]);
+comp("y solo Geometria lleva panel a la izquierda",
+  V.PASOS.filter((p) => (p.lados || []).length).map((p) => p.id), ["geom"]);
+comp("con sus dos lados: las capas y los parametros",
+  V.armazon("geom").lados, ["ver", "parametros"]);
+comp("CARGAS NO ENSENA LA BARRA DE VISTAS", V.armazon("cargas").vistas, false);
+comp("ni los parametros del tijeral", V.armazon("cargas").lados, []);
+comp("ni Comprobacion", V.armazon("comprob").vistas, false);
+comp("ni Inicio", V.armazon("inicio").vistas, false);
+
+/* un paso que no existe PARA, con la lista delante */
+lanza("pedir un paso que no existe PARA", () => V.armazon("cimentacion"),
+  "no existe");
+lanza("y ensena los que hay", () => V.armazon("xx"), "inicio · datos · geom");
+
+/* los que no estan listos no se fingen: dicen que hara falta */
+const flojos = V.PASOS.filter((p) => !p.listo);
+comp("los pasos sin pantalla dicen QUE ensenaran",
+  flojos.filter((p) => !p.que).map((p) => p.id), []);
+comp("y QUIEN la hara", flojos.filter((p) => !p.hara).map((p) => p.id), []);
+comp("y si el motor esta escrito", flojos.filter((p) => !p.motor).map((p) => p.id), []);
+comp("los que si tienen pantalla llevan subtitulo en vez de excusa",
+  V.PASOS.filter((p) => p.listo && !p.sub).map((p) => p.id), []);
+comp("tres estan llenos hoy", V.PASOS.filter((p) => p.listo).map((p) => p.id),
+  ["inicio", "geom", "comprob"]);
+
+/* ---------------- INICIO · el tablero ---------------- */
+const tab = V.inicio(m3, null);
+comp("el tablero trae tres fichas", tab.length, 3);
+comp("y las tres que importan al abrir el archivo tres semanas despues",
+  tab.map((f) => f.titulo), ["El galpón", "Los pasos", "El inventario"]);
+const lTab = tab.reduce((a, f) => a.concat(f.lineas), []);
+comp("NI UNA linea del tablero sin procedencia",
+  lTab.filter((l) => V.ORIGENES.indexOf(l.origen) < 0).map((l) => l.q), []);
+comp("dice el area techada, que es lo primero que se pregunta",
+  uno(lTab.filter((l) => /Área techada/.test(l.q)), "v"), "1200 m²");
+comp("y cuantas filas tiene el inventario",
+  uno(lTab.filter((l) => l.q === "Filas"), "v"), String(INV.resumen().total));
+comp("el tablero sin galpon montado no revienta: ensena dos fichas",
+  V.inicio(null, null).length, 2);
+
+/* ---------------- COMPROBACION · lo que las guardas tienen que decir ----
+   Las guardas LANZAN cuando algo es imposible, y eso se ve enseguida. Lo
+   que no se ve es lo que es legal pero cuesta. Esta es esa lista. */
+const cmp = V.comprobacion(m3, null);
+cierto("la comprobacion dice algo", cmp.total >= 3);
+comp("los niveles son tres y ninguno mas",
+  cmp.lista.filter((a) => V.NIVELES.indexOf(a.nivel) < 0), []);
+/* EL ORDEN, CON UN CASO QUE LO DISTINGA. Con el galpon de siempre los
+   avisos ya salian antes que las notas por casualidad del orden en que se
+   empujan, asi que quitar el sort() no fallaba: la comprobacion era una
+   TAUTOLOGIA y el mutante la sobrevivio. Hace falta un galpon donde un
+   aviso se empuje DESPUES de una nota, y lo da la dilatacion: se empuja
+   tercera, detras de la nota del camino de carga, y solo salta cuando hay
+   DOS panos arriostrados -dos puntos fijos y algo preso entre ellos-. */
+const dosPanos = MON.monta(Object.assign({}, D, {
+  panosArriostradosTecho: [2, 8], panosArriostradosFachada: [2, 8]
+}));
+cierto("el caso elegido SI distingue: hay metros presos que avisan",
+  dosPanos.dilatacion.longitudPresa_m > 0);
+const cDos = V.comprobacion(dosPanos, null);
+cierto("y ese aviso se empuja detras de una nota, que es lo que el orden arregla",
+  cDos.lista.filter((a) => a.nivel === "nota").length > 0 &&
+  cDos.lista.filter((a) => /no pueden dilatar/.test(a.que)).length === 1);
+comp("vienen ordenados por gravedad", cDos.lista.map((a) => a.nivel),
+  cDos.lista.map((a) => a.nivel).slice()
+    .sort((a, b) => V.NIVELES.indexOf(a) - V.NIVELES.indexOf(b)));
+comp("y el de siempre tambien", cmp.lista.map((a) => a.nivel),
+  cmp.lista.map((a) => a.nivel).slice()
+    .sort((a, b) => V.NIVELES.indexOf(a) - V.NIVELES.indexOf(b)));
+comp("la insignia cuenta errores y avisos, no notas",
+  cmp.insignia, cmp.cuenta.error + cmp.cuenta.aviso);
+comp("cada aviso explica por que", cmp.lista.filter((a) => !a.porque &&
+  a.nivel !== "nota").map((a) => a.que), []);
+comp("y el que cita una fila, la cita de verdad",
+  cmp.lista.filter((a) => a.fuente && !INV.existe(a.fuente)).map((a) => a.fuente), []);
+comp("el que manda a un paso, manda a uno que existe",
+  cmp.lista.filter((a) => a.paso && !V.PASOS.filter((p) => p.id === a.paso).length)
+    .map((a) => a.paso), []);
+
+/* SIN PERFILES NO HAY NADA QUE VERIFICAR, y lo dice */
+comp("avisa de las clases sin perfil, que es lo que bloquea el analisis",
+  cmp.lista.filter((a) => /sin perfil asignado/.test(a.que)).length, 1);
+comp("y enumera CUALES, en vez de decir «hay 10»",
+  (uno(cmp.lista.filter((a) => a.cuales), "cuales") || []).length, 10);
+
+/* EL ALERO A AXIAL · el aviso que el galpon alineado NO tiene que dar */
+cierto("con techo y fachada en el mismo pano, el alero solo amarra",
+  cmp.lista.filter((a) => /mismos paños/.test(a.que)).length === 1);
+const cdes = V.comprobacion(desalineado, null);
+const axial = cdes.lista.filter((a) => /paños distintos/.test(a.que));
+comp("desalineados, EL AVISO SALE", axial.length, 1);
+comp("y es aviso, no nota", uno(axial, "nivel"), "aviso");
+const porqueAxial = String(uno(axial, "porque"));
+cierto("y dice quien se come la reaccion: la viga de alero, A AXIAL",
+  /AXIAL/.test(porqueAxial) && /puntal/.test(porqueAxial));
+cierto("y a que paso hay que ir a arreglarlo", uno(axial, "paso") === "geom");
+cierto("la insignia del desalineado es mayor", cdes.insignia > cmp.insignia);
+
+/* LO QUE AL PROYECTO LE FALTA, EN LA MISMA LISTA */
+const pends = cmp.lista.filter((a) => a.pendiente);
+comp("los tres pendientes de norma salen aqui, no en un cuaderno aparte",
+  pends.length, INV.resumen().pendiente);
+comp("y cada uno nombra su fila",
+  pends.filter((a) => !INV.existe(a.pendiente)), []);
+
 fin();

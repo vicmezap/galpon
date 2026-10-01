@@ -73,7 +73,10 @@ function montaDom(win) {
       value: val[id] ? val[id].value : "",
       checked: val[id] ? val[id].checked : false,
       _at: {}, onclick: null,
-      addEventListener: function (t, fn) { (this._ev = this._ev || {})[t] = fn; },
+      addEventListener: function (t, fn) {
+        this._ev = this._ev || {};
+        (this._ev[t] = this._ev[t] || []).push(fn);
+      },
       setAttribute: function (k, v) { this._at[k] = v; },
       getAttribute: function (k) { return this._at[k] === undefined ? null : this._at[k]; },
       querySelectorAll: function () { return []; },
@@ -87,6 +90,20 @@ function montaDom(win) {
 }
 const pinto = (dm, id) => (dm && dm.nodos[id]) ||
   { innerHTML: "", textContent: "", hidden: null };
+
+/* PULSAR DE VERDAD · el DOM de juguete no tiene closest(), asi que el clic
+   se finge con el boton que el manejador espera encontrar. Hace falta
+   porque el armazon de un paso solo se puede comprobar ENTRANDO en el
+   paso: es exactamente lo que nadie hizo cuando se colo. */
+function pulsa(dm, nodo, attr, valor) {
+  const b = { getAttribute: (k) => (k === attr ? valor : null) };
+  const sel = "button[" + attr + "]";
+  const ev = {
+    target: { closest: (s) => (s === sel ? b : null) },
+    preventDefault: function () {}
+  };
+  for (const fn of dm.nodos[nodo]._ev.click) fn(ev);
+}
 
 function carga(html, conDom) {
   const b = [];
@@ -304,11 +321,108 @@ cierto("y se dice por qué: la cámara NO puede cambiar un número del cálculo"
   /no mentir/.test(modeHtml) &&
   /camara NO puede cambiar un numero/.test(modeHtml));
 
-/* LOS PASOS QUE NO ESTÁN NO SE FINGEN */
-cierto("un paso sin pantalla lo dice y nombra lo que falta",
-  /Todavía no hay pantalla/.test(modeHtml) && /El motor:/.test(modeHtml));
-cierto("y explica por qué no se pone una maqueta",
-  /engaña más que una que avisa/.test(modeHtml));
+/* ───── CADA PASO CON SU ARMAZON ─────
+   ESTABA MAL Y SE VEIA: la barra de vistas y el panel de la izquierda son
+   de GEOMETRIA y se colaban en los once pasos. Aqui se ENTRA en los pasos
+   y se mira que arma la pagina, porque de otro modo esto no se ve. */
+cierto("la lista de pasos NO esta duplicada a mano en la plantilla",
+  /var PASOS = VISTAS\.PASOS;/.test(modeHtml));
+const barra = pinto(M.dom, "pasos").innerHTML;
+comp("la barra lleva los once pasos",
+  (barra.match(/data-paso=/g) || []).length, 11);
+comp("y un grupo del diagrama por cada uno que haya, contados y no a dedo",
+  (barra.match(/class="grupo"/g) || []).length,
+  M.win.VISTAS.PASOS.map((p) => p.grupo)
+    .filter((g, i, a) => a.indexOf(g) === i).length);
+comp("los que no tienen pantalla salen apagados",
+  (barra.match(/class="falta"/g) || []).length, 8);
+
+/* EN GEOMETRIA: barra de vistas, los dos lados y el panel derecho */
+comp("en Geometria se ve la barra de vistas", pinto(M.dom, "vistas").hidden, false);
+comp("y las capas", pinto(M.dom, "lado-ver").hidden, false);
+comp("y los parametros", pinto(M.dom, "lado-parametros").hidden, false);
+
+/* AL ENTRAR EN CARGAS SE VA TODO LO QUE ERA DE GEOMETRIA */
+pulsa(M.dom, "pasos", "data-paso", "cargas");
+comp("EN CARGAS LA BARRA DE VISTAS DESAPARECE", pinto(M.dom, "vistas").hidden, true);
+comp("y las metricas del galpon tambien", pinto(M.dom, "metricas").hidden, true);
+comp("y el panel entero de la izquierda", pinto(M.dom, "izquierda").hidden, true);
+comp("y el de la derecha, que era la seleccion de barras",
+  pinto(M.dom, "derecha").hidden, true);
+const cargas = pinto(M.dom, "centro").innerHTML;
+cierto("Cargas dice QUE ensenara", /E\.020/.test(cargas) && /Tabla 5/.test(cargas));
+cierto("y que su motor ya esta escrito", /e020\.js/.test(cargas));
+cierto("no se pone una maqueta, y se dice por que",
+  /Todavia no hay pantalla/.test(cargas) && /engana mas que una que avisa/.test(cargas));
+cierto("ya no queda ni una capa de barras a la vista",
+  cargas.indexOf("data-capa=") < 0);
+
+/* INICIO · un tablero de verdad, no una pestana vacia */
+pulsa(M.dom, "pasos", "data-paso", "inicio");
+const inicio = pinto(M.dom, "centro").innerHTML;
+comp("Inicio tampoco ensena la barra de vistas", pinto(M.dom, "vistas").hidden, true);
+comp("el tablero trae tres fichas", (inicio.match(/class="tarj/g) || []).length, 3);
+cierto("con el galpon que hay ahora mismo", /1200 m²/.test(inicio));
+cierto("los once pasos y cuantos estan listos", /3 de 11/.test(inicio));
+cierto("y el inventario entero, con el total que tiene HOY",
+  inicio.indexOf(">" + INV.resumen().total + "<") >= 0 && /Sin fuente/.test(inicio));
+cierto("con los pendientes NOMBRADOS, no contados",
+  /MT\.alfa/.test(inicio) || /G\.peralte/.test(inicio));
+
+/* COMPROBACION · la lista de avisos, y la insignia como en Reticula */
+pulsa(M.dom, "pasos", "data-paso", "comprob");
+const comprob = pinto(M.dom, "centro").innerHTML;
+cierto("Comprobacion es una lista de avisos", /<ol class="avisos">/.test(comprob));
+cierto("con mas de un aviso", (comprob.match(/<li class="/g) || []).length >= 3);
+cierto("cada uno con su nivel a la vista",
+  (comprob.match(/class="niv"/g) || []).length >= 3);
+cierto("avisa de las clases sin perfil, que es lo que bloquea el analisis",
+  /sin perfil asignado/.test(comprob));
+cierto("y enumera cuales, en vez de decir «hay 10»",
+  /class="cuales"/.test(comprob));
+cierto("LLEVA AL PASO donde se arregla, no solo lo cuenta",
+  /data-ir="geom"/.test(comprob));
+const fteC = (comprob.match(/data-fte="([^"]+)"/g) || [])
+  .map((x) => x.replace(/.*="|"$/g, ""));
+cierto("y los avisos citan filas del inventario", fteC.length >= 2);
+comp("todas existentes", fteC.filter((id) => !INV.existe(id)), []);
+cierto("LA INSIGNIA sale en la propia pestana, como en Reticula",
+  /class="ins"/.test(pinto(M.dom, "pasos").innerHTML));
+
+/* ───── LOS ONCE, UNO POR UNO, CONTRA LO QUE EL MODULO DECLARA ─────
+   Comprobar dos pasos de once no bastaba: ensenar SIEMPRE los parametros
+   del tijeral pasaba la prueba, porque ninguno de los dos pasos que se
+   miraban lo distinguia. Esto entra en los ONCE y compara los cuatro
+   interruptores con armazon(), que es la propiedad de verdad y no una
+   lista de casos. */
+const mal = [];
+for (const pp of M.win.VISTAS.PASOS) {
+  pulsa(M.dom, "pasos", "data-paso", pp.id);
+  const a = M.win.VISTAS.armazon(pp.id);
+  const debe = {
+    vistas: !a.vistas,
+    metricas: !a.vistas,
+    derecha: !a.vistas,
+    izquierda: !a.lados.length,
+    "lado-ver": a.lados.indexOf("ver") < 0,
+    "lado-parametros": a.lados.indexOf("parametros") < 0
+  };
+  for (const id of Object.keys(debe)) {
+    if (pinto(M.dom, id).hidden !== debe[id]) {
+      mal.push(pp.id + " · " + id + " deberia estar " +
+        (debe[id] ? "oculto" : "a la vista"));
+    }
+  }
+}
+comp("LOS ONCE PASOS montan exactamente el armazon que declaran", mal, []);
+
+/* y el boton de «ir a» vuelve a Geometria con su armazon entero */
+pulsa(M.dom, "centro", "data-ir", "geom");
+comp("volver a Geometria devuelve la barra de vistas",
+  pinto(M.dom, "vistas").hidden, false);
+comp("y el panel de la izquierda", pinto(M.dom, "izquierda").hidden, false);
+cierto("y el galpon se vuelve a dibujar",
+  /data-barra=/.test(pinto(M.dom, "centro").innerHTML));
 
 /* EL CANAL */
 cierto("el modelador pide el modelo al abrir", /a: "pide"/.test(modeHtml));
@@ -371,7 +485,8 @@ for (const n of [16, 32, 80]) {
 const portada = leer("index.html");
 cierto("la portada enlaza el modelador", /href="modelador\.html"/.test(portada));
 cierto("y el manifiesto con las instrucciones", /href="manifest\.xml"/.test(portada));
-cierto("y dice cuántas filas tiene el inventario", /390 filas/.test(portada));
+cierto("y dice cuántas filas tiene el inventario, contadas y no a dedo",
+  portada.indexOf(INV.resumen().total + " filas") >= 0);
 
 const gen = fs.readFileSync(path.join(__dirname, "..", "scripts",
   "gen_complemento.py"), "utf8");

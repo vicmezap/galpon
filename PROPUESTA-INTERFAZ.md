@@ -339,3 +339,40 @@ El paso «la vista PÓRTICO, editable» **ya no es el siguiente**. Lo siguiente 
 verdad es el **PASO 3, ANÁLISIS**, porque es lo único que falta para que la
 selección diga un ratio en vez de «falta el análisis», y el ratio es lo que el
 proyectista viene a buscar.
+
+---
+
+## 10 · Cada paso con su armazón
+
+**Lo que estaba mal, visto por el proyectista:** la barra de cuatro vistas
+—Pórtico, Planta, Elevación, 3D— y el panel de la izquierda —Ver y Datos— son
+de **Geometría**, y se colaban en los once pasos. Al entrar en Cargas seguías
+viendo las capas de barras y los parámetros del tijeral.
+
+**La causa:** la plantilla tenía un solo armazón y le cambiaba el centro. Y la
+lista de pasos estaba escrita **dos veces**, en la plantilla y en la cabeza de
+quien la escribió: la copia que se desincroniza.
+
+**Lo que se hizo:** cada paso declara en `vistas.js` qué armazón lleva (fila
+`V.armazon`), y la plantilla monta solo eso:
+
+| Paso | Barra de vistas | Panel izquierdo | Panel derecho | Centro |
+|---|---|---|---|---|
+| Inicio | — | — | — | **tablero**: el galpón, los pasos, el inventario |
+| Geometría | sí | Ver + Datos | selección y tablas | el dibujo |
+| Comprobación | — | — | — | **lista de avisos**, con insignia en la pestaña |
+| los otros ocho | — | — | — | qué enseñará, qué módulo lo hará, si el motor está escrito |
+
+**Comprobación** recoge lo que es legal pero cuesta —clases sin perfil, el alero
+a axial cuando techo y fachada se arriostran en paños distintos, los metros que
+no pueden dilatar, los pendientes de norma— y cada aviso **lleva al paso donde
+se arregla**. El número de avisos sale en la propia pestaña, como el
+«COMPROBACIÓN 86» de Retícula.
+
+**Cómo se prueba:** entrando en los **once** pasos y comparando los seis
+interruptores con `armazon()`. La primera versión de la prueba miraba dos pasos
+y un mutante que enseñaba los parámetros *siempre* la sobrevivió: ninguno de
+los dos pasos lo distinguía.
+
+**Lo que viene:** cada paso pendiente recibe su pantalla cuando su motor esté
+enganchado. El primero sigue siendo **Análisis** (§9).

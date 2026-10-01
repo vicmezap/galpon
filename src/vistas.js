@@ -51,9 +51,10 @@
   "use strict";
 
   const ART = INV.declara("vistas.js", [
-    "V.procedencia", "V.no.duplica", "V.limites",
+    "V.procedencia", "V.no.duplica", "V.limites", "V.armazon",
     "G.alma", "G.peralte", "G.maxwell", "G.rango", "G.hiperestatica",
     "MT.ejes", "MT.no.diafragma", "MT.mismo.pano", "MT.hastial",
+    "L.secciones", "L.suelto",
     "MT.termica", "MT.deltaT", "MT.alfa", "MT.plano.solver",
     "V.isometrica", "V.profundidad"
   ]);
@@ -679,6 +680,260 @@
     };
   }
 
+  /* ---------- LOS PASOS · cada uno con SU armazón ----------------------
+     ESTABA MAL Y SE VEIA: la barra de vistas —Pórtico, Planta, Elevación,
+     3D— y el panel de la izquierda —Ver y Datos— son de GEOMETRIA, y se
+     colaban en todos los pasos.  Al entrar en Cargas seguías viendo las
+     capas de barras y los parámetros del tijeral, que allí no pintan nada.
+
+     Así que cada paso declara QUE ARMAZON LLEVA, y la plantilla monta solo
+     eso.  Va aquí y no en el HTML por lo de siempre: para poder comprobar
+     que Cargas no enseña la barra de vistas sin tener que mirarlo. */
+  const PASOS = [
+    { id: "inicio", grupo: "Estado", nombre: "Inicio", listo: true,
+      vistas: false, lados: [],
+      sub: "qué hay en este libro y qué falta" },
+
+    { id: "datos", grupo: "Paso 1", nombre: "Datos", listo: false,
+      vistas: false, lados: [],
+      hara: "una pantalla de datos del proyecto",
+      motor: "proyecto.js y el inventario entero, escritos",
+      que: "nombre y ubicación, normas que mandan, materiales y f'c" },
+
+    { id: "geom", grupo: "Paso 2 · Modelo", nombre: "Geometría", listo: true,
+      vistas: true, lados: ["ver", "parametros"],
+      sub: "el galpón entero, en cuatro vistas" },
+
+    { id: "cargas", grupo: "Paso 2 · Modelo", nombre: "Cargas", listo: false,
+      vistas: false, lados: [],
+      hara: "una pantalla de cargas",
+      motor: "e020.js, viento.js, e030.js y combinaciones.js, escritos y probados",
+      que: "E.020 muerta y viva de techo, viento por zonas con la Tabla 5, " +
+        "E.030 y las combinaciones de la E.090" },
+
+    { id: "analisis", grupo: "Paso 3", nombre: "Análisis", listo: false,
+      vistas: false, lados: [],
+      hara: "una pantalla de análisis",
+      motor: "modelo.js, solver.js, estabilidad.js y riostras.js, escritos",
+      que: "las fuerzas de cada barra, el Método Directo y la pasada del bucle. " +
+        "ES EL QUE MÁS FALTA: sin él la selección no puede decir un ratio" },
+
+    { id: "diseno", grupo: "Paso 4", nombre: "Diseño", listo: false,
+      vistas: false, lados: [],
+      hara: "una pantalla de diseño",
+      motor: "acero.js con los cinco capítulos, y las cuatro piezas de E5",
+      que: "cada barra contra su capítulo del AISC, con su doble referencia" },
+
+    { id: "conex", grupo: "Paso 5", nombre: "Conexiones", listo: false,
+      vistas: false, lados: [],
+      hara: "una pantalla de conexiones",
+      motor: "placabase.js escrito; conexiones.js (Cap. J) pendiente",
+      que: "placa de apoyo, pernos de anclaje y llave de corte" },
+
+    { id: "cimen", grupo: "Paso 6", nombre: "Cimentación", listo: false,
+      vistas: false, lados: [],
+      hara: "pedestal.js y zapatas.js",
+      motor: "no escrito todavía · etapa E8",
+      que: "pedestal y zapata por E.060, con el levantamiento que un galpón sí tiene" },
+
+    { id: "comprob", grupo: "Paso 7", nombre: "Comprobación", listo: true,
+      vistas: false, lados: [],
+      sub: "lo que las guardas tienen que decir" },
+
+    { id: "hojas", grupo: "Salida", nombre: "Hojas Excel", listo: false,
+      vistas: false, lados: [],
+      hara: "escritor.js y hojas.js",
+      motor: "no escrito todavía · etapa E9",
+      que: "las hojas de cálculo rellenas, que es donde se queda el cálculo" },
+
+    { id: "cad", grupo: "Salida", nombre: "AutoCAD", listo: false,
+      vistas: false, lados: [],
+      hara: "cad.js",
+      motor: "no escrito todavía · etapa E9",
+      que: "los planos E-1 a E-5" }
+  ];
+
+  function paso(id) {
+    const p = PASOS.filter((x) => x.id === id)[0];
+    if (!p) {
+      throw new Error("vistas: el paso «" + id + "» no existe. Los que hay: " +
+        PASOS.map((x) => x.id).join(" · "));
+    }
+    return p;
+  }
+
+  /* El armazón que le toca a un paso.  La plantilla pregunta esto y monta
+     solo lo que diga: ni una barra de vistas de más. */
+  function armazon(id) {
+    const p = paso(id);
+    return {
+      id: p.id, nombre: p.nombre, listo: p.listo,
+      vistas: !!p.vistas,
+      lados: (p.lados || []).slice(),
+      sub: p.sub || null
+    };
+  }
+
+  /* ---------- INICIO · el tablero -------------------------------------
+     El primer paso puede estar lleno hoy, porque no calcula nada nuevo:
+     dice qué hay en el libro y qué falta.  Es lo que uno quiere ver al
+     abrir el archivo tres semanas después. */
+  function inicio(m3, modelo) {
+    const fichas = [];
+    if (m3) {
+      const met = MON_OPC ? MON_OPC.metrado(m3) : null;
+      const area = m3.luz_m * m3.ejes.largo_m;
+      fichas.push(ficha("El galpón", "lo que hay definido ahora mismo", [
+        ln("Luz · largo", n2(m3.luz_m, 2) + " · " + n2(m3.ejes.largo_m, 2) + " m",
+          "entrada"),
+        ln("Pórticos", m3.ejes.porticos + " @ " + n2(m3.ejes.sepPorticos_m, 2) + " m",
+          "geometria"),
+        ln("Área techada en planta", n2(area, 0) + " m²", "geometria"),
+        ln("Nudos · barras", m3.conteo.nudos + " · " + m3.conteo.barras, "conteo"),
+        met ? ln("Acero", n2(met.total_m, 0) + " m de barra", "medido")
+            : ln("Acero", "—", "medido")
+      ]));
+    }
+
+    const listos = PASOS.filter((p) => p.listo);
+    fichas.push(ficha("Los pasos", listos.length + " de " + PASOS.length +
+      " con pantalla",
+      PASOS.map((p) => ln(p.nombre, p.listo ? "listo" : "todavía no",
+        p.listo ? "medido" : "medido",
+        { estado: p.listo ? "ok" : null,
+          nota: p.listo ? null : (p.motor || "") }))));
+
+    const r = INV.resumen();
+    const pend = INV.ids().filter((id) => INV.fila(id).estado === "pendiente");
+    fichas.push(ficha("El inventario", "ningún número sin fuente", [
+      ln("Filas", String(r.total), "conteo"),
+      ln("Verificado · adoptado", r.verificado + " · " + r.adoptado, "conteo"),
+      ln("En conflicto, con decisión escrita", String(r.conflicto), "conteo"),
+      ln("Sin fuente", String(r.sin_fuente), "conteo",
+        { estado: r.sin_fuente === 0 ? "ok" : "no" }),
+      ln("Pendientes", pend.join(" · ") || "ninguno", "conteo",
+        { estado: r.pendiente ? "no" : "ok",
+          nota: r.pendiente
+            ? "son documentos que faltan, no cálculos sin hacer" : null })
+    ], r.sin_fuente === 0 ? "bien" : null));
+
+    return fichas;
+  }
+
+  /* ---------- COMPROBACION · lo que las guardas tienen que decir -------
+     Las guardas de los módulos LANZAN cuando algo es imposible, y eso se
+     ve enseguida.  Lo que no se ve es lo que es legal pero cuesta: el
+     alero trabajando a axial, los metros que no dilatan, las clases sin
+     perfil.  Esta es esa lista. */
+  const NIVELES = ["error", "aviso", "nota"];
+
+  function comprobacion(m3, modelo) {
+    const L = [];
+    const pon = (nivel, que, porque, extra) => {
+      const o = { nivel: nivel, que: que, porque: porque };
+      if (extra) for (const k of Object.keys(extra)) o[k] = extra[k];
+      L.push(o);
+    };
+
+    /* 1 · las clases sin perfil · bloquea el análisis */
+    const tp = tablaPerfiles(m3, modelo);
+    if (tp.sinPerfil) {
+      pon("aviso", tp.sinPerfil + " clase(s) de barra sin perfil asignado",
+        "Hasta que lo tengan no hay nada que verificar: el análisis necesita " +
+        "A e I para correr. Se asignan en la tabla de perfiles del paso Geometría.",
+        { fuente: "L.secciones", paso: "geom",
+          cuales: tp.filas.filter((f) => f.sinPerfil).map((f) => f.clase) });
+    } else {
+      pon("nota", "Todas las clases tienen perfil", "", { fuente: "L.secciones" });
+    }
+
+    /* 2 · el camino de carga */
+    if (!m3.camino.alineados) {
+      pon("aviso", "Techo y fachada arriostrados en paños distintos",
+        "La reacción del arriostre de techo recorre " +
+        n2(m3.camino.recorridoMaximoAlero_m, 2) + " m de alero antes de poder " +
+        "bajar, y quien la lleva es la VIGA DE ALERO trabajando a AXIAL, no a " +
+        "flexión. Hay que diseñarla como puntal.",
+        { fuente: "MT.mismo.pano", paso: "geom" });
+    } else {
+      pon("nota", "Techo y fachada en los mismos paños",
+        "la viga de alero solo amarra", { fuente: "MT.mismo.pano" });
+    }
+
+    /* 3 · lo que no puede dilatar */
+    if (m3.dilatacion.longitudPresa_m > 0) {
+      pon("aviso", n2(m3.dilatacion.longitudPresa_m, 2) +
+        " m del galpón no pueden dilatar",
+        "Entre dos paños arriostrados hay dos puntos fijos. La E.020 Art. 15 " +
+        "manda considerar " + m3.dilatacion.deltaT_C + " °C en construcciones de " +
+        "metal y el AISC §L6 también lo exige. El alargamiento en mm no se " +
+        "calcula porque α a temperatura ambiente no está en ninguna fuente.",
+        { fuente: "MT.termica", paso: "geom" });
+    }
+
+    /* 4 · el tijeral hiperestático acopla el bucle */
+    if (m3.tijeral.conteo.grado > 0) {
+      pon("nota", "El tijeral es hiperestático de grado " + m3.tijeral.conteo.grado,
+        "Las fuerzas se redistribuyen al cambiar las secciones, así que el bucle " +
+        "de dimensionamiento se acopla de verdad: cada pasada cambia las fuerzas.",
+        { fuente: "G.hiperestatica" });
+    }
+
+    /* 5 · el arriostre que no cae en el alero */
+    if (m3.tijeral.alma === "warren") {
+      pon("nota", "La Warren no tiene nudo superior en el alero",
+        "Su primer nudo de brida superior está medio paño adentro, así que la " +
+        "correa del alero se queda sin nudo.", { fuente: "G.alma" });
+    }
+
+    /* 6 · perfiles asignados a barras que ya no existen */
+    if (modelo) {
+      const h = LIB_OPC ? LIB_OPC.perfilesHuerfanos(modelo, m3) : null;
+      if (h && h.huerfanos.length) {
+        pon("aviso", h.huerfanos.length + " perfil(es) asignados a barras que ya no existen",
+          "Se conservan por si la geometría vuelve a tenerlas: " +
+          h.huerfanos.join(", "), { fuente: "L.secciones" });
+      }
+      if (modelo.ediciones && modelo.ediciones.length) {
+        pon("nota", modelo.ediciones.length + " edición(es) encima de lo paramétrico",
+          "Se reaplican al cambiar un parámetro; lo que no quepa se dirá.",
+          { fuente: "L.suelto" });
+      }
+    }
+
+    /* 7 · lo que el proyecto entero sabe que le falta */
+    const pend = INV.ids().filter((id) => INV.fila(id).estado === "pendiente");
+    for (const id of pend) {
+      pon("nota", "Pendiente de norma: " + id,
+        INV.fila(id).magnitud + ". " + (INV.fila(id).fuente || ""),
+        { fuente: null, pendiente: id });
+    }
+
+    const cuenta = { error: 0, aviso: 0, nota: 0 };
+    for (const a of L) cuenta[a.nivel]++;
+    L.sort((a, b) => NIVELES.indexOf(a.nivel) - NIVELES.indexOf(b.nivel));
+    return {
+      lista: L, cuenta: cuenta, total: L.length,
+      insignia: cuenta.error + cuenta.aviso,
+      art: ART["V.procedencia"],
+      nota: cuenta.error
+        ? "hay " + cuenta.error + " cosa(s) que impiden seguir"
+        : (cuenta.aviso
+          ? cuenta.aviso + " aviso(s): el galpón se puede calcular, pero hay " +
+            "decisiones que cuestan"
+          : "ningún aviso")
+    };
+  }
+
+  /* montaje.js y libro.js son OPCIONALES aquí, por lo mismo que perfiles.js
+     más abajo: vistas.js tiene que poder cargarse y probarse sin ellos. */
+  const LIB_OPC = (typeof require === "function")
+    ? (function () { try { return require("./libro.js"); } catch (e) { return null; } })()
+    : (typeof self !== "undefined" ? self.LIBRO : null);
+  const MON_OPC = (typeof require === "function")
+    ? (function () { try { return require("./montaje.js"); } catch (e) { return null; } })()
+    : (typeof self !== "undefined" ? self.MONTAJE : null);
+
   /* ---------- VER Y AISLAR · lo que sustituye a la paleta de dibujo ----
      ESTO EMPEZO SIENDO UNA PALETA DE DIBUJO copiada de Reticula, y estaba
      mal por un error de metodo que conviene dejar escrito.
@@ -842,6 +1097,7 @@
     ln, ficha, grupos, valida, problema, pestana, dibujo, fichas, todasLasLineas,
     datosModelo, datosVista, camaraDe,
     anotaciones, cota, tablaPerfiles, tablaPanos,
-    capas, filtra, seleccion, perfilDeBarra
+    capas, filtra, seleccion, perfilDeBarra,
+    PASOS, paso, armazon, inicio, comprobacion, NIVELES
   };
 });

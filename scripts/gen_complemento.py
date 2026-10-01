@@ -56,7 +56,7 @@ GUID = "7b3e1f42-9c6a-4d58-8e21-5a0f6b2c4d93"
 # EL PANEL SOLO NECESITA TRES, y por eso pesa 262 KB en vez de 1 674: es un
 # lanzador y no tiene que saber calcular nada. Que el catalogo de 2408 perfiles
 # no viaje al panel no es una optimizacion, es la consecuencia de que el panel
-# no elige secciones. Lo que queda son las 390 filas del inventario, que si
+# no elige secciones. Lo que queda son las filas del inventario, que si
 # viajan porque libro.js y panel.js declaran filas como todos los demas.
 MODULOS_PANEL = ["inventario.js", "libro.js", "panel.js"]
 

@@ -217,6 +217,40 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
   border-radius:3px; background:var(--ficha); padding:13px 15px; font-size:13px;
   color:var(--tinta-2); max-width:70ch; }
 .todavia b { color:var(--aviso); }
+/* ---- EL TABLERO Y LA LISTA DE AVISOS · los pasos que no llevan dibujo
+   no llevan lienzo: llevan pagina, y una pagina quiere ancho ---- */
+.hoja { padding:20px 26px 40px; overflow:auto; }
+.hoja > h2 { font-family:var(--disp); font-size:19px; font-weight:600;
+  margin:0 0 3px; letter-spacing:-.01em; }
+.hoja > p.lead { color:var(--suave); font-size:12.5px; margin:0 0 18px; }
+.rejilla { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(265px,1fr)); }
+.rejilla .tarj { margin:0; }
+ol.avisos { list-style:none; margin:0; padding:0; }
+ol.avisos li { border:1px solid var(--linea); border-left:3px solid var(--linea);
+  border-radius:2px; padding:9px 12px 10px; margin-bottom:8px; }
+ol.avisos li.error { border-left-color:var(--alerta); }
+ol.avisos li.aviso { border-left-color:var(--aviso); }
+ol.avisos li.nota  { border-left-color:var(--suave); }
+ol.avisos .niv { font-family:var(--cifra); font-size:9px; letter-spacing:.1em;
+  text-transform:uppercase; margin-right:8px; }
+ol.avisos li.error .niv { color:var(--alerta); }
+ol.avisos li.aviso .niv { color:var(--aviso); }
+ol.avisos li.nota  .niv { color:var(--suave); }
+ol.avisos b { font-family:var(--disp); font-size:13px; font-weight:600; }
+ol.avisos p { margin:5px 0 0; font-size:12.5px; color:var(--tinta-2);
+  line-height:1.5; max-width:76ch; }
+ol.avisos .cuales { font-family:var(--cifra); font-size:10.5px; color:var(--suave);
+  margin-top:4px; }
+ol.avisos .ir { font-family:var(--disp); font-size:11px; font-weight:600;
+  margin-top:7px; padding:2px 8px; border:1px solid var(--linea);
+  background:var(--papel); color:var(--acero); cursor:pointer; border-radius:2px; }
+ol.avisos .ir:hover { border-color:var(--acero); }
+.cuenta { display:flex; gap:7px; margin:0 0 16px; }
+.cuenta span { font-family:var(--cifra); font-size:10px; padding:3px 9px;
+  border:1px solid var(--linea); border-radius:2px; }
+.cuenta span.e { color:var(--alerta); border-color:var(--alerta); }
+.cuenta span.a { color:var(--aviso); border-color:var(--aviso); }
+.cuenta span.ok { color:var(--ok); border-color:var(--ok); }
 .todavia code { font-family:var(--cifra); font-size:.92em; }
 #fuente { position:fixed; inset:auto 0 0 0; background:var(--ficha);
   border-top:2px solid var(--acero); padding:11px 16px 13px; z-index:9;
@@ -250,12 +284,16 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
 <div class="metricas" id="metricas"></div>
 
 <div class="obra">
-  <aside class="izq">
-    <h3 class="sec">Ver</h3>
-    <div class="capas" id="capas"></div>
-    <div class="resumen" id="resumen"></div>
-    <h3 class="sec">Datos</h3>
-    <form id="f" autocomplete="off" onsubmit="return false"></form>
+  <aside class="izq" id="izquierda">
+    <div id="lado-ver">
+      <h3 class="sec">Ver</h3>
+      <div class="capas" id="capas"></div>
+      <div class="resumen" id="resumen"></div>
+    </div>
+    <div id="lado-parametros">
+      <h3 class="sec">Datos</h3>
+      <form id="f" autocomplete="off" onsubmit="return false"></form>
+    </div>
   </aside>
   <main class="lienzo" id="centro"></main>
   <aside class="der" id="derecha"></aside>
@@ -293,42 +331,23 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
       .map(Number).filter(function (x) { return !isNaN(x); });
   }
 
-  /* ---------- LOS PASOS ----------
-     Nueve, y hoy solo uno tiene pantalla. Los demás dicen qué módulo los
-     llenará y si el motor ya está escrito, en vez de fingir que existen:
-     una pestaña que parece hecha y está vacía engaña más que uno que
-     avisa. */
-  var PASOS = [
-    { id: "inicio",  grupo: "Estado",  nombre: "Inicio",  listo: false,
-      modulo: null, motor: "—" },
-    { id: "datos",   grupo: "Paso 1",  nombre: "Datos",   listo: false,
-      modulo: "vistas.js", motor: "proyecto.js y el inventario, escritos" },
-    { id: "geom",    grupo: "Paso 2 · Modelo", nombre: "Geometría", listo: true },
-    { id: "cargas",  grupo: "Paso 2 · Modelo", nombre: "Cargas",  listo: false,
-      modulo: "una pantalla de cargas",
-      motor: "e020.js, viento.js, e030.js y combinaciones.js, escritos y probados" },
-    { id: "analisis", grupo: "Paso 3", nombre: "Análisis", listo: false,
-      modulo: "una pantalla de análisis",
-      motor: "modelo.js, solver.js, estabilidad.js y riostras.js, escritos" },
-    { id: "diseno",  grupo: "Paso 4",  nombre: "Diseño",  listo: false,
-      modulo: "una pantalla de diseño",
-      motor: "acero.js con los cinco capítulos, y las cuatro piezas de E5" },
-    { id: "conex",   grupo: "Paso 5",  nombre: "Conexiones", listo: false,
-      modulo: "una pantalla de conexiones",
-      motor: "placabase.js escrito; conexiones.js (Cap. J) pendiente" },
-    { id: "cimen",   grupo: "Paso 6",  nombre: "Cimentación", listo: false,
-      modulo: "pedestal.js y zapatas.js", motor: "no escrito todavía · E8" },
-    { id: "comprob", grupo: "Paso 7",  nombre: "Comprobación", listo: false,
-      modulo: "la lista de avisos de todos los módulos",
-      motor: "las guardas ya existen: hoy lanzan, falta recogerlas" },
-    { id: "hojas",   grupo: "Salida",  nombre: "Hojas Excel", listo: false,
-      modulo: "escritor.js y hojas.js", motor: "no escrito todavía · E9" },
-    { id: "cad",     grupo: "Salida",  nombre: "AutoCAD", listo: false,
-      modulo: "cad.js", motor: "no escrito todavía · E9" }
-  ];
-  var pasoActivo = "geom";
+  /* ---------- LOS PASOS Y SU ARMAZON ----------
 
-  (function pintaPasos() {
+     ESTABA MAL Y SE VEIA. La barra de vistas -Portico, Planta, Elevacion,
+     3D- y el panel de la izquierda -Ver y Datos- son de GEOMETRIA, y se
+     colaban en los once pasos. Al entrar en Cargas seguias viendo las
+     capas de barras y los parametros del tijeral, que alli no pintan nada:
+     el armazon de un paso parecia el de todos porque era el de todos.
+
+     Y la lista de pasos estaba AQUI, a mano, duplicada de vistas.js: dos
+     copias de la misma lista en dos archivos es la que se desincroniza.
+     Ahora la lista y el armazon de cada paso salen del modulo, que es
+     donde se pueden comprobar sin abrir un navegador. */
+  var PASOS = VISTAS.PASOS;
+  var pasoActivo = "geom";
+  var insignia = null;
+
+  function pintaPasos() {
     var html = "", grupo = null, abierto = false;
     PASOS.forEach(function (p) {
       if (p.grupo !== grupo) {
@@ -336,21 +355,110 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
         html += '<div class="grupo"><span>' + esc(p.grupo) + "</span><div>";
         grupo = p.grupo; abierto = true;
       }
+      var ins = (p.id === "comprob" && insignia) ?
+        '<span class="ins">' + insignia + "</span>" : "";
       html += '<button data-paso="' + p.id + '"' +
         (p.listo ? "" : ' class="falta"') +
-        ' aria-selected="' + (p.id === pasoActivo) + '">' + esc(p.nombre) + "</button>";
+        ' aria-selected="' + (p.id === pasoActivo) + '">' + esc(p.nombre) +
+        ins + "</button>";
     });
     $("pasos").innerHTML = html + "</div></div>";
-  })();
+  }
+  pintaPasos();
+
+  function vePaso(id) {
+    pasoActivo = id;
+    pintaPasos();
+    recalcula();
+  }
 
   $("pasos").addEventListener("click", function (ev) {
     var b = ev.target.closest ? ev.target.closest("button[data-paso]") : null;
-    if (!b) return;
-    pasoActivo = b.getAttribute("data-paso");
-    Array.prototype.forEach.call($("pasos").querySelectorAll("button[data-paso]"),
-      function (x) { x.setAttribute("aria-selected", x === b ? "true" : "false"); });
-    recalcula();
+    if (b) vePaso(b.getAttribute("data-paso"));
   });
+
+  /* EL ARMAZON · lo monta el paso, no la costumbre. Un paso que no declara
+     «vistas» no ensena la barra de vistas, y uno que no declara ningun lado
+     no ensena el panel de la izquierda: se queda el ancho entero, que es lo
+     que una pagina de avisos o un tablero necesitan. */
+  function armaChrome() {
+    var a = VISTAS.armazon(pasoActivo);
+    $("vistas").hidden = !a.vistas;
+    $("metricas").hidden = !a.vistas;
+    var ver = a.lados.indexOf("ver") >= 0;
+    var par = a.lados.indexOf("parametros") >= 0;
+    $("lado-ver").hidden = !ver;
+    $("lado-parametros").hidden = !par;
+    $("izquierda").hidden = !a.lados.length;
+    $("derecha").hidden = !a.vistas;
+    return a;
+  }
+
+  /* ---------- INICIO · el tablero -----------------------------------
+     El primer paso puede estar lleno hoy porque no calcula nada nuevo:
+     dice que hay en el libro y que falta. */
+  function pintaInicio() {
+    var f = VISTAS.inicio(m3, modelo);
+    $("centro").innerHTML = '<div class="hoja"><h2>Galpon</h2>' +
+      '<p class="lead">' + (m3
+        ? "lo que hay en este libro, y en que paso esta"
+        : "todavia no hay geometria montada: ve a Geometria") + "</p>" +
+      '<div class="rejilla">' + f.map(pintaFicha).join("") + "</div></div>";
+  }
+
+  /* ---------- COMPROBACION · lo que las guardas tienen que decir -----
+     Las guardas de los modulos LANZAN cuando algo es imposible, y eso se
+     ve enseguida. Lo que no se ve es lo que es legal pero cuesta: el alero
+     a axial, los metros que no dilatan, las clases sin perfil. */
+  function pintaComprobacion() {
+    if (!m3) {
+      $("centro").innerHTML = '<div class="hoja"><h2>Comprobacion</h2>' +
+        '<p class="lead">no hay nada que comprobar todavia: el galpon no esta ' +
+        'montado. Ve a Geometria.</p></div>';
+      return;
+    }
+    var c = VISTAS.comprobacion(m3, modelo);
+    insignia = c.insignia || null;
+    pintaPasos();
+    var cu = '<div class="cuenta">' +
+      (c.cuenta.error ? '<span class="e">' + c.cuenta.error + " error(es)</span>" : "") +
+      (c.cuenta.aviso ? '<span class="a">' + c.cuenta.aviso + " aviso(s)</span>"
+        : '<span class="ok">ningun aviso</span>') +
+      '<span>' + c.cuenta.nota + " nota(s)</span></div>";
+    $("centro").innerHTML = '<div class="hoja"><h2>Comprobacion</h2>' +
+      '<p class="lead">' + esc(c.nota) + "</p>" + cu +
+      '<ol class="avisos">' + c.lista.map(function (a) {
+        return '<li class="' + a.nivel + '"><span class="niv">' + a.nivel +
+          "</span><b>" + esc(a.que) + "</b>" +
+          (a.fuente ? fuenteBtn(a.fuente) : "") +
+          (a.porque ? "<p>" + esc(a.porque) + "</p>" : "") +
+          (a.cuales && a.cuales.length
+            ? '<div class="cuales">' + esc(a.cuales.join("  ·  ")) + "</div>" : "") +
+          (a.paso ? '<button class="ir" data-ir="' + a.paso + '">ir a ' +
+            esc(VISTAS.paso(a.paso).nombre) + "</button>" : "") +
+          "</li>";
+      }).join("") + "</ol></div>";
+  }
+
+  $("centro").addEventListener("click", function (ev) {
+    var b = ev.target.closest ? ev.target.closest("button[data-ir]") : null;
+    if (b) vePaso(b.getAttribute("data-ir"));
+  });
+
+  /* ---------- LO QUE TODAVIA NO TIENE PANTALLA ----------
+     No se pone una maqueta. Un paso que parece hecho y esta vacio engana
+     mas que uno que avisa, y lo que dice es util: QUE hara, QUE modulo lo
+     hara y si el motor ya esta escrito. */
+  function pintaTodavia(paso) {
+    $("centro").innerHTML = '<div class="hoja"><h2>' + esc(paso.nombre) +
+      "</h2><p class=\"lead\">" + esc(paso.grupo) + "</p>" +
+      '<div class="todavia"><b>Todavia no hay pantalla para este paso.</b>' +
+      "<br><br>Lo que ensenara: " + esc(paso.que || "—") +
+      ".<br>La hara <code>" + esc(paso.hara || "—") + "</code>." +
+      "<br>El motor: " + esc(paso.motor || "—") + ".<br><br>" +
+      "No se pone una maqueta: una pestana que parece hecha y esta vacia " +
+      "engana mas que una que avisa.</div></div>";
+  }
 
   /* ---------- VER Y AISLAR · lo que estaba mal y por qué -------------
      Aquí había una paleta de dibujo copiada de Retícula, y era un error de
@@ -762,17 +870,11 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
   var m3 = null;
   function repinta() { recalcula(true); }
   function recalcula(soloVista) {
-    var paso = PASOS.filter(function (p) { return p.id === pasoActivo; })[0];
-    if (!paso.listo) {
-      $("metricas").innerHTML = "";
-      $("centro").innerHTML = '<div class="todavia"><b>Todavía no hay pantalla ' +
-        'para este paso.</b><br><br>La hará <code>' + esc(paso.modulo || "—") +
-        "</code>.<br>El motor: " + esc(paso.motor) + ".<br><br>" +
-        "No se pone una maqueta: una pestaña que parece hecha y está vacía " +
-        "engaña más que una que avisa.</div>";
-      $("derecha").innerHTML = "";
-      return;
-    }
+    var paso = VISTAS.paso(pasoActivo);
+    armaChrome();
+    if (pasoActivo === "inicio") { pintaInicio(); return; }
+    if (pasoActivo === "comprob") { pintaComprobacion(); return; }
+    if (!paso.listo) { pintaTodavia(paso); return; }
 
     var d = datos();
     if (soloVista && m3) { pintaLienzo(d); return; }
@@ -801,6 +903,10 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
 
     pintaMetricas(d);
     pintaLienzo(d);
+    /* la insignia de Comprobacion, como en Reticula: el numero de avisos
+       en la propia pestana, para no tener que entrar a mirar si hay */
+    var ins = VISTAS.comprobacion(m3, modelo).insignia || null;
+    if (ins !== insignia) { insignia = ins; pintaPasos(); }
   }
 
   function pintaLienzo(d) {

@@ -8,7 +8,7 @@
     "panel.js"
   ],
   "version": 1,
-  "fecha": "2026-09-30",
+  "fecha": "2026-10-01",
   "regla": "Ningún número entra al código sin fila aquí. Sin fuente primaria leída, no entra.",
   "estados": {
     "verificado": "leído en el texto original de la fuente",
@@ -173,6 +173,18 @@
       "clave": true,
       "fuente": "decisión de arquitectura del complemento",
       "nota": "Pasas de 12 paños a 8: la diagonal D11 deja de existir y la capa «borrar D11» se queda sin sitio. NO SE TIRA. Se conserva en la lista y se dice en el panel de avisos que esta vez no pudo aplicarse, con su botón para olvidarla a propósito. Y entonces sale gratis una propiedad que importa: SI VUELVES A LOS 12 PAÑOS, LA EDICIÓN VUELVE SOLA. Borrarla automáticamente haría que ir y volver destruyera trabajo sin que nadie lo pidiera, que es la misma razón por la que paraGuardar() se niega a descartar claves desconocidas."
+    },
+    {
+      "id": "V.armazon",
+      "grupo": "Los pasos y su armazón",
+      "magnitud": "Cada paso declara qué armazón lleva",
+      "valor": "11 pasos  ·  solo Geometría lleva vistas y paneles",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "decisión del proyectista, 01-10-2026",
+      "nota": "ESTABA MAL Y SE VEÍA: la barra de cuatro vistas —Pórtico, Planta, Elevación, 3D— y el panel de la izquierda —Ver y Datos— son de GEOMETRÍA, y se colaban en los once pasos. Al entrar en Cargas se seguían viendo las capas de barras y los parámetros del tijeral, que allí no pintan nada: el armazón de un paso PARecÍA el de todos porque ERA el de todos. Y la lista de pasos estaba DUPLICADA a mano en la plantilla, que es la copia que se desincroniza. Ahora cada paso declara en vistas.js si lleva barra de vistas y qué lados de panel, y la plantilla monta solo eso. VA EN EL MÓDULO Y NO EN EL HTML por lo de siempre: para poder comprobar que Cargas no enseña la barra de vistas SIN tener que mirarlo —mirando es como se coló—. La prueba entra en los ONCE pasos y compara los seis interruptores contra armazon(): comprobar dos de once no bastaba, y un mutante que enseñaba los parámetros SIEMPRE sobrevivió a la primera versión de la prueba por eso mismo."
     }
   ]
 }
