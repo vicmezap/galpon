@@ -1,0 +1,627 @@
+<title>Galpón · modelador</title>
+<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+<style>
+:root {
+  --tinta:#1b2430; --tinta-2:#4a5568; --papel:#f2f1ec; --papel-2:#e6e4dc;
+  --ficha:#fbfaf7; --linea:#cdcabd; --acero:#2f6f8f;
+  --ok:#1d6a4f; --aviso:#b4531a; --alerta:#8c2f39; --suave:#6b6f76;
+  --disp:"IBM Plex Sans Condensed","Arial Narrow",sans-serif;
+  --cuerpo:"IBM Plex Sans",system-ui,sans-serif;
+  --cifra:"IBM Plex Mono",ui-monospace,monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --tinta:#e8e6df; --tinta-2:#b3b8c0; --papel:#14181d; --papel-2:#1c2128;
+  --ficha:#1a1f26; --linea:#343b45; --acero:#79b8d4;
+  --ok:#57c79a; --aviso:#f0a35e; --alerta:#e58592; --suave:#8b929c;
+  color-scheme: dark; } }
+* { box-sizing:border-box; }
+html, body { height:100%; }
+body { background:var(--papel); color:var(--tinta); font-family:var(--cuerpo);
+  font-size:13.5px; line-height:1.4; margin:0; display:flex; flex-direction:column; }
+
+/* ---- cabecera ---- */
+header { border-bottom:2px solid var(--tinta); padding:10px 16px 8px;
+  display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
+header h1 { font-family:var(--disp); font-weight:600; font-size:24px; margin:0;
+  letter-spacing:-0.01em; }
+.chip { font-family:var(--cifra); font-size:9.5px; letter-spacing:.09em;
+  text-transform:uppercase; border:1px solid var(--linea); border-radius:2px;
+  padding:2px 6px; color:var(--tinta-2); background:var(--ficha); }
+.chip.a { border-color:var(--acero); color:var(--acero); }
+header .lema { color:var(--tinta-2); font-size:12.5px; flex:1; min-width:160px; }
+header .der { display:flex; gap:7px; align-items:center; }
+button.h { font-family:var(--cuerpo); font-size:12.5px; padding:6px 12px;
+  border:1px solid var(--linea); border-radius:3px; background:var(--ficha);
+  color:var(--tinta); cursor:pointer; }
+button.h.pri { background:var(--acero); border-color:var(--acero); color:#fff;
+  font-weight:600; }
+button.h:hover { border-color:var(--acero); }
+
+/* ---- barra de pasos ---- */
+nav.pasos { border-bottom:1px solid var(--linea); padding:7px 16px 0;
+  display:flex; gap:18px; align-items:flex-end; flex-wrap:wrap; }
+.grupo { display:flex; flex-direction:column; gap:3px; }
+.grupo > span { font-family:var(--cifra); font-size:8.5px; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--suave); }
+.grupo > div { display:flex; }
+nav.pasos button { font-family:var(--disp); font-size:12.5px; font-weight:600;
+  letter-spacing:.02em; background:none; border:0; border-bottom:2px solid transparent;
+  color:var(--suave); padding:5px 10px 7px; cursor:pointer; white-space:nowrap; }
+nav.pasos button[aria-selected="true"] { color:var(--acero); border-bottom-color:var(--acero); }
+nav.pasos button .ins { font-family:var(--cifra); font-size:9px; background:var(--aviso);
+  color:#fff; border-radius:8px; padding:0 5px; margin-left:5px; vertical-align:1px; }
+nav.pasos button.falta { color:var(--linea); }
+
+/* ---- vistas + métricas ---- */
+nav.vistas { border-bottom:1px solid var(--linea); padding:0 16px; display:flex;
+  gap:0; align-items:center; }
+nav.vistas button { font-family:var(--disp); font-size:12.5px; font-weight:600;
+  background:none; border:0; border-bottom:2px solid transparent; color:var(--suave);
+  padding:7px 12px; cursor:pointer; }
+nav.vistas button[aria-selected="true"] { color:var(--tinta); border-bottom-color:var(--tinta); }
+
+.metricas { display:flex; gap:0; flex-wrap:wrap; border-bottom:1px solid var(--linea);
+  background:var(--ficha); }
+.metricas > div { padding:6px 14px; border-right:1px solid var(--papel-2);
+  display:flex; gap:7px; align-items:baseline; }
+.metricas .k { font-family:var(--cifra); font-size:9px; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--suave); }
+.metricas .n { font-family:var(--cifra); font-size:13px; font-weight:500;
+  font-variant-numeric:tabular-nums; }
+.metricas select { font-family:var(--cifra); font-size:12px; border:1px solid var(--linea);
+  border-radius:2px; background:var(--papel); color:var(--tinta); padding:1px 4px; }
+.metricas .pasada .n { color:var(--acero); }
+
+/* ---- la reja de trabajo ---- */
+.obra { flex:1; display:grid; grid-template-columns:210px minmax(0,1fr) 300px;
+  min-height:0; }
+@media (max-width:1100px) { .obra { grid-template-columns:180px minmax(0,1fr); }
+  .obra > aside.der { display:none; } }
+.obra > * { overflow:auto; min-width:0; }
+aside.izq { border-right:1px solid var(--linea); padding:10px 11px 24px; }
+aside.der { border-left:1px solid var(--linea); padding:10px 12px 24px;
+  background:var(--ficha); }
+main.lienzo { padding:10px 12px; display:flex; flex-direction:column; }
+
+h3.sec { font-family:var(--cifra); font-size:9.5px; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--suave); margin:0 0 7px; font-weight:500; }
+h3.sec + h3.sec { margin-top:16px; }
+
+/* herramientas */
+.herr { display:flex; flex-direction:column; gap:1px; margin-bottom:14px; }
+.herr button { display:flex; align-items:center; gap:8px; text-align:left;
+  font-family:var(--cuerpo); font-size:12.5px; background:none; border:0;
+  border-left:3px solid transparent; padding:5px 7px; color:var(--tinta);
+  cursor:pointer; border-radius:2px; }
+.herr button:hover { background:var(--papel-2); }
+.herr button[aria-pressed="true"] { border-left-color:var(--acero);
+  background:var(--papel-2); font-weight:600; }
+.herr i { width:13px; height:13px; border-radius:2px; flex:none; }
+.herr small { display:block; font-size:10.5px; color:var(--suave); font-weight:400; }
+
+/* parámetros */
+fieldset { border:1px solid var(--linea); border-radius:3px; background:var(--ficha);
+  margin:0 0 9px; padding:8px 9px 9px; }
+legend { font-family:var(--disp); font-weight:600; font-size:11px; letter-spacing:.05em;
+  text-transform:uppercase; color:var(--acero); padding:0 4px; }
+.par { display:grid; grid-template-columns:1fr 70px; gap:4px 6px; align-items:center;
+  margin-bottom:5px; }
+.par.ancho { grid-template-columns:1fr; }
+.par label { font-size:11.5px; color:var(--tinta-2); }
+.par input, .par select { font-family:var(--cifra); font-size:11.5px; width:100%;
+  padding:2px 4px; border:1px solid var(--linea); border-radius:2px;
+  background:var(--papel); color:var(--tinta); }
+.marca-check { display:flex; gap:6px; align-items:center; }
+.marca-check input { width:auto; }
+
+/* lienzo */
+.marco { border:1px solid var(--linea); border-radius:3px; background:var(--ficha);
+  padding:8px; flex:1; display:flex; flex-direction:column; min-height:260px; }
+.marco svg { display:block; width:100%; height:auto; }
+.leyenda { display:flex; flex-wrap:wrap; gap:11px; margin-top:7px; font-size:10.5px;
+  color:var(--suave); font-family:var(--cifra); }
+.leyenda i { display:inline-block; width:15px; border-top-width:2px;
+  border-top-style:solid; vertical-align:middle; margin-right:4px; }
+
+/* panel derecho */
+.ln { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:2px 9px;
+  padding:5px 0; border-top:1px solid var(--papel-2); align-items:baseline; }
+.ln:first-child { border-top:0; }
+.ln .q { font-size:12px; }
+.ln .v { font-family:var(--cifra); font-size:12.5px; font-variant-numeric:tabular-nums;
+  white-space:nowrap; font-weight:500; }
+.ln .v.ok { color:var(--ok); } .ln .v.no { color:var(--alerta); }
+.ln p { grid-column:1/-1; margin:2px 0 0; font-size:10.5px; color:var(--suave); }
+.ln .org { font-family:var(--cifra); font-size:9px; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--linea); margin-left:5px; }
+button.fte { font-family:var(--cifra); font-size:9px; letter-spacing:.05em;
+  text-transform:uppercase; background:none; border:1px solid var(--linea);
+  border-radius:2px; color:var(--suave); padding:0 4px; cursor:pointer; margin-left:5px; }
+button.fte:hover { color:var(--acero); border-color:var(--acero); }
+.tarj { border:1px solid var(--linea); border-left:3px solid var(--acero);
+  border-radius:3px; background:var(--papel); padding:9px 10px; margin-bottom:11px; }
+.tarj.bien { border-left-color:var(--ok); }
+.tarj > h4 { font-family:var(--disp); font-size:13.5px; margin:0 0 1px; }
+.tarj > .sub { font-family:var(--cifra); font-size:9.5px; letter-spacing:.07em;
+  text-transform:uppercase; color:var(--suave); margin:0 0 7px; }
+
+/* avisos · las guardas */
+.guarda { border:1px solid var(--aviso); border-left:3px solid var(--aviso);
+  border-radius:3px; background:var(--papel); padding:9px 10px; margin-bottom:9px; }
+.guarda b { color:var(--aviso); font-size:12px; }
+.guarda pre { font-family:var(--cifra); font-size:10.5px; white-space:pre-wrap;
+  margin:4px 0 0; color:var(--tinta-2); }
+
+.nohay { color:var(--suave); font-style:italic; font-size:12.5px; padding:14px 2px; }
+.todavia { border:1px solid var(--linea); border-left:3px solid var(--aviso);
+  border-radius:3px; background:var(--ficha); padding:13px 15px; font-size:13px;
+  color:var(--tinta-2); max-width:70ch; }
+.todavia b { color:var(--aviso); }
+.todavia code { font-family:var(--cifra); font-size:.92em; }
+#fuente { position:fixed; inset:auto 0 0 0; background:var(--ficha);
+  border-top:2px solid var(--acero); padding:11px 16px 13px; z-index:9;
+  box-shadow:0 -4px 18px rgba(0,0,0,.16); max-height:48vh; overflow:auto; }
+#fuente[hidden] { display:none; }
+#fuente .id { font-family:var(--cifra); font-size:10px; color:var(--acero);
+  letter-spacing:.06em; }
+#fuente h5 { font-family:var(--disp); font-size:13.5px; margin:1px 0 5px; }
+#fuente dl { display:grid; grid-template-columns:auto 1fr; gap:2px 11px; margin:0;
+  font-size:12px; }
+#fuente dt { font-family:var(--cifra); font-size:9.5px; text-transform:uppercase;
+  letter-spacing:.05em; color:var(--suave); }
+#fuente dd { margin:0; }
+#fuente button { position:absolute; top:6px; right:14px; background:none; border:0;
+  font-size:19px; color:var(--suave); cursor:pointer; }
+</style>
+
+<header>
+  <h1>Galpón</h1>
+  <span class="chip">Prototipo · panel de Excel</span>
+  <span class="chip a" id="build">—</span>
+  <span class="lema">Define el galpón entero. El cálculo se queda en las hojas.</span>
+  <span class="der">
+    <button class="h" id="b-descartar">Cerrar sin guardar</button>
+    <button class="h pri" id="b-guardar">Guardar y cerrar</button>
+  </span>
+</header>
+
+<nav class="pasos" id="pasos"></nav>
+<nav class="vistas" id="vistas"></nav>
+<div class="metricas" id="metricas"></div>
+
+<div class="obra">
+  <aside class="izq">
+    <h3 class="sec">Dibujar</h3>
+    <div class="herr" id="herr"></div>
+    <h3 class="sec">Datos</h3>
+    <form id="f" autocomplete="off" onsubmit="return false"></form>
+  </aside>
+  <main class="lienzo" id="centro"></main>
+  <aside class="der" id="derecha"></aside>
+</div>
+
+<aside id="fuente" hidden>
+  <button type="button" id="cerrar-fuente" aria-label="cerrar">×</button>
+  <div class="id" id="fuente-id"></div>
+  <h5 id="fuente-t"></h5>
+  <dl id="fuente-dl"></dl>
+</aside>
+
+<script>
+/*__MODULOS__*/
+</script>
+
+<script>
+"use strict";
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var BUILD = window.GALPON_BUILD || "—";
+  $("build").textContent = BUILD;
+
+  function esc(s) {
+    return String(s === undefined || s === null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+  function n2(x, d) {
+    d = d === undefined ? 2 : d;
+    return (Math.round(x * Math.pow(10, d)) / Math.pow(10, d))
+      .toFixed(d).replace(".", ",");
+  }
+  function lista(s) {
+    return String(s || "").split(/[,;\s]+/).filter(function (x) { return x !== ""; })
+      .map(Number).filter(function (x) { return !isNaN(x); });
+  }
+
+  /* ---------- LOS PASOS ----------
+     Nueve, y hoy solo uno tiene pantalla. Los demás dicen qué módulo los
+     llenará y si el motor ya está escrito, en vez de fingir que existen:
+     una pestaña que parece hecha y está vacía engaña más que uno que
+     avisa. */
+  var PASOS = [
+    { id: "inicio",  grupo: "Estado",  nombre: "Inicio",  listo: false,
+      modulo: null, motor: "—" },
+    { id: "datos",   grupo: "Paso 1",  nombre: "Datos",   listo: false,
+      modulo: "vistas.js", motor: "proyecto.js y el inventario, escritos" },
+    { id: "geom",    grupo: "Paso 2 · Modelo", nombre: "Geometría", listo: true },
+    { id: "cargas",  grupo: "Paso 2 · Modelo", nombre: "Cargas",  listo: false,
+      modulo: "una pantalla de cargas",
+      motor: "e020.js, viento.js, e030.js y combinaciones.js, escritos y probados" },
+    { id: "analisis", grupo: "Paso 3", nombre: "Análisis", listo: false,
+      modulo: "una pantalla de análisis",
+      motor: "modelo.js, solver.js, estabilidad.js y riostras.js, escritos" },
+    { id: "diseno",  grupo: "Paso 4",  nombre: "Diseño",  listo: false,
+      modulo: "una pantalla de diseño",
+      motor: "acero.js con los cinco capítulos, y las cuatro piezas de E5" },
+    { id: "conex",   grupo: "Paso 5",  nombre: "Conexiones", listo: false,
+      modulo: "una pantalla de conexiones",
+      motor: "placabase.js escrito; conexiones.js (Cap. J) pendiente" },
+    { id: "cimen",   grupo: "Paso 6",  nombre: "Cimentación", listo: false,
+      modulo: "pedestal.js y zapatas.js", motor: "no escrito todavía · E8" },
+    { id: "comprob", grupo: "Paso 7",  nombre: "Comprobación", listo: false,
+      modulo: "la lista de avisos de todos los módulos",
+      motor: "las guardas ya existen: hoy lanzan, falta recogerlas" },
+    { id: "hojas",   grupo: "Salida",  nombre: "Hojas Excel", listo: false,
+      modulo: "escritor.js y hojas.js", motor: "no escrito todavía · E9" },
+    { id: "cad",     grupo: "Salida",  nombre: "AutoCAD", listo: false,
+      modulo: "cad.js", motor: "no escrito todavía · E9" }
+  ];
+  var pasoActivo = "geom";
+
+  (function pintaPasos() {
+    var html = "", grupo = null, abierto = false;
+    PASOS.forEach(function (p) {
+      if (p.grupo !== grupo) {
+        if (abierto) html += "</div></div>";
+        html += '<div class="grupo"><span>' + esc(p.grupo) + "</span><div>";
+        grupo = p.grupo; abierto = true;
+      }
+      html += '<button data-paso="' + p.id + '"' +
+        (p.listo ? "" : ' class="falta"') +
+        ' aria-selected="' + (p.id === pasoActivo) + '">' + esc(p.nombre) + "</button>";
+    });
+    $("pasos").innerHTML = html + "</div></div>";
+  })();
+
+  $("pasos").addEventListener("click", function (ev) {
+    var b = ev.target.closest ? ev.target.closest("button[data-paso]") : null;
+    if (!b) return;
+    pasoActivo = b.getAttribute("data-paso");
+    Array.prototype.forEach.call($("pasos").querySelectorAll("button[data-paso]"),
+      function (x) { x.setAttribute("aria-selected", x === b ? "true" : "false"); });
+    recalcula();
+  });
+
+  /* ---------- herramientas · todavía no editan, y se dice ---------- */
+  var HERRAMIENTAS = [
+    ["sel", "Selección", "ver medidas", "transparent"],
+    ["columna", "Columna", "clic o arrastra", "var(--tinta)"],
+    ["brida", "Brida", "clic o arrastra", "var(--tinta)"],
+    ["diagonal", "Diagonal", "clic o arrastra", "var(--tinta-2)"],
+    ["correa", "Correa", "clic", "var(--suave)"],
+    ["arriostre", "Arriostre", "pincha un paño", "var(--aviso)"],
+    ["hastial", "Columna hastial", "clic", "var(--tinta-2)"],
+    ["porton", "Portón", "arrastra", "transparent"]
+  ];
+  var herrActiva = "sel";
+  $("herr").innerHTML = HERRAMIENTAS.map(function (h) {
+    return '<button data-h="' + h[0] + '" aria-pressed="' + (h[0] === herrActiva) + '">' +
+      '<i style="background:' + h[3] + ';border:1px solid var(--linea)"></i>' +
+      "<span>" + esc(h[1]) + "<small>" + esc(h[2]) + "</small></span></button>";
+  }).join("");
+  $("herr").addEventListener("click", function (ev) {
+    var b = ev.target.closest ? ev.target.closest("button[data-h]") : null;
+    if (!b) return;
+    herrActiva = b.getAttribute("data-h");
+    Array.prototype.forEach.call($("herr").querySelectorAll("button[data-h]"),
+      function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+    if (herrActiva !== "sel") avisaHerramienta();
+  });
+  function avisaHerramienta() {
+    $("derecha").innerHTML = '<div class="guarda"><b>Esa herramienta todavía no dibuja.</b>' +
+      '<pre>El lienzo editable es el paso siguiente del modelador. Hoy la geometría ' +
+      'sale entera de los parámetros de la izquierda, y lo que se ve es real: ' +
+      'generador.js la monta, montaje.js la arma en los tres planos y las guardas ' +
+      'ya comprueban el camino de carga.\n\nCuando el lienzo edite, lo que muevas ' +
+      'se guardará como CAPA sobre lo paramétrico: los parámetros no se apagan y ' +
+      'tus ediciones se reaplican al cambiarlos.</pre></div>';
+  }
+
+  /* ---------- el formulario, declarado en vistas.js ---------- */
+  (function pintaFormulario() {
+    $("f").innerHTML = VISTAS.grupos().map(function (g) {
+      return "<fieldset><legend>" + esc(g.nombre) + "</legend>" +
+        g.campos.map(campo).join("") + "</fieldset>";
+    }).join("");
+  })();
+
+  function fuenteBtn(id) {
+    return '<button class="fte" type="button" data-fte="' + id + '">fuente</button>';
+  }
+  function campo(c) {
+    var et = esc(c.etiqueta) + (c.unidad ? " (" + esc(c.unidad) + ")" : "") +
+      (c.fuente ? fuenteBtn(c.fuente) : "");
+    var cid = "c_" + c.id;
+    if (c.tipo === "si/no") {
+      return '<div class="par ancho"><label class="marca-check">' +
+        '<input type="checkbox" id="' + cid + '"' + (c.valor ? " checked" : "") +
+        "><span>" + et + "</span></label></div>";
+    }
+    if (c.tipo === "opcion") {
+      return '<div class="par ancho"><label for="' + cid + '">' + et +
+        '</label><select id="' + cid + '">' + c.opciones.map(function (o) {
+          return '<option value="' + o[0] + '"' +
+            (o[0] === c.valor ? " selected" : "") + ">" + esc(o[1]) + "</option>";
+        }).join("") + "</select></div>";
+    }
+    if (c.tipo === "lista") {
+      return '<div class="par ancho"><label for="' + cid + '">' + et +
+        '</label><input type="text" id="' + cid + '" value="' + esc(c.valor) +
+        '" placeholder="' + esc(c.ayuda || "") + '"></div>';
+    }
+    var r = c.limiteDePantalla || [];
+    return '<div class="par"><label for="' + cid + '">' + et +
+      '</label><input type="number" id="' + cid + '" value="' + c.valor +
+      '" step="' + c.paso + '"' +
+      (r.length ? ' min="' + r[0] + '" max="' + r[1] + '"' : "") + "></div>";
+  }
+
+  function datos() {
+    var d = {}, i, c, el;
+    for (i = 0; i < VISTAS.ENTRADAS.length; i++) {
+      c = VISTAS.ENTRADAS[i]; el = $("c_" + c.id);
+      if (c.tipo === "si/no") d[c.id] = !!(el && el.checked);
+      else if (c.tipo === "numero") d[c.id] = el ? +el.value : NaN;
+      else d[c.id] = el ? el.value : "";
+    }
+    return d;
+  }
+  function paraElMotor(d) {
+    var at = lista(d.at), af = lista(d.af);
+    return { luz_m: d.luz, largo_m: d.largo, sepPorticos_m: d.sep,
+      alturaColumna_m: d.hcol, ajustaSeparacion: d.ajusta,
+      cuerdas: d.cuerdas, alma: d.alma,
+      pendiente: d.pend / 100, pendienteInferior: d.pendi / 100,
+      paneles: d.pan, peralteApoyo_m: d.h0,
+      panosArriostradosTecho: at,
+      panosArriostradosFachada: af.length ? af : at,
+      columnasHastiales: lista(d.ch) };
+  }
+
+  /* ---------- vistas ---------- */
+  var vistaActiva = "portico";
+  (function pintaVistas() {
+    $("vistas").innerHTML = VISTAS.PESTANAS.map(function (p) {
+      return '<button data-v="' + p.id + '" aria-selected="' +
+        (p.id === vistaActiva) + '">' + esc(p.nombre) + "</button>";
+    }).join("");
+  })();
+  $("vistas").addEventListener("click", function (ev) {
+    var b = ev.target.closest ? ev.target.closest("button[data-v]") : null;
+    if (!b) return;
+    vistaActiva = b.getAttribute("data-v");
+    Array.prototype.forEach.call($("vistas").querySelectorAll("button[data-v]"),
+      function (x) { x.setAttribute("aria-selected", x === b ? "true" : "false"); });
+    recalcula();
+  });
+
+  /* ---------- el dibujo ---------- */
+  var COLOR = { "columna":"var(--tinta)", "columna hastial":"var(--tinta-2)",
+    "brida superior":"var(--tinta)", "brida inferior":"var(--tinta)",
+    "diagonal":"var(--tinta-2)", "montante":"var(--tinta-2)",
+    "correa":"var(--suave)", "viga de alero":"var(--suave)",
+    "arriostre de techo":"var(--aviso)", "arriostre de fachada":"var(--aviso)" };
+  var GRUESO = { "columna":2.2, "columna hastial":1.6, "brida superior":2,
+    "brida inferior":2, "arriostre de techo":1.8, "arriostre de fachada":1.8 };
+  var TINTA = { tinta:"var(--tinta)", "tinta-2":"var(--tinta-2)",
+    suave:"var(--suave)", succion:"var(--aviso)", linea:"var(--linea)" };
+
+  function dibuja(nudos, barras, px, py, orden, opacidad) {
+    var pos = {}, i;
+    for (i = 0; i < nudos.length; i++) pos[nudos[i].id] = nudos[i];
+    var xs = [], ys = [];
+    for (i = 0; i < nudos.length; i++) { xs.push(px(nudos[i])); ys.push(py(nudos[i])); }
+    if (!xs.length) return '<p class="nohay">nada que dibujar</p>';
+    var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
+    var y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+    var w = Math.max(x1 - x0, 1e-6), h = Math.max(y1 - y0, 1e-6);
+    var W = 1000, m = 24, k = (W - 2 * m) / w, H = h * k + 2 * m;
+    if (H > 620) { k = (620 - 2 * m) / h; H = 620; }
+    var X = function (n) { return m + (px(n) - x0) * k; };
+    var Y = function (n) { return H - m - (py(n) - y0) * k; };
+
+    var cola;
+    if (orden && orden.length) {
+      var porId = {};
+      for (i = 0; i < barras.length; i++) porId[barras[i].id] = barras[i];
+      cola = [];
+      for (i = 0; i < orden.length; i++) if (porId[orden[i]]) cola.push(porId[orden[i]]);
+    } else {
+      cola = barras.slice().sort(function (a, b) {
+        return (/arriostre/.test(a.clase) ? 1 : 0) - (/arriostre/.test(b.clase) ? 1 : 0);
+      });
+    }
+    var out = ['<svg viewBox="0 0 ' + W + " " + Math.round(H) +
+      '" preserveAspectRatio="xMidYMid meet" role="img">'];
+    for (i = 0; i < cola.length; i++) {
+      var b = cola[i], a = pos[b.i], c = pos[b.j];
+      if (!a || !c) continue;
+      var op = (opacidad && opacidad[b.id] !== undefined) ? opacidad[b.id] : 1;
+      out.push('<line x1="' + X(a).toFixed(1) + '" y1="' + Y(a).toFixed(1) +
+        '" x2="' + X(c).toFixed(1) + '" y2="' + Y(c).toFixed(1) +
+        '" stroke="' + (COLOR[b.clase] || "var(--tinta-2)") +
+        '" stroke-width="' + (GRUESO[b.clase] || 1.1) + '"' +
+        (op < 1 ? ' stroke-opacity="' + op.toFixed(3) + '"' : "") +
+        ' stroke-linecap="round"/>');
+    }
+    return out.join("") + "</svg>";
+  }
+
+  /* ---------- panel derecho ---------- */
+  var ETIQ = { norma:"", entrada:"dato", geometria:"geometría",
+    conteo:"conteo", medido:"medido" };
+  function pintaLinea(l) {
+    var marca = l.origen === "norma" ? fuenteBtn(l.fuente)
+      : '<span class="org">' + ETIQ[l.origen] + "</span>";
+    return '<div class="ln"><span class="q">' + esc(l.q) + marca +
+      '</span><span class="v' + (l.estado ? " " + l.estado : "") + '">' +
+      esc(l.v) + "</span>" + (l.nota ? "<p>" + esc(l.nota) + "</p>" : "") + "</div>";
+  }
+  function pintaFicha(f) {
+    return '<div class="tarj' + (f.estado === "bien" ? " bien" : "") + '"><h4>' +
+      esc(f.titulo) + '</h4><p class="sub">' + esc(f.sub) + "</p>" +
+      f.lineas.map(pintaLinea).join("") + "</div>";
+  }
+
+  document.addEventListener("click", function (ev) {
+    var b = ev.target.closest ? ev.target.closest("button.fte") : null;
+    if (!b) return;
+    var t = INVENTARIO.todo(b.getAttribute("data-fte"));
+    $("fuente-id").textContent = t.id + "  ·  " + t.estado;
+    $("fuente-t").textContent = t.magnitud;
+    var f = [["Valor", t.valor + (t.unidad && t.unidad !== "—" ? " " + t.unidad : "")],
+      ["Fuente", t.fuente], ["Sección", t.seccion]];
+    if (t.nota) f.push(["Nota", t.nota]);
+    $("fuente-dl").innerHTML = f.map(function (x) {
+      return "<dt>" + x[0] + "</dt><dd>" + esc(x[1]) + "</dd>";
+    }).join("");
+    $("fuente").hidden = false;
+  });
+  $("cerrar-fuente").onclick = function () { $("fuente").hidden = true; };
+
+  /* ---------- el recálculo ---------- */
+  var m3 = null;
+  function recalcula() {
+    var paso = PASOS.filter(function (p) { return p.id === pasoActivo; })[0];
+    if (!paso.listo) {
+      $("metricas").innerHTML = "";
+      $("centro").innerHTML = '<div class="todavia"><b>Todavía no hay pantalla ' +
+        'para este paso.</b><br><br>La hará <code>' + esc(paso.modulo || "—") +
+        "</code>.<br>El motor: " + esc(paso.motor) + ".<br><br>" +
+        "No se pone una maqueta: una pestaña que parece hecha y está vacía " +
+        "engaña más que una que avisa.</div>";
+      $("derecha").innerHTML = "";
+      return;
+    }
+
+    var d = datos();
+    var v = VISTAS.valida(d);
+    var fallo = null;
+    if (!v.ok) {
+      fallo = { titulo: "Hay campos que no se pueden leer",
+        mensaje: v.malos.map(function (x) {
+          return "  - " + x.etiqueta + ": " + x.que +
+            (x.limiteDePantalla ? "\n      (tope de pantalla, no criterio de diseño)" : "");
+        }).join("\n"),
+        porQue: "Esto solo comprueba la FORMA. Las reglas de diseño las comprueba " +
+          "el motor, y no se copian aquí." };
+    } else {
+      try { m3 = MONTAJE.monta(paraElMotor(VISTAS.datosModelo(d))); }
+      catch (e) { m3 = null; fallo = VISTAS.problema(e); fallo.porQue = fallo.porQueNoSeDibuja; }
+    }
+
+    if (fallo) {
+      $("metricas").innerHTML = "";
+      $("centro").innerHTML = '<div class="guarda"><b>' + esc(fallo.titulo) +
+        "</b><pre>" + esc(fallo.mensaje) + "\n\n" + esc(fallo.porQue) + "</pre></div>";
+      $("derecha").innerHTML = '<p class="nohay">' + esc(fallo.porQue) + "</p>";
+      return;
+    }
+
+    pintaMetricas(d);
+    var vista = VISTAS.datosVista(d);
+    var dj = VISTAS.dibujo(vistaActiva, m3, vista);
+    $("centro").innerHTML = '<div class="marco">' +
+      dibuja(dj.nudos, dj.barras,
+        function (n) { return n[dj.ejeX]; },
+        function (n) { return n[dj.ejeY]; }, dj.orden, dj.opacidad) +
+      '<div class="leyenda">' + dj.leyenda.map(function (x) {
+        return '<span><i style="border-top-color:' + (TINTA[x[1]] || x[1]) + '"></i>' +
+          esc(x[0]) + "</span>";
+      }).join("") + "</div></div>";
+    $("derecha").innerHTML = VISTAS.fichas(vistaActiva, m3, vista)
+      .map(pintaFicha).join("");
+  }
+
+  function pintaMetricas(d) {
+    var met = MONTAJE.metrado(m3);
+    var c = [
+      ["Luz", n2(m3.luz_m) + " m"],
+      ["Largo", n2(m3.ejes.largo_m) + " m"],
+      ["Pórticos", m3.ejes.porticos + " @ " + n2(m3.ejes.sepPorticos_m)],
+      ["Acero", n2(met.total_m, 0) + " m"],
+      ["Barras", String(m3.conteo.barras)]
+    ];
+    $("metricas").innerHTML = c.map(function (x) {
+      return '<div><span class="k">' + x[0] + '</span><span class="n">' +
+        esc(x[1]) + "</span></div>";
+    }).join("") +
+      '<div class="pasada"><span class="k">Pasada</span><span class="n">1 de 1</span></div>' +
+      '<div><span class="k">Combinación</span><select id="comb" disabled>' +
+      '<option>0,9D − 1,3W · levantamiento</option></select></div>';
+  }
+
+  $("f").addEventListener("input", recalcula);
+  $("f").addEventListener("change", recalcula);
+  recalcula();
+
+  /* ---------- EL CANAL CON EL PANEL ---------- */
+  var cesta = {};
+  function manda(obj) {
+    if (typeof Office !== "undefined" && Office.context && Office.context.ui &&
+        Office.context.ui.messageParent) {
+      Office.context.ui.messageParent(JSON.stringify(obj));
+    }
+  }
+  function modeloActual() {
+    var d = datos();
+    var m = LIBRO.nuevo(Object.assign({ nombre: "galpón" },
+      paraElMotor(VISTAS.datosModelo(d))));
+    m.vista = VISTAS.datosVista(d);
+    return m;
+  }
+  $("b-guardar").onclick = function () {
+    try {
+      LIBRO.troceaMensaje("mod", LIBRO.serializa(modeloActual()))
+        .forEach(function (t, i, a) {
+          if (i === a.length - 1) t.cerrar = true;
+          manda(t);
+        });
+    } catch (e) { alert(e.message); }
+  };
+  $("b-descartar").onclick = function () { manda({ a: "cerrar" }); };
+
+  if (typeof Office !== "undefined" && Office.onReady) {
+    Office.onReady(function () {
+      manda({ a: "pide" });
+      if (Office.context.ui.addHandlerAsync) {
+        Office.context.ui.addHandlerAsync(
+          Office.EventType.DialogParentMessageReceived, function (arg) {
+            var msg;
+            try { msg = JSON.parse(arg.message); } catch (e) { return; }
+            if (msg.a !== "mod" || msg.n === 0) return;
+            var texto = LIBRO.juntaMensaje(cesta, msg);
+            if (texto === null) return;
+            try { aplicaModelo(LIBRO.deserializa(texto).modelo); } catch (e) {}
+          });
+      }
+    });
+  }
+
+  function aplicaModelo(m) {
+    var p = m.parametros || {}, k;
+    var mapa = { luz: "luz_m", largo: "largo_m", sep: "sepPorticos_m",
+      hcol: "alturaColumna_m", pan: "paneles", h0: "peralteApoyo_m" };
+    for (k in mapa) if (p[mapa[k]] !== undefined && $("c_" + k)) {
+      $("c_" + k).value = p[mapa[k]];
+    }
+    if (p.pendiente !== undefined && $("c_pend")) $("c_pend").value = p.pendiente * 100;
+    if (p.cuerdas && $("c_cuerdas")) $("c_cuerdas").value = p.cuerdas;
+    if (p.alma && $("c_alma")) $("c_alma").value = p.alma;
+    if (p.panosArriostradosTecho && $("c_at")) {
+      $("c_at").value = p.panosArriostradosTecho.join(", ");
+    }
+    recalcula();
+  }
+})();
+</script>

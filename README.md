@@ -79,16 +79,28 @@ pulgada.
 
 ## El complemento
 
-`python scripts/hornear.py` deja en `complemento/` una página sola con todo
-dentro —los 22 módulos, las 369 filas del inventario y los 2408 perfiles—, su
-`manifest.xml` y una portada. GitHub Actions la publica en cada push a `main`,
-y **solo si las pruebas pasan**: hornear → probar → publicar, en ese orden.
+`python scripts/hornear.py` deja en `complemento/` **dos** páginas, y la
+separación es la del proyecto:
 
-Cuatro pestañas: **Pórtico**, **Planta de techo**, **Elevación longitudinal** y
-**3D**. Las tres primeras son proyecciones directas del modelo; la 3D lleva
-cámara propia y **arranca en isométrica a propósito** — en perspectiva, dos
-pórticos idénticos no miden lo mismo en pantalla, y una vista que invita a
-comparar tiene que poder compararse. La ficha dice con qué error mentiría.
+| | | |
+|---|---|---|
+| `panel.html` | 3 módulos · 262 KB | el **lanzador** en la franja de Excel: estado del libro y botones. No calcula, así que no lleva el catálogo. |
+| `modelador.html` | 27 módulos · 1,7 MB | **la aplicación**, en un diálogo de 88 % × 88 % que abre el panel |
+
+Más su `manifest.xml`, los iconos y una portada. GitHub Actions lo publica en
+cada push a `main`, y **solo si las pruebas pasan**: hornear → probar →
+publicar, en ese orden.
+
+El modelador tiene barra de **pasos** (nueve, más las dos salidas), paleta de
+herramientas, lienzo, métricas vivas y panel contextual. Y cuatro vistas:
+**Pórtico**, **Planta de techo**, **Elevación longitudinal** y **3D** — la 3D
+**arranca en isométrica a propósito**, porque en perspectiva dos pórticos
+idénticos no miden lo mismo en pantalla y una vista que invita a comparar tiene
+que poder compararse.
+
+Los pasos que todavía no tienen pantalla **lo dicen y nombran el módulo que los
+hará**, en vez de enseñar una maqueta: una pestaña que parece hecha y está
+vacía engaña más que una que avisa.
 
 Para instalarlo en Excel: *Insertar › Mis complementos › Cargar mi complemento*,
 y se apunta a `https://vicmezap.github.io/galpon/manifest.xml`. Aparece una
@@ -148,12 +160,13 @@ src/
   vista3d.js       cámara y proyección · isométrica, que sí se puede medir
   placabase.js     placa de apoyo, pernos y llave de corte · AISC J8 y Zapata 9.7-9.8
   libro.js         el modelo en el libro · serializa, trocea, y las capas de edición
+  panel.js         lo que enseña el panel de tareas · es un lanzador, no la aplicación
 inventario/
   *.json           las 390 filas, trece secciones
 pruebas/
   correr.js        el runner
   _comun.js        comp · cerca · cierto · lanza · fin
-  probar_*.js      una por módulo · 2152 comprobaciones
+  probar_*.js      una por módulo · 2222 comprobaciones
 catalogos/
   aisc.json        1575 perfiles laminados    · AISC Shapes Database v13
   fam.json          391 perfiles soldados     · serie VS/CS/CVS, ABNT NBR 5884

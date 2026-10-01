@@ -1,0 +1,268 @@
+<title>Galpón</title>
+<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+<style>
+/* El panel estrecho. Mismo papel y misma tinta que Retícula, para que se
+   vean de la misma casa. Cuatro cosas y se acabó. */
+:root {
+  --tinta:#1b2430; --tinta-2:#4a5568; --papel:#f2f1ec; --papel-2:#e6e4dc;
+  --ficha:#fbfaf7; --linea:#cdcabd; --acero:#2f6f8f;
+  --ok:#1d6a4f; --aviso:#b4531a; --alerta:#8c2f39; --suave:#6b6f76;
+  --disp:"IBM Plex Sans Condensed","Arial Narrow",sans-serif;
+  --cuerpo:"IBM Plex Sans",system-ui,sans-serif;
+  --cifra:"IBM Plex Mono",ui-monospace,monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --tinta:#e8e6df; --tinta-2:#b3b8c0; --papel:#14181d; --papel-2:#1c2128;
+  --ficha:#1a1f26; --linea:#343b45; --acero:#79b8d4;
+  --ok:#57c79a; --aviso:#f0a35e; --alerta:#e58592; --suave:#8b929c;
+  color-scheme: dark; } }
+* { box-sizing:border-box; }
+body { background:var(--papel); color:var(--tinta); font-family:var(--cuerpo);
+  font-size:14px; line-height:1.45; margin:0; padding:14px 14px 28px; }
+h1 { font-family:var(--disp); font-weight:600; font-size:26px; margin:0 0 2px;
+  letter-spacing:-0.01em; }
+p.bajada { margin:0 0 12px; color:var(--tinta-2); font-size:12.5px; }
+.ver { display:flex; justify-content:space-between; font-family:var(--cifra);
+  font-size:10.5px; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--suave); border-top:1px solid var(--linea);
+  border-bottom:1px solid var(--linea); padding:5px 0; margin-bottom:12px; }
+
+.tarjeta { border:1px solid var(--linea); border-radius:3px; background:var(--ficha);
+  padding:9px 11px 10px; margin-bottom:12px; }
+.tarjeta h2 { font-family:var(--cifra); font-size:10px; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--suave); margin:0 0 6px; font-weight:500; }
+.ln { display:flex; justify-content:space-between; gap:10px; align-items:baseline;
+  padding:4px 0; border-top:1px solid var(--papel-2); }
+.ln:first-of-type { border-top:0; }
+.ln .q { font-size:12.5px; color:var(--tinta-2); }
+.ln .v { font-family:var(--cifra); font-size:12.5px; font-variant-numeric:tabular-nums;
+  white-space:nowrap; font-weight:500; }
+.ln + .nota { font-size:11px; color:var(--suave); margin:0 0 4px; }
+
+button.b { display:block; width:100%; font-family:var(--cuerpo); font-size:14px;
+  padding:11px 12px; border-radius:3px; border:1px solid var(--linea);
+  background:var(--ficha); color:var(--tinta); cursor:pointer; margin-bottom:8px; }
+button.b.pri { background:var(--acero); border-color:var(--acero); color:#fff;
+  font-weight:600; font-size:15px; padding:13px 12px; }
+button.b.pel { color:var(--alerta); }
+button.b:disabled { opacity:.45; cursor:not-allowed; }
+button.b:not(:disabled):hover { border-color:var(--acero); }
+.porque { font-size:11px; color:var(--suave); margin:-4px 0 10px; }
+
+.estado { font-size:12.5px; border:1px solid var(--linea); border-left:3px solid var(--linea);
+  border-radius:3px; background:var(--ficha); padding:8px 10px; margin-bottom:12px; }
+.estado.aviso { border-left-color:var(--aviso); }
+.estado.err { border-left-color:var(--alerta); color:var(--alerta); }
+
+.av { border:1px solid var(--aviso); border-left:3px solid var(--aviso);
+  border-radius:3px; background:var(--ficha); padding:9px 10px; margin-bottom:10px; }
+.av b { display:block; font-size:12.5px; color:var(--aviso); }
+.av p { margin:3px 0 0; font-size:11.5px; color:var(--tinta-2); }
+
+ol.uso { margin:0; padding-left:18px; font-size:12px; color:var(--tinta-2); }
+ol.uso li { margin-bottom:4px; }
+ol.uso b { color:var(--tinta); }
+</style>
+
+<h1 id="t">Galpón</h1>
+<p class="bajada" id="baj"></p>
+<div class="ver"><span>versión</span><span id="ver">—</span></div>
+
+<div class="tarjeta"><h2>Libro actual</h2><div id="ficha"></div></div>
+<div id="avisos"></div>
+<div id="botones"></div>
+<div class="estado" id="estado"></div>
+<div class="tarjeta"><h2>Cómo se usa</h2><ol class="uso" id="uso"></ol></div>
+
+<script>
+/*__MODULOS__*/
+</script>
+
+<script>
+"use strict";
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var BUILD = window.GALPON_BUILD || "—";
+
+  /* El estado que el panel conoce. Todo lo que pinta sale de aquí. */
+  var S = { hayHoja: false, modelo: null, recibido: null,
+            dialogoAbierto: false, guardadoYa: false, error: null,
+            version: BUILD };
+
+  var dialogo = null;
+  var cesta = {};
+
+  function esc(s) {
+    return String(s === undefined || s === null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  /* ---------- pintar · PANEL decide, esto dibuja ---------- */
+  function pinta() {
+    var v = PANEL.todo(S);
+    $("baj").textContent = v.bajada;
+    $("ver").textContent = v.version;
+
+    $("ficha").innerHTML = v.ficha.map(function (l) {
+      return '<div class="ln"><span class="q">' + esc(l.q) +
+        '</span><span class="v">' + esc(l.v) + "</span></div>" +
+        (l.nota ? '<p class="nota">' + esc(l.nota) + "</p>" : "");
+    }).join("");
+
+    $("avisos").innerHTML = v.avisos.map(function (a) {
+      return '<div class="av"><b>' + esc(a.que) + "</b><p>" + esc(a.porque) + "</p></div>";
+    }).join("");
+
+    $("botones").innerHTML = v.acciones.map(function (b) {
+      return '<button class="b' + (b.principal ? " pri" : "") +
+        (b.peligro ? " pel" : "") + '" id="btn-' + b.id + '"' +
+        (b.activo ? "" : " disabled") + ">" + esc(b.texto) + "</button>" +
+        (b.porque ? '<p class="porque">' + esc(b.porque) + "</p>" : "");
+    }).join("");
+    v.acciones.forEach(function (b) {
+      var el = $("btn-" + b.id);
+      if (el && b.activo) el.onclick = ACCION[b.id];
+    });
+
+    $("estado").textContent = v.estado.texto;
+    $("estado").className = "estado " + v.estado.clase;
+    $("uso").innerHTML = v.comoSeUsa.map(function (p) {
+      return "<li>" + p.replace(/^([A-Za-zÁÉÍÓÚÑáéíóúñ ]+?)( y| el| la| en)?\b/,
+        function (m) { return m; }) + "</li>";
+    }).join("");
+  }
+
+  /* ---------- EL DIÁLOGO · 88 × 88 y fuera de iframe ----------
+     El sello de minuto en la URL no es manía: WebView2 cachea con ganas, y
+     si el propio panel quedó viejo pediría la URL vieja y le devolverían el
+     modelador viejo. Lección tomada del código de Retícula. */
+  function abrir() {
+    var url = window.location.href.replace(/panel\.html.*$/, "modelador.html")
+      + "?v=" + encodeURIComponent(BUILD)
+      + "&t=" + Math.floor(Date.now() / 60000);
+    Office.context.ui.displayDialogAsync(url,
+      { height: 88, width: 88, displayInIframe: false },
+      function (res) {
+        if (res.status !== Office.AsyncResultStatus.Succeeded) {
+          S.error = "No se pudo abrir la ventana: " + res.error.message;
+          pinta(); return;
+        }
+        dialogo = res.value;
+        S.dialogoAbierto = true; S.error = null; pinta();
+        dialogo.addEventHandler(Office.EventType.DialogMessageReceived, alRecibir);
+        dialogo.addEventHandler(Office.EventType.DialogEventReceived, function () {
+          dialogo = null; S.dialogoAbierto = false; pinta();
+        });
+      });
+  }
+
+  function responde(obj) {
+    if (dialogo && typeof dialogo.messageChild === "function") {
+      dialogo.messageChild(JSON.stringify(obj));
+    }
+  }
+
+  function alRecibir(arg) {
+    var msg;
+    try { msg = JSON.parse(arg.message); } catch (e) { return; }
+
+    /* la ventana pide lo que haya en el libro */
+    if (msg.a === "pide") {
+      if (!dialogo || typeof dialogo.messageChild !== "function") {
+        S.error = "Esta versión de Excel no deja responder a la ventana " +
+          "(hace falta DialogApi 1.2).";
+        pinta(); return;
+      }
+      if (!S.modelo) { responde({ a: "mod", n: 0 }); return; }
+      LIBRO.troceaMensaje("mod", LIBRO.serializa(S.modelo)).forEach(responde);
+      return;
+    }
+
+    /* la ventana manda el modelo */
+    if (msg.a === "mod") {
+      var texto = LIBRO.juntaMensaje(cesta, msg);
+      if (texto === null) return;
+      try {
+        S.recibido = PANEL.recibeDeLaVentana(texto).modelo;
+        S.guardadoYa = false; S.error = null;
+      } catch (e) { S.error = e.message.split("\n")[0]; }
+      pinta();
+      if (msg.cerrar) guardar();
+      return;
+    }
+  }
+
+  /* ---------- el libro ---------- */
+  function hoja(context, crear) {
+    var ws = context.workbook.worksheets.getItemOrNullObject(LIBRO.HOJA_MODELO);
+    ws.load("name,isNullObject");
+    return context.sync().then(function () {
+      if (!ws.isNullObject) return ws;
+      if (!crear) return null;
+      var nueva = context.workbook.worksheets.add(LIBRO.HOJA_MODELO);
+      nueva.visibility = Excel.SheetVisibility.veryHidden;
+      return nueva;
+    });
+  }
+
+  function leer() {
+    return Excel.run(function (context) {
+      return hoja(context, false).then(function (ws) {
+        if (!ws) return null;
+        var rg = ws.getRange(LIBRO.RANGO);
+        rg.load("values");
+        return context.sync().then(function () { return LIBRO.junta(rg.values); });
+      });
+    });
+  }
+
+  function guardar() {
+    var m = S.recibido;
+    if (!m) return;
+    var trozos;
+    try { trozos = LIBRO.trocea(LIBRO.serializa(m)); }
+    catch (e) { S.error = e.message.split("\n")[0]; pinta(); return; }
+    Excel.run(function (context) {
+      return hoja(context, true).then(function (ws) {
+        ws.visibility = Excel.SheetVisibility.veryHidden;
+        ws.getRange(LIBRO.RANGO).values = LIBRO.paraElRango(trozos);
+        return context.sync();
+      });
+    }).then(function () {
+      S.hayHoja = true; S.modelo = m; S.guardadoYa = true; S.error = null; pinta();
+    }).catch(function (e) { S.error = "Al guardar: " + e.message; pinta(); });
+  }
+
+  function quitar() {
+    Excel.run(function (context) {
+      return hoja(context, false).then(function (ws) {
+        if (ws) ws.delete();
+        return context.sync();
+      });
+    }).then(function () {
+      S.hayHoja = false; S.modelo = null; pinta();
+    }).catch(function (e) { S.error = e.message; pinta(); });
+  }
+
+  var ACCION = { abrir: abrir, guardar: guardar, regenerar: quitar };
+
+  /* ---------- arranque ---------- */
+  pinta();
+  if (typeof Office !== "undefined" && Office.onReady) {
+    Office.onReady(function (info) {
+      if (!info || info.host !== Office.HostType.Excel) {
+        S.error = "Este panel es de Excel."; pinta(); return;
+      }
+      leer().then(function (texto) {
+        if (!texto) { pinta(); return; }
+        try {
+          S.modelo = PANEL.recibeDeLaVentana(texto).modelo;
+          S.hayHoja = true;
+        } catch (e) { S.error = e.message.split("\n")[0]; }
+        pinta();
+      }).catch(function (e) { S.error = e.message; pinta(); });
+    });
+  }
+})();
+</script>

@@ -41,7 +41,8 @@ from datetime import date
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 RAIZ = os.path.normpath(os.path.join(AQUI, ".."))
-PLANTILLA = os.path.join(AQUI, "complemento.plantilla.html")
+PLANTILLA_PANEL = os.path.join(AQUI, "panel.plantilla.html")
+PLANTILLA_MODELADOR = os.path.join(AQUI, "modelador.plantilla.html")
 SALIDA = os.path.join(RAIZ, "complemento")
 
 # La direccion publica. Si cambia, cambia en el manifiesto y hay que volver a
@@ -51,6 +52,13 @@ BASE_URL = "https://vicmezap.github.io/galpon"
 # El identificador del complemento. Un GUID fijo: si cambia, Excel lo ve como
 # otro complemento distinto y el usuario acaba con dos.
 GUID = "7b3e1f42-9c6a-4d58-8e21-5a0f6b2c4d93"
+
+# EL PANEL SOLO NECESITA TRES, y por eso pesa 262 KB en vez de 1 674: es un
+# lanzador y no tiene que saber calcular nada. Que el catalogo de 2408 perfiles
+# no viaje al panel no es una optimizacion, es la consecuencia de que el panel
+# no elige secciones. Lo que queda son las 390 filas del inventario, que si
+# viajan porque libro.js y panel.js declaran filas como todos los demas.
+MODULOS_PANEL = ["inventario.js", "libro.js", "panel.js"]
 
 # ORDEN DE DEPENDENCIA, no alfabetico.
 MODULOS = [
@@ -79,6 +87,7 @@ MODULOS = [
     "vista3d.js",       # funciones puras de camara y proyeccion
     "vistas.js",        # lee GENERADOR, MONTAJE y VISTA3D
     "libro.js",         # el modelo dentro del libro de Excel
+    "panel.js",         # lo que ensena el panel de tareas
     "proyecto.js",
 ]
 
@@ -153,10 +162,14 @@ MANIFIESTO = """<?xml version="1.0" encoding="UTF-8"?>
   <Requirements>
     <Sets DefaultMinVersion="1.1">
       <Set Name="ExcelApi" MinVersion="1.1"/>
+      <!-- DialogApi 1.2 hace falta para messageChild: sin el, el panel puede
+           abrir la ventana pero no contestarle, y el modelador arrancaria
+           siempre en blanco aunque el libro traiga un modelo. -->
+      <Set Name="DialogApi" MinVersion="1.2"/>
     </Sets>
   </Requirements>
   <DefaultSettings>
-    <SourceLocation DefaultValue="{base}/taskpane.html"/>
+    <SourceLocation DefaultValue="{base}/panel.html"/>
   </DefaultSettings>
   <Permissions>ReadWriteDocument</Permissions>
 
@@ -209,7 +222,7 @@ MANIFIESTO = """<?xml version="1.0" encoding="UTF-8"?>
         <bt:Image id="icono80" DefaultValue="{base}/icono-80.png"/>
       </bt:Images>
       <bt:Urls>
-        <bt:Url id="url.panel" DefaultValue="{base}/taskpane.html"/>
+        <bt:Url id="url.panel" DefaultValue="{base}/panel.html"/>
         <bt:Url id="url.inicio" DefaultValue="{base}/"/>
       </bt:Urls>
       <bt:ShortStrings>
@@ -262,8 +275,8 @@ footer {{ margin-top:36px; color:var(--suave); font-size:12.5px; border-top:1px 
 AISC 360-22 manda, con doble referencia a la E.090-2020; cargas por E.020 y
 sismo por E.030-2026. {filas} filas de inventario, {pruebas}.</p>
 <ul>
-  <li><a href="taskpane.html"><b>Abrir el complemento</b>
-    <span>Funciona igual en el navegador que dentro de Excel.</span></a></li>
+  <li><a href="modelador.html"><b>Abrir el modelador</b>
+    <span>La ventana grande. Funciona igual en el navegador que dentro de Excel.</span></a></li>
   <li><a href="manifest.xml"><b>manifest.xml</b>
     <span>Para instalarlo en Excel: Insertar &rsaquo; Mis complementos &rsaquo;
       Cargar mi complemento.</span></a></li>
@@ -278,9 +291,28 @@ sismo por E.030-2026. {filas} filas de inventario, {pruebas}.</p>
 """
 
 
+def hornea(plantilla, modulos, datos, salida):
+    """Pega los datos y los modulos en una plantilla y la escribe."""
+    if not os.path.exists(plantilla):
+        sys.exit("gen_complemento: falta la plantilla -> " + plantilla)
+    trozos = list(datos)
+    for m in modulos:
+        ruta = os.path.join(RAIZ, "src", m)
+        trozos.append("/* ======== src/" + m + " ======== */")
+        trozos.append(escapa(io.open(ruta, encoding="utf-8").read()))
+        trozos.append("")
+    html = io.open(plantilla, encoding="utf-8").read()
+    if "/*__MODULOS__*/" not in html:
+        sys.exit("gen_complemento: " + plantilla + " no tiene la marca /*__MODULOS__*/")
+    html = html.replace("/*__MODULOS__*/", "\n".join(trozos))
+    io.open(salida, "w", encoding="utf-8", newline="\n").write(html)
+    return len(html.encode("utf-8")) / 1024.0
+
+
 def main():
-    if not os.path.exists(PLANTILLA):
-        sys.exit("gen_complemento: falta la plantilla -> " + PLANTILLA)
+    for pl in (PLANTILLA_PANEL, PLANTILLA_MODELADOR):
+        if not os.path.exists(pl):
+            sys.exit("gen_complemento: falta la plantilla -> " + pl)
 
     # --- el inventario ---
     inv_dir = os.path.join(RAIZ, "inventario")
@@ -325,16 +357,22 @@ def main():
 
     # --- el pegado ---
     hoy = date.today().isoformat()
-    trozos = [
+    version = "1.0.0." + date.today().strftime("%j")
+    build = "v%s \u00b7 %s" % (version.split(".")[-1], hoy)
+
+    cab = [
         "/* Horneado por scripts/gen_complemento.py. No editar a mano:",
         "   la proxima corrida lo sobreescribe. */",
         'window.GALPON_FECHA = "%s";' % hoy,
+        'window.GALPON_BUILD = "%s";' % build,
         "",
         "/* El inventario: los MISMOS .json que lee Node y que generan",
         "   inventario.html. No pueden desincronizarse. */",
         "window.INVENTARIO_DATOS = " +
         escapa(json.dumps(inv, ensure_ascii=False, separators=(",", ":"))) + ";",
         "",
+    ]
+    catalogos = [
         "window.CATALOGOS_DATOS = " +
         escapa(json.dumps(cats, ensure_ascii=False, separators=(",", ":"))) + ";",
         "",
@@ -342,24 +380,15 @@ def main():
         escapa(json.dumps(tr4, ensure_ascii=False, separators=(",", ":"))) + ";",
         "",
     ]
-    for m in MODULOS:
-        ruta = os.path.join(RAIZ, "src", m)
-        trozos.append("/* ======== src/" + m + " ======== */")
-        trozos.append(escapa(io.open(ruta, encoding="utf-8").read()))
-        trozos.append("")
 
-    html = io.open(PLANTILLA, encoding="utf-8").read()
-    if "/*__MODULOS__*/" not in html:
-        sys.exit("gen_complemento: la plantilla no tiene la marca /*__MODULOS__*/")
-    html = html.replace("/*__MODULOS__*/", "\n".join(trozos))
-
-    # --- escritura ---
     if not os.path.isdir(SALIDA):
         os.makedirs(SALIDA)
-    io.open(os.path.join(SALIDA, "taskpane.html"), "w",
-            encoding="utf-8", newline="\n").write(html)
 
-    version = "1.0.0." + date.today().strftime("%j")
+    kb_panel = hornea(PLANTILLA_PANEL, MODULOS_PANEL, cab,
+                      os.path.join(SALIDA, "panel.html"))
+    kb = hornea(PLANTILLA_MODELADOR, MODULOS, cab + catalogos,
+                os.path.join(SALIDA, "modelador.html"))
+
     io.open(os.path.join(SALIDA, "manifest.xml"), "w",
             encoding="utf-8", newline="\n").write(
         MANIFIESTO.format(guid=GUID, version=version, base=BASE_URL))
@@ -384,11 +413,10 @@ def main():
             encoding="utf-8", newline="\n").write(
         PORTADA.format(filas=filas, pruebas=pruebas, fecha=hoy))
 
-    kb = len(html.encode("utf-8")) / 1024.0
     print("  %d secciones de inventario  -  %d filas" % (len(inv), filas))
     print("  %d catalogos  -  %d perfiles" % (len(cats), nperfiles))
-    print("  %d modulos pegados, en orden de dependencia" % len(MODULOS))
-    print("  taskpane.html  %.0f KB" % kb)
+    print("  panel.html      %3d modulos  %5.0f KB" % (len(MODULOS_PANEL), kb_panel))
+    print("  modelador.html  %3d modulos  %5.0f KB" % (len(MODULOS), kb))
     print("  manifest.xml   version %s  ->  %s" % (version, BASE_URL))
     print("  iconos 16, 32 y 80")
     if copiados:
