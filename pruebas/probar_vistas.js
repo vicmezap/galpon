@@ -85,8 +85,8 @@ cierto("una línea bien formada no lanza y conserva lo suyo",
 /* ================================================================
    3 · LOS CAMPOS DE ENTRADA
    ================================================================ */
-comp("hay catorce campos", V.ENTRADAS.length, 14);
-comp("en tres grupos", V.grupos().length, 3);
+comp("hay diecisiete campos", V.ENTRADAS.length, 17);
+comp("en cuatro grupos", V.grupos().length, 4);
 comp("y los grupos no pierden ningún campo",
   V.grupos().reduce((a, g) => a + g.campos.length, 0), V.ENTRADAS.length);
 comp("los ids no se repiten",
@@ -117,7 +117,8 @@ cierto("la fila del inventario dice que no son criterios de diseño",
 const bien = {
   luz: 20, largo: 60, sep: 6, hcol: 6, ajusta: false,
   cuerdas: "dos_aguas", alma: "howe", pend: 20, pendi: 8, pan: 6, h0: 1.2,
-  at: "5", af: "5", ch: "5, 10, 15"
+  at: "5", af: "5", ch: "5, 10, 15",
+  proy: "isometrica", azim: 45, elev3d: 35
 };
 cierto("con datos buenos no hay nada que decir", V.valida(bien).ok === true);
 
@@ -163,19 +164,40 @@ cierto("el título dice que no es un aviso", /no es un aviso/.test(pr.titulo));
    6 · LAS PESTAÑAS Y SUS PROYECCIONES
    ================================================================ */
 comp("son cuatro", V.PESTANAS.length, 4);
-comp("tres reales y una que todavía no",
-  V.PESTANAS.filter((p) => p.real).length, 3);
-const td = V.PESTANAS.filter((p) => !p.real)[0];
-comp("la que falta es la 3D", td.id, "tresd");
-cierto("y nombra el módulo que la hará", /vista3d\.js/.test(td.porque));
-cierto("y explica por qué no hay maqueta provisional",
-  /enga[ñn]a m[áa]s que una pesta[ñn]a vac[íi]a/.test(td.porque));
-comp("una pestaña sin fichas es la que no es real", V.fichas("tresd", m3), []);
-comp("y sin dibujo", V.dibujo("tresd", m3), null);
+comp("y las cuatro son reales: la 3D ya está",
+  V.PESTANAS.filter((p) => p.real).length, 4);
 lanza("una pestaña que no existe PARA", () => V.pestana("planta3"), "no existe");
 
-/* LAS TRES PROYECCIONES, y cada una mira un par de ejes distinto. */
+/* ───── LOS CAMPOS DE CAMARA NO LLEGAN AL MOTOR ─────
+   Tres de los diecisiete campos mueven la vista. Si uno se colara en el
+   modelo, girar la cámara cambiaría un ratio y nadie sabría por qué. */
+comp("diecisiete campos", V.ENTRADAS.length, 17);
+comp("catorce van al modelo", V.ENTRADAS.filter((e) => e.destino === "modelo").length, 14);
+comp("y tres a la vista", V.ENTRADAS.filter((e) => e.destino === "vista").length, 3);
+comp("todo campo declara destino",
+  V.ENTRADAS.filter((e) => ["modelo", "vista"].indexOf(e.destino) < 0).map((e) => e.id), []);
+const todoD = Object.assign({}, bien, { proy: "perspectiva", azim: 123, elev3d: 12 });
+comp("datosModelo() no deja pasar ni un campo de vista",
+  Object.keys(V.datosModelo(todoD)).filter((k) => ["proy", "azim", "elev3d"].indexOf(k) >= 0), []);
+comp("y datosVista() solo trae esos tres",
+  Object.keys(V.datosVista(todoD)).sort(), ["azim", "elev3d", "proy"]);
+
+/* Y LA PRUEBA QUE IMPORTA DE VERDAD: girar la cámara no mueve un número.
+   Dos cámaras distintas de par en par, y los datos que llegan al motor
+   tienen que ser IDÉNTICOS. */
+const camA = Object.assign({}, bien, { proy: "isometrica", azim: 45, elev3d: 35 });
+const camB = Object.assign({}, bien, { proy: "perspectiva", azim: 123, elev3d: -40 });
+comp("cambiar de cámara no cambia un solo dato del modelo",
+  V.datosModelo(camA), V.datosModelo(camB));
+cierto("y los dos juegos de cámara sí son distintos, o la prueba no diría nada",
+  JSON.stringify(V.datosVista(camA)) !== JSON.stringify(V.datosVista(camB)));
+comp("las fichas de las otras tres pestañas ni miran la cámara",
+  JSON.stringify(V.fichas("portico", m3, V.datosVista(camB))),
+  JSON.stringify(V.fichas("portico", m3, V.datosVista(camA))));
+
+/* LAS CUATRO PROYECCIONES, y cada una mira algo distinto. */
 const dP = V.dibujo("portico", m3), dT = V.dibujo("planta", m3), dE = V.dibujo("elev", m3);
+const d3 = V.dibujo("tresd", m3, { proy: "isometrica" });
 comp("el pórtico se dibuja en (x, y)", [dP.ejeX, dP.ejeY], ["x_m", "y_m"]);
 comp("la planta de techo en (z, x)", [dT.ejeX, dT.ejeY], ["z_m", "x_m"]);
 comp("la elevación en (z, y)", [dE.ejeX, dE.ejeY], ["z_m", "y_m"]);
@@ -186,6 +208,28 @@ cierto("la planta destaca el arriostre de techo",
   dT.leyenda.some((x) => /ARRIOSTRE DE TECHO/.test(x[0])));
 cierto("y la elevación el de fachada",
   dE.leyenda.some((x) => /ARRIOSTRE DE FACHADA/.test(x[0])));
+
+/* LA 3D llega con las coordenadas ya proyectadas, para que el pintor sea
+   el mismo que el de las otras tres: una sola ruta de dibujo. */
+comp("la 3D trae las coordenadas puestas, no un par de ejes del modelo",
+  [d3.ejeX, d3.ejeY], ["_x", "_y"]);
+comp("y trae el galpón entero", [d3.nudos.length, d3.barras.length],
+  [m3.nudos.length, m3.barras.length]);
+comp("con un orden de pintado por cada barra", d3.orden.length, m3.barras.length);
+cierto("el orden va de atrás hacia delante",
+  d3.escena.segmentos[0].prof >= d3.escena.segmentos[d3.escena.segmentos.length - 1].prof);
+cierto("y la atenuación acompaña: lo lejano más tenue que lo cercano",
+  d3.opacidad[d3.orden[0]] < d3.opacidad[d3.orden[d3.orden.length - 1]]);
+cierto("la ficha de la 3D dice si se puede medir",
+  V.fichas("tresd", m3, { proy: "isometrica" })[0].lineas
+    .some((l) => /puede medir/.test(l.q)));
+const fIso = V.fichas("tresd", m3, { proy: "isometrica" })[0];
+const fPer = V.fichas("tresd", m3, { proy: "perspectiva" })[0];
+const medible = (f) => f.lineas.filter((l) => /puede medir/.test(l.q))[0];
+comp("en isométrica, sí", medible(fIso).v, "sí");
+comp("en perspectiva, NO", medible(fPer).v, "NO");
+comp("y la ficha entera se marca en verde solo cuando es medible",
+  [fIso.estado, fPer.estado], ["bien", null]);
 
 /* Las barras de cada proyección existen de verdad en el modelo. */
 const ids = new Set(m3.barras.map((b) => b.id));
@@ -228,7 +272,8 @@ comp("desalineados: no", V.fichas("planta", desalineado)[0].estado, null);
 /* ================================================================
    8 · LAS FILAS DEL INVENTARIO
    ================================================================ */
-for (const id of ["V.procedencia", "V.no.duplica", "V.limites"]) {
+for (const id of ["V.procedencia", "V.no.duplica", "V.limites",
+  "V.isometrica", "V.profundidad"]) {
   cierto("la fila " + id + " existe y tiene fuente",
     INV.existe(id) && !!INV.fila(id).fuente);
 }

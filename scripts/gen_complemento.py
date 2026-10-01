@@ -75,7 +75,8 @@ MODULOS = [
     "arriostres.js",     # lee ACERO y RIOSTRAS
     "generador.js",      # lee MODELO y SOLVER
     "montaje.js",        # lee GENERADOR
-    "vistas.js",        # lee GENERADOR y MONTAJE
+    "vista3d.js",       # funciones puras de camara y proyeccion
+    "vistas.js",        # lee GENERADOR, MONTAJE y VISTA3D
     "proyecto.js",
 ]
 

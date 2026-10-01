@@ -21,12 +21,12 @@ No es una buena intención: está en `src/inventario.js` y la comprueba
 `pruebas/probar_inventario.js`. Pedir una magnitud que no existe **lanza**, no
 devuelve `undefined`. Un conflicto sin decisión escrita rompe la prueba.
 
-El inventario son **372 filas en `inventario/*.json`**, una por cada número,
+El inventario son **374 filas en `inventario/*.json`**, una por cada número,
 fórmula, límite y criterio que el complemento calcula, con su artículo de norma
 o su página de libro:
 
 ```
-315 verificado   ·   25 adoptado   ·   29 conflicto   ·   0 criterio propio   ·   3 pendientes
+315 verificado   ·   27 adoptado   ·   29 conflicto   ·   0 criterio propio   ·   3 pendientes
 ```
 
 *Verificado* = leído en el texto original. *Adoptado* = fuente reconocida pero
@@ -84,6 +84,12 @@ dentro —los 22 módulos, las 369 filas del inventario y los 2408 perfiles—, 
 `manifest.xml` y una portada. GitHub Actions la publica en cada push a `main`,
 y **solo si las pruebas pasan**: hornear → probar → publicar, en ese orden.
 
+Cuatro pestañas: **Pórtico**, **Planta de techo**, **Elevación longitudinal** y
+**3D**. Las tres primeras son proyecciones directas del modelo; la 3D lleva
+cámara propia y **arranca en isométrica a propósito** — en perspectiva, dos
+pórticos idénticos no miden lo mismo en pantalla, y una vista que invita a
+comparar tiene que poder compararse. La ficha dice con qué error mentiría.
+
 Para instalarlo en Excel: *Insertar › Mis complementos › Cargar mi complemento*,
 y se apunta a `https://vicmezap.github.io/galpon/manifest.xml`. Aparece una
 pestaña **Galpón** en la cinta.
@@ -139,12 +145,13 @@ src/
   generador.js     el tijeral paramétrico · 4 cuerdas × 4 almas · Maxwell y rango
   montaje.js       el galpón entero en tres planos · el camino de carga
   vistas.js        las 4 pestañas como DATOS · ninguna cifra sin procedencia
+  vista3d.js       cámara y proyección · isométrica, que sí se puede medir
 inventario/
-  *.json           las 372 filas, trece secciones
+  *.json           las 374 filas, trece secciones
 pruebas/
   correr.js        el runner
   _comun.js        comp · cerca · cierto · lanza · fin
-  probar_*.js      una por módulo · 1822 comprobaciones
+  probar_*.js      una por módulo · 1901 comprobaciones
 catalogos/
   aisc.json        1575 perfiles laminados    · AISC Shapes Database v13
   fam.json          391 perfiles soldados     · serie VS/CS/CVS, ABNT NBR 5884
@@ -186,9 +193,11 @@ delata, y por eso `agregaCarga()` lo rechaza.
 
 ## Estado
 
-**E0 a E5 cerradas.** El complemento calcula un galpón completo de punta a
-punta —geometría, cargas, análisis, diseño— **sin una sola pantalla**, todo
-verificable en Node y en CI. Es la rebanada vertical, el primer hito real.
+**E0 a E6 cerradas.** El complemento calcula un galpón completo de punta a
+punta —geometría, cargas, análisis, diseño— y además **se ve**: cuatro
+pestañas, un manifiesto de Office y una página publicable. Todo verificable en
+Node y en CI, incluida la página entera, que se ejecuta contra un DOM de
+juguete en cada corrida.
 
 | | | |
 |---|---|---|
@@ -198,7 +207,7 @@ verificable en Node y en CI. Es la rebanada vertical, el primer hito real.
 | **E3** motor | modelo · solver · estabilidad · solo-tracción | ✅ |
 | **E4** AISC | caps. D, E, F, G y H con doble referencia | ✅ |
 | **E5** piezas | elemento · bucle · correas · tijeral · columnas · arriostres | ✅ |
-| **E6** interfaz | **generador · montaje · complemento · vistas** · vista3d | 🔸 en curso |
+| **E6** interfaz | generador · montaje · complemento · vistas · vista3d | ✅ |
 | **E7** conexiones | placa base · Cap. J | ⬜ |
 | **E8** cimentación | pedestal · zapatas | ⬜ |
 | **E9** salida | hojas · metrado · planos | ⬜ |

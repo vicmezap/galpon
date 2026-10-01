@@ -43,18 +43,19 @@
   "use strict";
   if (typeof module === "object" && module.exports) {
     module.exports = definir(require("./inventario.js"), require("./generador.js"),
-      require("./montaje.js"));
+      require("./montaje.js"), require("./vista3d.js"));
   } else {
-    raiz.VISTAS = definir(raiz.INVENTARIO, raiz.GENERADOR, raiz.MONTAJE);
+    raiz.VISTAS = definir(raiz.INVENTARIO, raiz.GENERADOR, raiz.MONTAJE, raiz.VISTA3D);
   }
-})(typeof self !== "undefined" ? self : this, function (INV, GEN, MON) {
+})(typeof self !== "undefined" ? self : this, function (INV, GEN, MON, V3) {
   "use strict";
 
   const ART = INV.declara("vistas.js", [
     "V.procedencia", "V.no.duplica", "V.limites",
     "G.alma", "G.peralte", "G.maxwell", "G.rango", "G.hiperestatica",
     "MT.ejes", "MT.no.diafragma", "MT.mismo.pano", "MT.hastial",
-    "MT.termica", "MT.deltaT", "MT.alfa", "MT.plano.solver"
+    "MT.termica", "MT.deltaT", "MT.alfa", "MT.plano.solver",
+    "V.isometrica", "V.profundidad"
   ]);
 
   /* Las cinco, y ninguna más. */
@@ -140,8 +141,44 @@
       ayuda: "vacío = los mismos del techo" },
     { grupo: "Arriostres y hastiales", id: "ch",
       etiqueta: "Columnas hastiales en x", unidad: "m", tipo: "lista", valor: "5, 10, 15",
-      fuente: "MT.hastial", ayuda: "vacío = ninguna" }
+      fuente: "MT.hastial", ayuda: "vacío = ninguna" },
+
+    /* DESTINO «vista»: estos campos mueven la cámara y NO llegan al motor.
+       La separación es explícita y la comprueba una prueba, porque el día que
+       un parámetro de cámara se cuele en el modelo, girar la vista cambiará
+       un ratio y nadie sabrá por qué. */
+    { grupo: "Vista 3D", destino: "vista", id: "proy", etiqueta: "Proyección",
+      tipo: "opcion", valor: "isometrica", fuente: "V.isometrica", opciones: [
+        ["isometrica", "Isométrica · se puede medir"],
+        ["ortografica", "Paralela, ángulo libre · se puede medir"],
+        ["perspectiva", "Perspectiva · NO medir"]] },
+    { grupo: "Vista 3D", destino: "vista", id: "azim", etiqueta: "Azimut", unidad: "°",
+      tipo: "numero", valor: 45, paso: 5, limiteDePantalla: [-360, 360] },
+    { grupo: "Vista 3D", destino: "vista", id: "elev3d", etiqueta: "Elevación",
+      unidad: "°", tipo: "numero", valor: 35, paso: 5, limiteDePantalla: [-89, 89] }
   ];
+
+  /* Todo campo tiene destino; el que no lo diga va al modelo. */
+  for (const e of ENTRADAS) if (!e.destino) e.destino = "modelo";
+
+  function soloDe(destino, d) {
+    const out = {};
+    for (const e of ENTRADAS) if (e.destino === destino) out[e.id] = d[e.id];
+    return out;
+  }
+  function datosModelo(d) { return soloDe("modelo", d); }
+  function datosVista(d) { return soloDe("vista", d); }
+
+  /* La cámara que piden los campos de vista, encuadrada al modelo. */
+  function camaraDe(v, m3, aspecto) {
+    const o = v || {};
+    return V3.encuadra(m3, V3.camara({
+      tipo: o.proy || "isometrica",
+      azimut: o.azim === undefined ? 45 : o.azim,
+      elevacion: o.elev3d === undefined ? 35 : o.elev3d,
+      aspecto: aspecto || 16 / 9
+    }));
+  }
 
   /* La misma regla vale para los CAMPOS: un campo que cita una fila tiene
      que citar una que exista.  Se comprueba al cargar el módulo y no en una
@@ -220,14 +257,8 @@
       sub: "donde se ve el camino de carga" },
     { id: "elev", nombre: "Elevación longitudinal", real: true,
       sub: "la fachada x = 0, y lo que cuesta decidir dónde van los arriostres" },
-    { id: "tresd", nombre: "3D", real: false,
-      sub: "vista3d.js · todavía no",
-      porque: "La vista 3D es vista3d.js, el renderizador WebGL que se adapta del " +
-        "de Retícula, " +
-        "y no está escrito. Aquí no hay una maqueta provisional a propósito: una " +
-        "vista que parece el modelo y no lo es engaña más que una pestaña vacía. " +
-        "El modelo 3D SÍ existe —lo monta montaje.js y las otras tres pestañas son " +
-        "proyecciones suyas—; lo que falta es dibujarlo." }
+    { id: "tresd", nombre: "3D", real: true,
+      sub: "el galpón entero · isométrica, que se puede medir" }
   ];
 
   function pestana(id) {
@@ -242,9 +273,10 @@
   /* ---------- LA PROYECCION DE CADA PESTAÑA ----------------------------
      Qué nudos entran, y qué par de coordenadas se dibuja.  También es dato:
      así la rutina que pinta no decide nada. */
-  function dibujo(id, m3) {
+  function dibujo(id, m3, vista) {
     const p = pestana(id);
     if (!p.real) return null;
+    if (id === "tresd") return dibujo3d(m3, vista);
     if (id === "portico") {
       const pl = MON.planoTransversal(m3, 0);
       return { nudos: pl.nudos, barras: pl.barras,
@@ -273,17 +305,79 @@
         ["ARRIOSTRE DE FACHADA", "succion"]] };
   }
 
+  /* ---------- LA 3D · proyectada, ordenada y atenuada ------------------
+     Los nudos llegan con sus coordenadas de pantalla ya puestas en _x e _y,
+     así que el mismo pintor que dibuja las otras tres sirve para esta: UNA
+     sola ruta de dibujo en todo el complemento.  Lo que la 3D añade es el
+     ORDEN —de atrás hacia delante— y la atenuación, que van aparte porque
+     son por barra y no por nudo (fila V.profundidad). */
+  function dibujo3d(m3, vista) {
+    const cam = camaraDe(vista, m3);
+    const esc = V3.escena(m3, cam);
+    const nudos = [];
+    for (const n of m3.nudos) {
+      const q = V3.proyecta(cam, [n.x_m, n.y_m, n.z_m]);
+      nudos.push({ id: n.id, _x: q.x, _y: q.y, clase: n.clase, prof: q.prof });
+    }
+    const orden = [], opacidad = {};
+    for (const g of esc.segmentos) { orden.push(g.id); opacidad[g.id] = g.atenuacion; }
+    return {
+      nudos: nudos, barras: m3.barras,
+      ejeX: "_x", ejeY: "_y",
+      orden: orden, opacidad: opacidad,
+      camara: cam, escena: esc,
+      leyenda: [["lo cercano", "tinta"], ["lo lejano, atenuado", "linea"],
+        ["ARRIOSTRES", "succion"]]
+    };
+  }
+
   /* ---------- LAS FICHAS DE CADA PESTAÑA -------------------------------- */
   function n2(x, d) {
     return (Math.round(x * Math.pow(10, d)) / Math.pow(10, d)).toFixed(d).replace(".", ",");
   }
 
-  function fichas(id, m3) {
+  function fichas(id, m3, vista) {
     const p = pestana(id);
     if (!p.real) return [];
     if (id === "portico") return fichasPortico(m3);
     if (id === "planta") return fichasPlanta(m3);
+    if (id === "tresd") return fichas3d(m3, vista);
     return fichasElevacion(m3);
+  }
+
+  /* LA FICHA DE LA 3D DICE SI EL DIBUJO SE PUEDE MEDIR, Y CON QUÉ ERROR ·
+     fila V.isometrica.  Es lo único que una vista «solo ver» tiene
+     obligación de declarar: si invita a comparar, que diga si mentiría. */
+  function fichas3d(m3, vista) {
+    const cam = camaraDe(vista, m3);
+    const dis = V3.distorsion(m3, cam);
+    const esc = V3.escena(m3, cam);
+    const L = [
+      ln("Proyección", cam.tipo, "norma", { fuente: "V.isometrica" }),
+      ln("Azimut · elevación",
+        n2(cam.azimut, 1) + "° · " + n2(cam.elevacion, 1) + "°", "entrada"),
+      ln("¿Se puede medir en pantalla?", dis.medible ? "sí" : "NO", "medido",
+        { estado: dis.medible ? "ok" : "no", nota: dis.nota }),
+      ln("Dos columnas idénticas: la más lejana mide",
+        n2(dis.razon * 100, 1) + " % de la más cercana", "medido",
+        { estado: Math.abs(dis.razon - 1) < 1e-9 ? "ok" : "no" }),
+      ln("Separadas en profundidad",
+        n2(dis.masLejos.prof - dis.masCerca.prof, 1) + " m", "geometria"),
+      ln("Segmentos dibujados", String(esc.segmentos.length), "conteo"),
+      ln("Orden y atenuación", "de atrás hacia delante", "norma",
+        { fuente: "V.profundidad",
+          nota: "No se quitan líneas ocultas: un alambre no tiene caras. El " +
+            "arriostre de la fachada de atrás se ve a través de la nave, y para " +
+            "revisar que el camino de carga cierra eso es mejor que peor." })
+    ];
+    if (cam.esIsometricaExacta) {
+      L.push(ln("Elevación isométrica exacta",
+        "atan(1/√2) = " + n2(V3.ISO_ELEVACION, 4) + "°", "geometria",
+        { nota: "El ángulo que hace que un metro en x, uno en y y uno en z midan " +
+          "lo mismo en pantalla. No es un valor elegido a ojo." }));
+    }
+    return [ficha("Cómo se está mirando", pestana("tresd").sub, L,
+      dis.medible ? "bien" : null)];
   }
 
   function fichasPortico(m3) {
@@ -391,11 +485,11 @@
   }
 
   /* ---------- lo que la prueba necesita para barrerlo todo -------------- */
-  function todasLasLineas(m3) {
+  function todasLasLineas(m3, vista) {
     const out = [];
     for (const p of PESTANAS) {
       if (!p.real) continue;
-      for (const f of fichas(p.id, m3)) {
+      for (const f of fichas(p.id, m3, vista)) {
         for (const l of f.lineas) out.push({ pestana: p.id, ficha: f.titulo, linea: l });
       }
     }
@@ -404,6 +498,7 @@
 
   return {
     ART, ORIGENES, ENTRADAS, PESTANAS,
-    ln, ficha, grupos, valida, problema, pestana, dibujo, fichas, todasLasLineas
+    ln, ficha, grupos, valida, problema, pestana, dibujo, fichas, todasLasLineas,
+    datosModelo, datosVista, camaraDe
   };
 });

@@ -258,7 +258,7 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
     "arriostre de techo": 1.8, "arriostre de fachada": 1.8
   };
 
-  function dibuja(nudos, barras, px, py, alto) {
+  function dibuja(nudos, barras, px, py, alto, orden, opacidad) {
     var pos = {}, i;
     for (i = 0; i < nudos.length; i++) pos[nudos[i].id] = nudos[i];
     var xs = [], ys = [];
@@ -276,18 +276,33 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
 
     var out = ['<svg viewBox="0 0 ' + W + ' ' + Math.round(H) +
       '" preserveAspectRatio="xMidYMid meet" role="img">'];
-    /* el orden importa: el arriostre encima de todo */
-    var orden = barras.slice().sort(function (a, b) {
-      var pa = /arriostre/.test(a.clase) ? 1 : 0, pb = /arriostre/.test(b.clase) ? 1 : 0;
-      return pa - pb;
-    });
-    for (i = 0; i < orden.length; i++) {
-      var b = orden[i], a = pos[b.i], c = pos[b.j];
+
+    /* EN QUE ORDEN SE PINTA. Si la vista trae su propio orden —la 3D, de
+       atras hacia delante, fila V.profundidad— manda ese. Si no, el
+       arriostre va encima de todo, que es lo que hay que ver en planta. */
+    var cola;
+    if (orden && orden.length) {
+      var porId = {};
+      for (i = 0; i < barras.length; i++) porId[barras[i].id] = barras[i];
+      cola = [];
+      for (i = 0; i < orden.length; i++) if (porId[orden[i]]) cola.push(porId[orden[i]]);
+    } else {
+      cola = barras.slice().sort(function (a, b) {
+        var pa = /arriostre/.test(a.clase) ? 1 : 0, pb = /arriostre/.test(b.clase) ? 1 : 0;
+        return pa - pb;
+      });
+    }
+
+    for (i = 0; i < cola.length; i++) {
+      var b = cola[i], a = pos[b.i], c = pos[b.j];
       if (!a || !c) continue;
+      var op = (opacidad && opacidad[b.id] !== undefined) ? opacidad[b.id] : 1;
       out.push('<line x1="' + X(a).toFixed(1) + '" y1="' + Y(a).toFixed(1) +
         '" x2="' + X(c).toFixed(1) + '" y2="' + Y(c).toFixed(1) +
         '" stroke="' + (COLOR[b.clase] || "var(--tinta-2)") +
-        '" stroke-width="' + (GRUESO[b.clase] || 1.1) + '" stroke-linecap="round"/>');
+        '" stroke-width="' + (GRUESO[b.clase] || 1.1) + '"' +
+        (op < 1 ? ' stroke-opacity="' + op.toFixed(3) + '"' : "") +
+        ' stroke-linecap="round"/>');
     }
     out.push("</svg>");
     return out.join("");
@@ -395,23 +410,23 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
 
   var TINTA = {
     tinta: "var(--tinta)", "tinta-2": "var(--tinta-2)",
-    suave: "var(--suave)", succion: "var(--succion)"
+    suave: "var(--suave)", succion: "var(--succion)", linea: "var(--linea)"
   };
 
-  function pintaVista(p, m3) {
+  function pintaVista(p, m3, vista) {
     if (!p.real) {
       return '<div class="aviso"><b>Todavia no.</b> ' + esc(p.porque) + "</div>";
     }
-    var d = VISTAS.dibujo(p.id, m3);
+    var d = VISTAS.dibujo(p.id, m3, vista);
     var svg = dibuja(d.nudos, d.barras,
       function (n) { return n[d.ejeX]; },
-      function (n) { return n[d.ejeY]; }, 520);
+      function (n) { return n[d.ejeY]; }, 520, d.orden, d.opacidad);
     var ley = '<div class="leyenda">' + d.leyenda.map(function (x) {
       return '<span><i style="border-top-color:' + (TINTA[x[1]] || x[1]) +
         '"></i>' + esc(x[0]) + "</span>";
     }).join("") + "</div>";
     return '<div class="lienzo">' + svg + ley + "</div>" +
-      '<div class="fichas">' + VISTAS.fichas(p.id, m3).map(pintaFicha).join("") + "</div>";
+      '<div class="fichas">' + VISTAS.fichas(p.id, m3, vista).map(pintaFicha).join("") + "</div>";
   }
 
   function recalcula() {
@@ -430,7 +445,7 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
           "comprueba el motor, y no se copian aqui."
       };
     } else {
-      try { m3 = MONTAJE.monta(paraElMotor(d)); }
+      try { m3 = MONTAJE.monta(paraElMotor(VISTAS.datosModelo(d))); }
       catch (e) { fallo = VISTAS.problema(e); }
     }
 
@@ -441,15 +456,16 @@ button.fte:hover { color:var(--acero); border-color:var(--acero); }
       var vacio = '<p class="nohay">' + esc(fallo.porQueNoSeDibuja) + "</p>";
       for (i = 0; i < VISTAS.PESTANAS.length; i++) {
         p = VISTAS.PESTANAS[i];
-        $("v-" + p.id).innerHTML = p.real ? vacio : pintaVista(p, null);
+        $("v-" + p.id).innerHTML = p.real ? vacio : pintaVista(p, null, null);
       }
       return;
     }
 
     $("problemas").hidden = true;
+    var vista = VISTAS.datosVista(d);
     for (i = 0; i < VISTAS.PESTANAS.length; i++) {
       p = VISTAS.PESTANAS[i];
-      $("v-" + p.id).innerHTML = pintaVista(p, m3);
+      $("v-" + p.id).innerHTML = pintaVista(p, m3, vista);
     }
   }
 

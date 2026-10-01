@@ -1,7 +1,10 @@
 {
   "seccion": "interfaz",
   "titulo": "La interfaz · qué se enseña y con qué derecho",
-  "modulos": ["vistas.js"],
+  "modulos": [
+    "vistas.js",
+    "vista3d.js"
+  ],
   "version": 1,
   "fecha": "2026-09-30",
   "regla": "Ningún número entra al código sin fila aquí. Sin fuente primaria leída, no entra.",
@@ -48,6 +51,30 @@
       "clave": true,
       "fuente": "decisión de arquitectura del complemento",
       "nota": "Que el campo de la luz empiece en 2 m no significa que una luz de 1,5 m esté prohibida por nada: significa que un cuadro de texto necesita un tope y ese es el que se puso. NO SON CRITERIOS DE DISEÑO y por eso no llevan fila propia ni cita: si llevaran una, en tres meses alguien los defendería en una memoria de cálculo. Van marcados como «limiteDePantalla» en el propio código para que no se puedan confundir, y el motor sigue aceptando lo que acepte."
+    },
+    {
+      "id": "V.isometrica",
+      "grupo": "La vista 3D",
+      "magnitud": "Una vista que invita a medir tiene que ser medible",
+      "valor": "isométrica por omisión  ·  azimut 45°, elevación atan(1/√2)",
+      "unidad": "°",
+      "estado": "adoptado",
+      "editable": true,
+      "clave": true,
+      "fuente": "decisión de arquitectura del complemento",
+      "nota": "El diagrama llama a esta pestaña «3D (solo ver)», y ahí está el riesgo: nadie mira un galpón en perspectiva sin comparar dos cosas con la vista. En perspectiva eso es mentira —dos pórticos IDÉNTICOS, el primero y el último de la nave, no miden lo mismo en pantalla— y la diferencia no es sutil. En proyección paralela miden exactamente lo mismo. Por eso la cámara arranca en isométrica y la perspectiva hay que pedirla. La elevación no es un ángulo elegido a ojo: atan(1/√2) = 35,2644° es EL que hace que un metro en x, uno en y y uno en z midan lo mismo en pantalla, y la prueba lo comprueba midiéndolo en vez de citándolo. distorsion() devuelve el número exacto para que la decisión no sea de opinión."
+    },
+    {
+      "id": "V.profundidad",
+      "grupo": "La vista 3D",
+      "magnitud": "Cómo se transmite la profundidad en un alambre",
+      "valor": "orden de atrás hacia delante  +  atenuación  ·  SIN líneas ocultas",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": true,
+      "clave": true,
+      "fuente": "decisión de arquitectura del complemento",
+      "nota": "Un alambre no tiene caras, así que no hay oclusión que calcular y decir que se «quitan líneas ocultas» sería falso. La profundidad se transmite de dos maneras y las dos son orden, no geometría: se pinta de atrás hacia delante —el algoritmo del pintor, que para segmentos sin caras es el correcto y no una aproximación— y lo lejano se atenúa hasta un mínimo del 35 %. CONSECUENCIA BUSCADA: el arriostre de la fachada de atrás se ve a través de la nave. Para revisar que el camino de carga cierra, eso es mejor que peor; un render opaco escondería justo lo que hay que mirar."
     }
   ]
 }
