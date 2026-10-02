@@ -204,6 +204,17 @@ line.toca { stroke:transparent; stroke-width:9; cursor:pointer; }
 .pista { position:absolute; bottom:12px; right:14px; font-family:var(--cifra);
   font-size:10px; color:var(--suave); }
 .marco svg { display:block; width:100%; height:auto; }
+/* la 3D con el acero de verdad · fila V.solidos */
+.gl-host { position:relative; width:100%; height:64vh; min-height:360px; cursor:grab; }
+.gl-host canvas { display:block; width:100%; height:100%; }
+.marco.orbitando .gl-host { cursor:grabbing; }
+.modo3d { position:absolute; top:40px; left:130px; display:flex; gap:2px; z-index:2; }
+.modo3d button { font-family:var(--cifra); font-size:10px; padding:2px 8px; border:1px solid var(--linea);
+  background:var(--papel); color:var(--tinta-2); cursor:pointer; border-radius:2px; }
+.modo3d button[aria-pressed="true"] { background:var(--acero); border-color:var(--acero); color:#fff; }
+.sin-gl { padding:30px; color:var(--alerta); font-size:12px; }
+/* en la 3D la escala sube, para no pisar la leyenda */
+.marco.orbitable .escala { bottom:auto; top:40px; left:auto; right:14px; }
 .leyenda { display:flex; flex-wrap:wrap; gap:11px; margin-top:7px; font-size:10.5px;
   color:var(--suave); font-family:var(--cifra); }
 .leyenda i { display:inline-block; width:15px; border-top-width:2px;
@@ -2077,7 +2088,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
      garantizarlo es que no lo vuelva a hacer. Es la misma separacion que
      ya existe en los datos, datosModelo contra datosVista, llevada al
      repintado. */
-  var m3 = null;
+  var m3 = null, m3idGL = 0;
   function repinta() { recalcula(true); }
   function recalcula(soloVista) {
     var paso = VISTAS.paso(pasoActivo);
@@ -2137,7 +2148,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
         porQue: "Esto solo comprueba la FORMA. Las reglas de diseño las comprueba " +
           "el motor, y no se copian aquí." };
     } else {
-      try { m3 = MONTAJE.monta(paraElMotor(VISTAS.datosModelo(d))); }
+      try { m3 = MONTAJE.monta(paraElMotor(VISTAS.datosModelo(d))); m3idGL++; }
       catch (e) { m3 = null; fallo = VISTAS.problema(e); fallo.porQue = fallo.porQueNoSeDibuja; }
     }
     if (fallo) m3 = null;
@@ -2151,24 +2162,142 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     pintaCapas(m3);
     dj.barras = VISTAS.filtra(dj.barras, verEstado);
     var es3d = vistaActiva === "tresd";
+    var conAcero = es3d && modo3d === "acero" && glListo();
     $("centro").innerHTML = '<div class="marco' + (es3d ? " orbitable" : "") + '">' +
       '<div class="zoom"><button data-z="-">−</button>' +
       '<button data-z="0">▣</button><button data-z="+">+</button></div>' +
-      (es3d ? cubo(d) : "") +
+      (es3d ? cubo(d) + '<div class="modo3d"><button data-modo3d="acero" aria-pressed="' + (modo3d === "acero") +
+        '">acero</button><button data-modo3d="alambre" aria-pressed="' + (modo3d !== "acero") + '">alambre</button></div>' : "") +
+      (conAcero ? '<div class="gl-host" id="gl-host"></div>' :
+      (es3d && modo3d === "acero" ? '<p class="sin-gl">Este equipo no da WebGL: se enseña el alambre.</p>' : "") +
       dibuja(dj.nudos, dj.barras,
         function (n) { return n[dj.ejeX]; },
-        function (n) { return n[dj.ejeY]; }, dj.orden, dj.opacidad, anot) +
+        function (n) { return n[dj.ejeY]; }, dj.orden, dj.opacidad, anot)) +
       '<div class="escala">zoom ×' + n2(zoom, 2) + "  ·  " +
       anot.cotas.length + " cotas</div>" +
       (es3d ? '<div class="pista">arrastra para girar · rueda para acercar</div>' : "") +
-      '<div class="leyenda">' + dj.leyenda.map(function (x) {
+      '<div class="leyenda">' + (conAcero ? [["acero, con su sección", "acero"], ["sin perfil: el eje", "aviso"]] : dj.leyenda).map(function (x) {
         return '<span><i style="border-top-color:' + (TINTA[x[1]] || x[1]) + '"></i>' +
           esc(x[0]) + "</span>";
       }).join("") + "</div></div>";
+    if (conAcero) dibujaAcero(dj);
     $("derecha").innerHTML = fichaSeleccion(m3) + tablaPerfiles(m3) +
       tablaPanos(m3) +
       VISTAS.fichas(vistaActiva, m3, vista).map(pintaFicha).join("");
     pintaCatalogo();
+  }
+
+  /* ---------- LA 3D CON EL ACERO · fila V.solidos ----------
+     Un solo canvas y un solo contexto WebGL para toda la sesión: el lienzo se
+     repinta con innerHTML en cada arrastre, y crear un contexto por repintado
+     agota los que da el navegador. El canvas se mueve al marco nuevo y la
+     malla solo se rehace cuando cambia el galpón o un perfil. */
+  var modo3d = "acero";
+  var GL = null;
+  function glListo() {
+    if (GL) return !GL.falla;
+    GL = { falla: true };
+    try {
+      var cv = document.createElement("canvas");
+      var g = cv.getContext && (cv.getContext("webgl", { antialias: true, alpha: true }) ||
+        cv.getContext("experimental-webgl"));
+      if (!g) return false;
+      var sh = function (tipo, src) {
+        var s = g.createShader(tipo); g.shaderSource(s, src); g.compileShader(s);
+        if (!g.getShaderParameter(s, g.COMPILE_STATUS)) throw new Error(g.getShaderInfoLog(s));
+        return s;
+      };
+      var pr = g.createProgram();
+      g.attachShader(pr, sh(g.VERTEX_SHADER,
+        "attribute vec3 p; attribute vec3 n; uniform mat4 M; uniform vec3 luz; uniform vec3 sol; uniform float plano;" +
+        "varying float l; void main() { gl_Position = M * vec4(p, 1.0); vec3 m = normalize(n);" +
+        " l = plano > 0.5 ? 1.0 : 0.22 + 0.58 * max(dot(m, sol), 0.0) + 0.12 * max(-dot(m, sol), 0.0)" +
+        " + 0.28 * abs(dot(m, luz)); }"));
+      g.attachShader(pr, sh(g.FRAGMENT_SHADER,
+        "precision mediump float; varying float l; uniform vec3 color;" +
+        " void main() { gl_FragColor = vec4(color * l, 1.0); }"));
+      g.linkProgram(pr);
+      if (!g.getProgramParameter(pr, g.LINK_STATUS)) throw new Error(g.getProgramInfoLog(pr));
+      GL = { falla: false, cv: cv, g: g, pr: pr, clave: null, bp: g.createBuffer(), bn: g.createBuffer(),
+        bl: g.createBuffer(), n: 0, nl: 0,
+        aP: g.getAttribLocation(pr, "p"), aN: g.getAttribLocation(pr, "n"),
+        uM: g.getUniformLocation(pr, "M"), uL: g.getUniformLocation(pr, "luz"),
+        uC: g.getUniformLocation(pr, "color"), uPl: g.getUniformLocation(pr, "plano"),
+        uS: g.getUniformLocation(pr, "sol") };
+      cv.addEventListener("webglcontextlost", function (e) { e.preventDefault(); GL = { falla: true }; });
+      return true;
+    } catch (e) { GL = { falla: true, error: e.message }; return false; }
+  }
+  var CARTELA_VISTA = { "3/8": 0.9525, "3/4": 1.905, "0": 0 };
+  function mallaAcero() {
+    var vistos = {};
+    VISTAS.filtra(m3.barras, verEstado).forEach(function (b) { vistos[b.id] = true; });
+    var vis = function (b) { return !!vistos[b.id]; };
+    var clave = m3idGL + "|" + JSON.stringify(modelo.secciones) + "|" + ((modelo.diseno || {}).cartela || "") + "|" +
+      JSON.stringify(verEstado);
+    if (GL.clave === clave) return;
+    var sec = RESULTADOS.seccionDesde(modelo, PERFILES);
+    var m = SOLIDOS.malla(m3, { seccion: sec, visibles: vis,
+      separacion_cm: CARTELA_VISTA[(modelo.diseno || {}).cartela] || 0 });
+    var g = GL.g;
+    g.bindBuffer(g.ARRAY_BUFFER, GL.bp); g.bufferData(g.ARRAY_BUFFER, m.posiciones, g.STATIC_DRAW);
+    g.bindBuffer(g.ARRAY_BUFFER, GL.bn); g.bufferData(g.ARRAY_BUFFER, m.normales, g.STATIC_DRAW);
+    var L = [];
+    m.sinPerfil.forEach(function (s) { L.push(s.a[0], s.a[1], s.a[2], s.b[0], s.b[1], s.b[2]); });
+    g.bindBuffer(g.ARRAY_BUFFER, GL.bl); g.bufferData(g.ARRAY_BUFFER, new Float32Array(L), g.STATIC_DRAW);
+    GL.n = m.triangulos * 3; GL.nl = L.length / 3; GL.clave = clave; GL.malla = m;
+  }
+  function colorCss(v, porDefecto) {
+    var c = getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+    var m = /^#([0-9a-f]{6})$/i.exec(c);
+    if (!m) return porDefecto;
+    var x = parseInt(m[1], 16);
+    return [(x >> 16 & 255) / 255, (x >> 8 & 255) / 255, (x & 255) / 255];
+  }
+  function dibujaAcero(dj) {
+    var host = $("gl-host");
+    if (!host || !GL || GL.falla) return;
+    host.appendChild(GL.cv);
+    mallaAcero();
+    var g = GL.g, cv = GL.cv, dpr = window.devicePixelRatio || 1;
+    var cw = host.clientWidth || 800, ch = host.clientHeight || 450;
+    cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
+    g.viewport(0, 0, cv.width, cv.height);
+    /* EL MISMO ENCUADRE QUE EL ALAMBRE: la caja de los nudos proyectados, en metros
+       del plano de la cámara, cabe en el canvas con el zoom y el desplazamiento */
+    var cam = dj.camara, xs = [], ys = [];
+    dj.nudos.forEach(function (n) { xs.push(n._x * cam.anchoVista_m / 2); ys.push(n._y * cam.altoVista_m / 2); });
+    var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs), y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+    var mg = 40, k = Math.min((cw - 2 * mg) / Math.max(x1 - x0, 1e-6), (ch - 2 * mg) / Math.max(y1 - y0, 1e-6)) * zoom;
+    var cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    var ax = (cam.anchoVista_m / 2) * k / (cw / 2), bx = (-cx * k + panX) / (cw / 2);
+    var ay = (cam.altoVista_m / 2) * k / (ch / 2), by = (-cy * k - panY) / (ch / 2);
+    /* x' = ax·x + bx·w : se aplica en coordenadas de recorte, antes de dividir por w */
+    var Nm = [ax, 0, 0, 0, 0, ay, 0, 0, 0, 0, 1, 0, bx, by, 0, 1];
+    var M = VISTA3D.multiplica(Nm, VISTA3D.matriz(cam));
+    var f = cam.base.f, u = cam.base.u, r = cam.base.r;
+    var luz = [-f[0] + 0.45 * u[0] + 0.25 * r[0], -f[1] + 0.45 * u[1] + 0.25 * r[1], -f[2] + 0.45 * u[2] + 0.25 * r[2]];
+    var nl = Math.sqrt(luz[0] * luz[0] + luz[1] * luz[1] + luz[2] * luz[2]);
+    g.clearColor(0, 0, 0, 0); g.clear(g.COLOR_BUFFER_BIT | g.DEPTH_BUFFER_BIT);
+    g.enable(g.DEPTH_TEST); g.useProgram(GL.pr);
+    g.uniformMatrix4fv(GL.uM, false, new Float32Array(M));
+    g.uniform3f(GL.uL, luz[0] / nl, luz[1] / nl, luz[2] / nl);
+    /* el sol, fijo en el mundo: desde arriba y de lado, para que las alas y las almas se distingan */
+    g.uniform3f(GL.uS, 0.38, 0.86, 0.34);
+    if (GL.n) {
+      g.uniform1f(GL.uPl, 0);
+      g.uniform3fv(GL.uC, colorCss("--acero-3d", [0.68, 0.72, 0.76]));
+      g.bindBuffer(g.ARRAY_BUFFER, GL.bp); g.enableVertexAttribArray(GL.aP); g.vertexAttribPointer(GL.aP, 3, g.FLOAT, false, 0, 0);
+      g.bindBuffer(g.ARRAY_BUFFER, GL.bn); g.enableVertexAttribArray(GL.aN); g.vertexAttribPointer(GL.aN, 3, g.FLOAT, false, 0, 0);
+      g.drawArrays(g.TRIANGLES, 0, GL.n);
+    }
+    if (GL.nl) {
+      g.uniform1f(GL.uPl, 1);
+      g.uniform3fv(GL.uC, colorCss("--aviso", [0.85, 0.55, 0.2]));
+      g.disableVertexAttribArray(GL.aN); g.vertexAttrib3f(GL.aN, 0, 0, 1);
+      g.bindBuffer(g.ARRAY_BUFFER, GL.bl); g.enableVertexAttribArray(GL.aP); g.vertexAttribPointer(GL.aP, 3, g.FLOAT, false, 0, 0);
+      g.drawArrays(g.LINES, 0, GL.nl);
+    }
   }
 
   /* EL CUBO DE VISTAS · cuatro de un clic, y las cuatro se pueden medir.
@@ -2224,6 +2353,9 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
       recalcula();
       return;
     }
+    /* acero o alambre */
+    var md = ev.target.closest ? ev.target.closest("button[data-modo3d]") : null;
+    if (md) { modo3d = md.getAttribute("data-modo3d"); repinta(); return; }
     /* el cubo de vistas */
     var cv = ev.target.closest ? ev.target.closest("button[data-vista]") : null;
     if (cv) {

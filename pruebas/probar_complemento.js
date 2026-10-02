@@ -749,4 +749,26 @@ comp("el único que se queda fuera es la guarda de Node", enFuera, ["bundle.js"]
 cierto("el panel se hornea con una lista corta y propia",
   /MODULOS_PANEL = \["inventario\.js", "libro\.js", "escritor\.js", "panel\.js"\]/.test(gen));
 
+
+/* LA 3D CON EL ACERO · fila V.solidos */
+{
+  pulsa(M.dom, "pasos", "data-paso", "geom");
+  pulsa(M.dom, "vistas", "data-v", "tresd");
+  const c3 = pinto(M.dom, "centro").innerHTML;
+  cierto("en la 3D se elige acero o alambre, y arranca en acero",
+    /data-modo3d="acero" aria-pressed="true"/.test(c3) && /data-modo3d="alambre" aria-pressed="false"/.test(c3));
+  cierto("sin WebGL (aquí no hay) lo dice y enseña el alambre, en vez de quedarse en blanco",
+    /no da WebGL/.test(c3) && /<svg/.test(c3));
+  cierto("UN SOLO contexto WebGL para toda la sesión: el lienzo se repinta en cada arrastre",
+    /var GL = null;/.test(modeHtml) && /host\.appendChild\(GL\.cv\)/.test(modeHtml) &&
+    (modeHtml.match(/getContext\("webgl"/g) || []).length === 1);
+  cierto("la malla sale de solidos.js y se rehace solo si cambia el galpón, un perfil, la cartela o lo que se ve",
+    /SOLIDOS\.malla\(m3/.test(modeHtml) && /GL\.clave === clave/.test(modeHtml));
+  cierto("con la MISMA matriz de cámara que el alambre", /VISTA3D\.matriz\(cam\)/.test(modeHtml));
+  pulsa(M.dom, "centro", "data-modo3d", "alambre");
+  cierto("y en alambre, el de siempre, que deja pinchar las barras", /data-modo3d="alambre" aria-pressed="true"/.test(
+    pinto(M.dom, "centro").innerHTML) && !/no da WebGL/.test(pinto(M.dom, "centro").innerHTML));
+  pulsa(M.dom, "vistas", "data-v", "portico");
+}
+
 fin();

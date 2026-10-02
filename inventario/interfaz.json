@@ -6,7 +6,8 @@
     "vista3d.js",
     "libro.js",
     "panel.js",
-    "hojas.js"
+    "hojas.js",
+    "solidos.js"
   ],
   "version": 1,
   "fecha": "2026-10-02",
@@ -222,6 +223,18 @@
       "clave": true,
       "fuente": "decisión del proyectista, 2026-10-02",
       "nota": "Un análisis matricial no se escribe en celdas. El período sale de los desplazamientos del pórtico resuelto y el peso de sumar sus nudos; lo que sigue —C, C/R, V— sí va en fórmulas a partir de ellos. Se distinguen por el color para que nadie crea que el período se puede cambiar en la hoja y que el resto lo siga."
+    },
+    {
+      "id": "V.solidos",
+      "grupo": "La interfaz y su enlace con el libro",
+      "magnitud": "La 3D con el acero de verdad: secciones extruidas con su orientación",
+      "valor": "contorno de cada sección con las medidas del catálogo, extruido a lo largo de la barra · columnas y tijeral con el peralte en el plano del pórtico · correas con el alma perpendicular al techo · columna hastial con el peralte perpendicular a su muro · 2L espalda con espalda separados por la cartela, alas arriba en la brida superior y abajo en la inferior",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "pedido del usuario, 2026-10-02 · medidas: el catálogo de perfiles (fila CAT.*)",
+      "nota": "«Me gustaría ver el material de acero real»: el alambre dibujaba el eje y un W10X33 se veía igual que una varilla. La orientación es un CONVENIO de dibujo, no un resultado del cálculo, y se escribe para que nadie lo lea como una decisión de diseño. Se simplifica, y se dice: sin radios de acuerdo, el HSS por fuera (no se ve hueco), las barras no se recortan en los nudos y no se dibujan cartelas, pernos ni soldaduras. Las barras sin perfil se ven como línea, para que se note lo que falta. La vista se dibuja con WebGL con la MISMA matriz de cámara que el alambre (vista3d.matriz), que ya se comprobó contra la proyección punto por punto; el alambre se queda, porque es el que deja pinchar las barras."
     }
   ]
 }

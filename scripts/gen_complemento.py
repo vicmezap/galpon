@@ -91,6 +91,7 @@ MODULOS = [
     "zapatas.js",        # lee UNIDADES, E020 y COMBINACIONES · E8
     "pedestal.js",       # lee UNIDADES y E020 · E8
     "vista3d.js",       # funciones puras de camara y proyeccion
+    "solidos.js",       # el acero de verdad para la 3D: secciones extruidas
     "vistas.js",        # lee GENERADOR, MONTAJE y VISTA3D
     "libro.js",         # el modelo dentro del libro de Excel
     "resultados.js",    # lee VISTAS, E020, VIENTO, COMBINACIONES, ANALISIS y LIBRO
