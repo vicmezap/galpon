@@ -64,7 +64,7 @@ cerca("el cortante basal del pórtico interior, el del análisis", v(h0, "V_i"),
 cerca("y el del de fachada, el suyo", v(h0, "V_f"), af.r.sismo.V_kgf, 1e-9);
 comp("el período y el peso entran como valor, en verde (fila H.analisis)",
   [h0.celdas[h0.nombres.Tray_i].estilo, h0.celdas[h0.nombres.P_i].estilo, h0.celdas[h0.nombres.Tray_i].f], ["analisis", "analisis", undefined]);
-cierto("y lo dice su fuente", /H\.analisis/.test(h0.celdas["F" + h0.nombres.P_i.slice(1)].v));
+cierto("y lo dice en la fila", /del análisis/.test(h0.celdas["G" + h0.nombres.P_i.slice(1)].v));
 comp("las filas del viento: 10 por dirección transversal con Ci ±0,3, y 2 a lo largo", h0.filasViento, 22);
 
 /* ---- los nombres: ninguno puede ser una celda de Excel ---- */
@@ -72,10 +72,17 @@ const malos = Object.keys(h0.nombres).filter((n) => /^[A-Za-z]{1,3}\d+$/.test(n)
 comp("ningún nombre de la hoja se confunde con una celda (vs30 es la celda VS30)", malos, []);
 lanza("y el armador lo impide", () => H.armador("X").nombra("vs30", "C1"), ["no puede ser un nombre de Excel"]);
 lanza("y un nombre repetido", () => { const a = H.armador("X"); a.nombra("Vh", "C1"); a.nombra("Vh", "C2"); }, ["dos veces"]);
-cierto("toda fuente que cita es una fila del inventario o un dato",
-  Object.keys(h0.celdas).filter((k) => /^F/.test(k) && h0.celdas[k].estilo === "fuente")
-    .every((k) => /^(dato del proyecto|Geometría)$/.test(h0.celdas[k].v) ||
-      h0.celdas[k].v.split(" · ").some((p) => INV.existe(p.trim()))));
+{
+  /* la columna Norma: cada celda es el artículo de una fila del inventario, o dice que es un dato */
+  const arts = new Set(Object.keys(H.ART).map((id) => H.ART[id]).concat(
+    require("../src/combinaciones.js").paraAcero({ casos: { D: true, Lr: true, W: true, E: true } }).combinaciones.map((c) => c.art),
+    require("../src/combinaciones.js").paraConcreto({ casos: { D: true, Lr: true, W: true, E: true } }).combinaciones.map((c) => c.art)));
+  const normas = Object.keys(h0.celdas).filter((k) => /^J\d+$/.test(k) && h0.celdas[k].estilo === "fuente");
+  cierto("hay columna de norma en las tablas (" + normas.length + " celdas)", normas.length > 60);
+  comp("y TODA cita es un artículo del inventario, o un dato del proyecto o del modelo",
+    normas.filter((k) => !(arts.has(h0.celdas[k].v) || /^(dato del proyecto|del modelo)/.test(h0.celdas[k].v)))
+      .map((k) => k + ": " + h0.celdas[k].v), []);
+}
 
 /* ================================================================
    2 · LA HOJA ES VIVA · se cambia un dato en la hoja y sigue al motor
@@ -96,7 +103,7 @@ cierto("toda fuente que cita es una fila del inventario o un dato",
   }
   const ht = cambia(h0, "tipoW", 2);
   const fila = h0.nombres.Vh;   /* una fila del viento cualquiera: la primera tras la cabecera */
-  const filasPh = Object.keys(ht.celdas).filter((k) => /^E\d+$/.test(k) && /^=Kp\*D/.test(ht.celdas[k].f || ""));
+  const filasPh = Object.keys(ht.celdas).filter((k) => /^G\d+$/.test(k) && /^=Kp\*F/.test(ht.celdas[k].f || ""));
   cierto("con el tipo 2 en la hoja, cada Ph sale 1,2 veces el del tipo 1",
     filasPh.length === 22 && filasPh.every((k) => Math.abs(v(ht, k) - 1.2 * v(h0, k)) < 1e-9) && !!fila);
   /* el período en sus tres tramos: C del motor */
@@ -181,6 +188,47 @@ cierto("toda fuente que cita es una fila del inventario o un dato",
   comp("una nave con riesgo de incendio: la hoja dice el uso, A2, y U = 1,5, sin separarse del motor",
     [hA2.comprobacion.malas, v(hA2, "categoria"), v(hA2, "U")], [[], "A", 1.5]);
   cierto("con el uso escrito en la hoja", Object.keys(hA2.celdas).some((k) => hA2.celdas[k].v === "Nave industrial, fábrica o taller"));
+}
+
+
+/* EL TABLERO · el formato «pizarra»: se lee de arriba abajo, sin nada al costado */
+{
+  const X = require("../src/excel.js");
+  const celdas = Object.keys(h0.celdas).map((k) => X.parte(k));
+  const colMax = Math.max.apply(null, celdas.map((p) => p.c));
+  comp("todo dentro del tablero B–K: nada corre a la derecha", X.colLetras(colMax) <= "K" && colMax <= 11, true);
+  const secciones = Object.keys(h0.celdas).filter((k) => h0.celdas[k].estilo === "seccion")
+    .sort((a, b) => X.parte(a).f - X.parte(b).f).map((k) => h0.celdas[k].v.split(".")[0]);
+  comp("seis secciones numeradas, en orden: geometría, gravedad, viento, sismo, combinaciones y el anexo de tablas",
+    secciones, ["1", "2", "3", "4", "5", "6"]);
+  const filaDe = (n) => X.parte(h0.nombres[n].split(":")[0]).f;
+  cierto("las tablas de la norma van al final, en el anexo, debajo de las combinaciones",
+    filaDe("tZ_k") > filaDe("V_f") && filaDe("tCob_k") > filaDe("Lr"));
+  /* las combinadas no se pisan */
+  const ocupa = {};
+  let pisa = [];
+  for (const r of h0.combinar) {
+    const [a, b] = r.split(":"), p = X.parte(a), q = X.parte(b);
+    for (let f = p.f; f <= q.f; f++) for (let c = p.c; c <= q.c; c++) {
+      const k = X.celda(c, f);
+      if (ocupa[k]) pisa.push(r + " pisa " + ocupa[k]);
+      ocupa[k] = r;
+    }
+  }
+  comp("ninguna celda combinada pisa a otra", pisa, []);
+  comp("ninguna celda escrita queda tapada dentro de una combinada (solo la de arriba a la izquierda)",
+    Object.keys(h0.celdas).filter((k) => ocupa[k] && ocupa[k].split(":")[0] !== k), []);
+  comp("ninguna fórmula en una celda de texto", Object.keys(h0.celdas).filter((k) => h0.celdas[k].f !== undefined &&
+    h0.celdas[k].fmt === "@"), []);
+  const rota = JSON.parse(JSON.stringify(h0));
+  rota.celdas[rota.nombres.casoTecho].fmt = "@";
+  cierto("y si la hubiera, la guarda la atrapa (fue el error del inciso de la Tabla 4)",
+    !X.comprueba(rota).ok && /formato @/.test(X.comprueba(rota).malas[0].sale));
+  lanza("y el armador no la deja escribir", () => { const a = H.armador("X"); a.pon("E9", { f: "=1", fmt: "@" }); },
+    ["celda de texto"]);
+  cierto("con marco y última fila", h0.marco === "B2:K" + h0.ultima && h0.ultima > 150);
+  cierto("las tablas con rejilla, entre C y J", h0.bordes.length > 20 && h0.bordes.every((r) => /^C\d+:J\d+$/.test(r)));
+  cierto("los textos largos piden fila más alta", Object.keys(h0.alturas).some((f) => h0.alturas[f] >= 32));
 }
 
 fin();

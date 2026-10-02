@@ -375,7 +375,11 @@ table.hx { border-collapse:collapse; font-size:11px; margin-top:12px; width:100%
 table.hx th { color:var(--suave); font-weight:500; font-family:var(--cifra); font-size:10px; padding:2px 4px;
   border-bottom:1px solid var(--papel-2); }
 table.hx td { padding:2px 6px; border-bottom:1px solid var(--papel-2); vertical-align:top; }
-table.hx td.h-titulo { font-weight:700; font-size:14px; }
+table.hx td.h-titulo { font-weight:700; font-size:14px; background:#156082; color:#fff; }
+table.hx td.h-proyecto, table.hx td.h-leyenda { color:var(--suave); font-size:10px; }
+table.hx td.h-subseccion { font-weight:700; }
+table.hx td.h-cabecera { background:var(--papel-2); text-align:center; }
+table.hx td.h-etiqueta { background:var(--papel-2); }
 table.hx td.h-seccion { font-weight:700; background:var(--tinta); color:var(--papel); }
 table.hx td.h-cabecera { font-weight:600; color:var(--suave); }
 table.hx td.h-formula { font-weight:700; font-family:var(--cifra); text-align:right; cursor:help; }
@@ -1542,7 +1546,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
   }
   function hojaCargasActual() {
     var cg = RESULTADOS.cargas(m3, modelo.sitio || {});
-    if (!cg.completo) return { faltas: cg.faltan.map(function (f) { return { paso: "cargas", que: f.que, campo: f.campo }; }) };
+    if (!cg.completo) return { faltas: cg.faltan.map(function (f) { return { paso: f.paso || "cargas", que: f.que, campo: f.campo }; }) };
     var ai = analisisActual("interior"), af = analisisActual("fachada");
     return { hoja: HOJAS.hojaCargas({ cargas: cg, sitio: modelo.sitio, proyecto: modelo.proyecto, interior: ai.ok ? ai.r : null,
       fachada: af.ok ? af.r : null, version: BUILD, fecha: new Date().toISOString().slice(0, 10) }),
@@ -1559,19 +1563,31 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     return String(x);
   }
   function vistaHoja(h) {
-    var ev = EXCEL.evaluador(h), cols = ["A", "B", "C", "D", "E", "F"], filas = "";
-    for (var f = 1; f <= h.filas; f++) {
+    var ev = EXCEL.evaluador(h), cols = ["C", "D", "E", "F", "G", "H", "I", "J"], filas = "";
+    for (var f = 1; f <= h.filas; f++) (function (f) {
       var tds = "", hay = false;
+      /* la fila del tablero: las combinadas, como una sola celda */
+      var salta = 0;
+      var b = h.celdas["B" + f];
+      if (b && b.rango) {
+        filas += '<tr><th>' + f + '</th><td colspan="' + cols.length + '" class="h-' + esc(b.estilo || "") + '">' +
+          esc(String(b.v)) + "</td></tr>";
+        return;
+      }
       cols.forEach(function (col) {
+        if (salta > 0) { salta--; return; }
         var c = h.celdas[col + f];
         if (!c) { tds += "<td></td>"; return; }
+        var span = 1;
+        if (c.rango) { var p = c.rango.split(":"); span = p[1].charCodeAt(0) - p[0].charCodeAt(0) + 1; salta = span - 1; }
         hay = true;
         var x = c.f !== undefined ? ev.valor(col + f) : c.v;
-        tds += '<td class="h-' + esc(c.estilo || "") + '"' + (c.f ? ' title="' + esc(c.f) + '"' : "") + ">" +
+        tds += '<td class="h-' + esc(c.estilo || "") + '"' + (span > 1 ? ' colspan="' + span + '"' : "") +
+          (c.f ? ' title="' + esc(c.f) + '"' : "") + ">" +
           esc(celdaTexto(c, x)) + "</td>";
       });
       if (hay) filas += '<tr><th>' + f + "</th>" + tds + "</tr>";
-    }
+    })(f);
     return '<div class="rueda-x"><table class="hx"><thead><tr><th></th>' +
       cols.map(function (c) { return "<th>" + c + "</th>"; }).join("") + "</tr></thead><tbody>" + filas + "</tbody></table></div>";
   }
@@ -1615,9 +1631,9 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
       '<span class="h-analisis">verde</span>: sale de resolver el pórtico, entra como valor (fila H.analisis)</p></div>' +
       '<div class="tarj"><h4>Cómo se lee</h4><p class="pie">Cada magnitud tiene un nombre en la hoja, que es su símbolo: ' +
       "la barra de fórmulas dice <code>=Lo*(0.25+4.6/SQRT(Ai))</code> y no un cruce de celdas. Las tablas de la norma " +
-      "van a la derecha, de la columna H en adelante, y si cambias la zona o el V̄s30 en la hoja, se recalcula sola. " +
+      "van al final, en la sección 6, y si cambias la zona o el V̄s30 en la hoja, se recalcula sola. " +
       "Lo que cambia QUÉ filas hay —las aberturas, si hay nieve— se cambia aquí, en Cargas.</p>" +
-      '<p class="pie">La vista de la izquierda enseña las columnas A a F; las tablas de la norma (H a M) van en la hoja.</p></div>';
+      '<p class="pie">La vista enseña el tablero de la hoja, de C a J. Las tablas de la norma van al final, como anexo (sección 6).</p></div>';
   }
   function mandaHoja(h) {
     try {

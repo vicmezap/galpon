@@ -355,6 +355,12 @@
     let n = 0;
     for (const dir of Object.keys(hoja.celdas)) {
       const c = hoja.celdas[dir];
+      /* UNA FÓRMULA EN UNA CELDA DE TEXTO NO SE CALCULA: Excel la guarda como texto. Pasó, y aquí no se veía
+         porque esto evaluaba la fórmula sin mirar el formato */
+      if (c.f !== undefined && c.fmt === "@") {
+        malas.push({ celda: dir, que: c.que || "", formula: c.f, debe: c.debe, sale: "texto: la celda tiene formato @" });
+        continue;
+      }
       if (c.debe === undefined) continue;
       n++;
       let sale;

@@ -185,7 +185,11 @@ ol.uso b { color:var(--tinta); }
       if (txt === null) return;
       var sp;
       try { sp = JSON.parse(txt); } catch (e) { responde({ a: "hojasMal", e: "la hoja llegó rota" }); return; }
-      Excel.run(function (context) { return ESCRITOR.escribe(context, sp); })
+      /* el área de impresión y el ajuste a una página piden ExcelApi 1.9; sin ella se omiten, porque una
+         propiedad que Excel no conoce hace fallar la escritura entera */
+      var impresion = !!(Office.context.requirements && Office.context.requirements.isSetSupported &&
+        Office.context.requirements.isSetSupported("ExcelApi", "1.9"));
+      Excel.run(function (context) { return ESCRITOR.escribe(context, sp, { impresion: impresion }); })
         .then(function (r) {
           S.hojas = (S.hojas || []).filter(function (x) { return x !== r.nombre; }).concat([r.nombre]);
           S.error = null; pinta();

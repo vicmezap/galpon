@@ -556,7 +556,8 @@ cierto("y Comprobación oye a la zapata de LOS DOS pórticos",
   cierto("se manda troceada, como el modelo", /LIBRO\.troceaMensaje\("hojas"/.test(modeHtml));
   cierto("y la ventana oye si se escribió o no", /msg\.a === "hojasOk" \|\| msg\.a === "hojasMal"/.test(modeHtml));
   cierto("EL PANEL LA ESCRIBE con escritor.js dentro de Excel.run, y contesta",
-    /msg\.a === "hojas"/.test(panelHtml) && /ESCRITOR\.escribe\(context, sp\)/.test(panelHtml) &&
+    /msg\.a === "hojas"/.test(panelHtml) && /ESCRITOR\.escribe\(context, sp, \{ impresion: impresion \}\)/.test(panelHtml) &&
+    /isSetSupported\("ExcelApi", "1\.9"\)/.test(panelHtml) &&
     /a: "hojasOk"/.test(panelHtml) && /a: "hojasMal"/.test(panelHtml));
   cierto("Comprobación oye a las uniones de los dos pórticos",
     /avisosConexiones\(conexActual\(p\)\)/.test(modeHtml));
