@@ -5,10 +5,11 @@
     "vistas.js",
     "vista3d.js",
     "libro.js",
-    "panel.js"
+    "panel.js",
+    "hojas.js"
   ],
   "version": 1,
-  "fecha": "2026-10-01",
+  "fecha": "2026-10-02",
   "regla": "Ningún número entra al código sin fila aquí. Sin fuente primaria leída, no entra.",
   "estados": {
     "verificado": "leído en el texto original de la fuente",
@@ -185,6 +186,42 @@
       "clave": true,
       "fuente": "decisión del proyectista, 01-10-2026",
       "nota": "ESTABA MAL Y SE VEÍA: la barra de cuatro vistas —Pórtico, Planta, Elevación, 3D— y el panel de la izquierda —Ver y Datos— son de GEOMETRÍA, y se colaban en los once pasos. Al entrar en Cargas se seguían viendo las capas de barras y los parámetros del tijeral, que allí no pintan nada: el armazón de un paso PARecÍA el de todos porque ERA el de todos. Y la lista de pasos estaba DUPLICADA a mano en la plantilla, que es la copia que se desincroniza. Ahora cada paso declara en vistas.js si lleva barra de vistas y qué lados de panel, y la plantilla monta solo eso. VA EN EL MÓDULO Y NO EN EL HTML por lo de siempre: para poder comprobar que Cargas no enseña la barra de vistas SIN tener que mirarlo —mirando es como se coló—. La prueba entra en los ONCE pasos y compara los seis interruptores contra armazon(): comprobar dos de once no bastaba, y un mutante que enseñaba los parámetros SIEMPRE sobrevivió a la primera versión de la prueba por eso mismo."
+    },
+    {
+      "id": "H.formulas",
+      "grupo": "Las hojas de cálculo del libro",
+      "magnitud": "El cálculo se escribe en la hoja como fórmulas vivas de Excel",
+      "valor": "cada resultado es una fórmula con nombres de la hoja (=Lo*(0.25+4.6/SQRT(Ai))); los datos y las tablas de la norma son celdas",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "decisión del proyectista, 2026-10-02",
+      "nota": "Decidido por el usuario entre «fórmulas vivas» y «valores con la fórmula escrita al lado». Una hoja con números pegados es un informe; con fórmulas se audita celda por celda y se recalcula si se cambia un dato. Cada magnitud tiene un nombre de la hoja que es su símbolo, para que la barra de fórmulas se lea como la norma. Las fórmulas se escriben en inglés (range.formulas de Office.js usa la sintaxis invariante: IF, MAX, coma como separador) y Excel las enseña en el idioma del usuario. Las categorías que cambian QUÉ FILAS hay —aberturas, si hay nieve— se cambian en el modelador."
+    },
+    {
+      "id": "H.coincide",
+      "grupo": "Las hojas de cálculo del libro",
+      "magnitud": "La hoja no se escribe si una fórmula no da el número del motor",
+      "valor": "cada celda de resultado se evalúa en excel.js y se compara con el motor · tolerancia relativa 1e-9",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "regla del proyecto: lo que no se puede comprobar no cuenta como comprobado",
+      "nota": "La fórmula de la hoja y la del motor son dos escrituras de la misma cuenta, y pueden separarse sin que nadie lo vea. excel.js evalúa el subconjunto de Excel que usan las hojas —con sus reglas: el menos unario antes que la potencia, la celda vacía, IF perezoso, los errores que se propagan— y una función que no conoce lanza, así que no se escribe en la hoja nada que aquí no se haya comprobado. Las pruebas recorren además las ramas (pendientes, áreas, períodos) con el motor del otro lado."
+    },
+    {
+      "id": "H.analisis",
+      "grupo": "Las hojas de cálculo del libro",
+      "magnitud": "Lo que sale de resolver el pórtico entra en la hoja como valor",
+      "valor": "período de Rayleigh y peso sísmico de cada pórtico: valores, en verde, con su procedencia",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "decisión del proyectista, 2026-10-02",
+      "nota": "Un análisis matricial no se escribe en celdas. El período sale de los desplazamientos del pórtico resuelto y el peso de sumar sus nudos; lo que sigue —C, C/R, V— sí va en fórmulas a partir de ellos. Se distinguen por el color para que nadie crea que el período se puede cambiar en la hoja y que el resto lo siga."
     }
   ]
 }

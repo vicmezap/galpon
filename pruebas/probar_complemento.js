@@ -367,15 +367,15 @@ comp("y las capas", pinto(M.dom, "lado-ver").hidden, false);
 comp("y los parametros", pinto(M.dom, "lado-parametros").hidden, false);
 
 /* UN PASO SIN PANTALLA: se va todo lo de Geometría y se dice qué falta */
-pulsa(M.dom, "pasos", "data-paso", "hojas");
-comp("EN HOJAS EXCEL LA BARRA DE VISTAS DESAPARECE", pinto(M.dom, "vistas").hidden, true);
+pulsa(M.dom, "pasos", "data-paso", "cad");
+comp("EN AUTOCAD LA BARRA DE VISTAS DESAPARECE", pinto(M.dom, "vistas").hidden, true);
 comp("y las metricas del galpon tambien", pinto(M.dom, "metricas").hidden, true);
 comp("y el panel entero de la izquierda", pinto(M.dom, "izquierda").hidden, true);
 comp("y el de la derecha, que era la seleccion de barras",
   pinto(M.dom, "derecha").hidden, true);
 const diseno = pinto(M.dom, "centro").innerHTML;
-cierto("Hojas Excel dice QUE enseñará y quién lo hará",
-  /hojas de cálculo/.test(diseno) && /escritor\.js/.test(diseno));
+cierto("AutoCAD dice QUE enseñará y quién lo hará",
+  /planos/.test(diseno) && /cad\.js/.test(diseno));
 cierto("no se pone una maqueta, y se dice por que",
   /Todavía no hay pantalla/.test(diseno) && /engaña más que una que avisa/.test(diseno));
 cierto("y con tildes: el texto es para el proyectista, no para el compilador",
@@ -500,6 +500,21 @@ cierto("y Comprobación oye a la zapata de LOS DOS pórticos",
     [pinto(M.dom, "lado-diseno").hidden, pinto(M.dom, "derecha").hidden], [false, false]);
   cierto("y sin las fuerzas o sin los datos de las uniones, dice qué falta",
     /todavía no se pueden verificar las uniones/.test(sel()));
+  /* HOJAS EXCEL · E9: se ve aquí, se comprueba aquí, se escribe desde el panel */
+  pulsa(M.dom, "pasos", "data-paso", "hojas");
+  cierto("en Hojas Excel, las cuatro hojas: cargas lista y las demás dicen que todavía no",
+    /Cargas y combinaciones/.test(sel()) && (sel().match(/todavía no<\/i>/g) || []).length === 3);
+  cierto("sin las cargas completas, dice qué falta y lleva a Cargas",
+    /la hoja de cargas todavía no se puede escribir/.test(sel()) && /data-ir="cargas"/.test(sel()));
+  cierto("el panel derecho explica los colores", /verde/.test(pinto(M.dom, "derecha").innerHTML) &&
+    /H\.analisis/.test(pinto(M.dom, "derecha").innerHTML));
+  cierto("la hoja SOLO se escribe si todas las fórmulas dan el número del motor, y fuera de Excel no se ofrece",
+    /var puede = chk\.ok && enExcel\(\);/.test(modeHtml) && /ESCRITOR\.paraEnviar\(h\)/.test(modeHtml));
+  cierto("se manda troceada, como el modelo", /LIBRO\.troceaMensaje\("hojas"/.test(modeHtml));
+  cierto("y la ventana oye si se escribió o no", /msg\.a === "hojasOk" \|\| msg\.a === "hojasMal"/.test(modeHtml));
+  cierto("EL PANEL LA ESCRIBE con escritor.js dentro de Excel.run, y contesta",
+    /msg\.a === "hojas"/.test(panelHtml) && /ESCRITOR\.escribe\(context, sp\)/.test(panelHtml) &&
+    /a: "hojasOk"/.test(panelHtml) && /a: "hojasMal"/.test(panelHtml));
   cierto("Comprobación oye a las uniones de los dos pórticos",
     /avisosConexiones\(conexActual\(p\)\)/.test(modeHtml));
   pulsa(M.dom, "pasos", "data-paso", "analisis");
@@ -693,6 +708,6 @@ comp("todo módulo de src/ está en la lista o declarado fuera con su motivo",
   enSrc.filter((f) => enLista.indexOf(f) < 0 && enFuera.indexOf(f) < 0), []);
 comp("el único que se queda fuera es la guarda de Node", enFuera, ["bundle.js"]);
 cierto("el panel se hornea con una lista corta y propia",
-  /MODULOS_PANEL = \["inventario\.js", "libro\.js", "panel\.js"\]/.test(gen));
+  /MODULOS_PANEL = \["inventario\.js", "libro\.js", "escritor\.js", "panel\.js"\]/.test(gen));
 
 fin();

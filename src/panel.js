@@ -75,6 +75,7 @@
         (m.ediciones || []).length
           ? "se reaplican al cambiar un parámetro" : null));
       L.push(linea("Guardado", m.guardado ? m.guardado.slice(0, 16).replace("T", " ") : "—"));
+      if (e.hojas && e.hojas.length) L.push(linea("Hojas escritas", e.hojas.join(", "), "con fórmulas vivas"));
     } else {
       L.push(linea("Pórticos", "—"));
       L.push(linea("Ediciones encima", "—"));

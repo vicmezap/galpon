@@ -516,8 +516,8 @@ comp("y QUIEN la hara", flojos.filter((p) => !p.hara).map((p) => p.id), []);
 comp("y si el motor esta escrito", flojos.filter((p) => !p.motor).map((p) => p.id), []);
 comp("los que si tienen pantalla llevan subtitulo en vez de excusa",
   V.PASOS.filter((p) => p.listo && !p.sub).map((p) => p.id), []);
-comp("ocho estan llenos hoy", V.PASOS.filter((p) => p.listo).map((p) => p.id),
-  ["inicio", "geom", "cargas", "analisis", "diseno", "conex", "cimen", "comprob"]);
+comp("nueve estan llenos hoy", V.PASOS.filter((p) => p.listo).map((p) => p.id),
+  ["inicio", "geom", "cargas", "analisis", "diseno", "conex", "cimen", "comprob", "hojas"]);
 
 /* ---------------- INICIO · el tablero ---------------- */
 const tab = V.inicio(m3, null);

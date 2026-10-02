@@ -736,11 +736,9 @@
       vistas: false, lados: [],
       sub: "lo que las guardas tienen que decir" },
 
-    { id: "hojas", grupo: "Salida", nombre: "Hojas Excel", listo: false,
-      vistas: false, lados: [],
-      hara: "escritor.js y hojas.js",
-      motor: "no escrito todavía · etapa E9",
-      que: "las hojas de cálculo rellenas, que es donde se queda el cálculo" },
+    { id: "hojas", grupo: "Salida", nombre: "Hojas Excel", listo: true,
+      vistas: false, lados: [], derecha: true,
+      sub: "el cálculo, escrito en el libro con fórmulas vivas" },
 
     { id: "cad", grupo: "Salida", nombre: "AutoCAD", listo: false,
       vistas: false, lados: [],

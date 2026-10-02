@@ -323,6 +323,21 @@ svg.cr .pt { fill:var(--acero); }
 svg.cr text { font-family:var(--cifra); font-size:12px; fill:var(--tinta-2); }
 table.lgp td:last-child, table.lgp th:last-child { white-space:normal; font-family:var(--cuerpo); text-align:left; }
 table.rx td.tx, table.rx th.tx { white-space:normal; font-family:var(--cuerpo); text-align:left; }
+table.hx { border-collapse:collapse; font-size:11px; margin-top:12px; width:100%; }
+table.hx th { color:var(--suave); font-weight:500; font-family:var(--cifra); font-size:10px; padding:2px 4px;
+  border-bottom:1px solid var(--papel-2); }
+table.hx td { padding:2px 6px; border-bottom:1px solid var(--papel-2); vertical-align:top; }
+table.hx td.h-titulo { font-weight:700; font-size:14px; }
+table.hx td.h-seccion { font-weight:700; background:var(--tinta); color:var(--papel); }
+table.hx td.h-cabecera { font-weight:600; color:var(--suave); }
+table.hx td.h-formula { font-weight:700; font-family:var(--cifra); text-align:right; cursor:help; }
+table.hx td.h-dato, table.hx td.h-modelo { color:#4f8fe8; font-family:var(--cifra); text-align:right; }
+table.hx td.h-norma, table.hx td.h-tabla { color:#a77bd6; font-family:var(--cifra); text-align:right; }
+table.hx td.h-analisis { color:#3fb26b; font-family:var(--cifra); text-align:right; }
+table.hx td.h-nota, table.hx td.h-como, table.hx td.h-fuente { color:var(--suave); font-style:italic; }
+.h-dato { color:#4f8fe8; } .h-norma { color:#a77bd6; } .h-analisis { color:#3fb26b; }
+ul.hojas-l li.falta { color:var(--suave); }
+.st-escrita { color:var(--ok); } .st-mal { color:var(--alerta); } .st-mandada { color:var(--aviso); }
 svg.zp .placa.planta { fill:none; stroke-dasharray:6 4; }
 svg.zp .perno { stroke:var(--tinta); stroke-width:2.2; }
 svg.zp circle.perno { fill:var(--ficha); stroke-width:1.6; }
@@ -1374,6 +1389,101 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     $("derecha").innerHTML = cx.fichas.map(pintaFicha).join("");
   }
 
+  /* ---------- HOJAS EXCEL · E9 ----------
+     La hoja se arma aquí, se comprueba fórmula a fórmula contra el motor
+     (fila H.coincide) y la escribe el panel, que es quien tiene Excel.run. */
+  var hojaEstado = {};          /* por hoja: { estado: "mandada" | "escrita" | "mal", texto } */
+  function enExcel() {
+    return typeof Office !== "undefined" && Office.context && Office.context.ui && !!Office.context.ui.messageParent;
+  }
+  function hojaCargasActual() {
+    var cg = RESULTADOS.cargas(m3, modelo.sitio || {});
+    if (!cg.completo) return { faltas: cg.faltan.map(function (f) { return { paso: "cargas", que: f.que, campo: f.campo }; }) };
+    var ai = analisisActual("interior"), af = analisisActual("fachada");
+    return { hoja: HOJAS.hojaCargas({ cargas: cg, sitio: modelo.sitio, interior: ai.ok ? ai.r : null,
+      fachada: af.ok ? af.r : null, version: BUILD, fecha: new Date().toISOString().slice(0, 10) }),
+      sinAnalisis: !ai.ok || !af.ok };
+  }
+  function celdaTexto(c, x) {
+    if (x === null || x === undefined || x === "") return "";
+    if (EXCEL.esErr(x)) return String(x);
+    if (typeof x === "number") {
+      var m = /^0(?:\.(0+))?$/.exec(c.fmt || "0.00");
+      return n2(x, m ? (m[1] ? m[1].length : 0) : 2);
+    }
+    if (typeof x === "boolean") return x ? "VERDADERO" : "FALSO";
+    return String(x);
+  }
+  function vistaHoja(h) {
+    var ev = EXCEL.evaluador(h), cols = ["A", "B", "C", "D", "E", "F"], filas = "";
+    for (var f = 1; f <= h.filas; f++) {
+      var tds = "", hay = false;
+      cols.forEach(function (col) {
+        var c = h.celdas[col + f];
+        if (!c) { tds += "<td></td>"; return; }
+        hay = true;
+        var x = c.f !== undefined ? ev.valor(col + f) : c.v;
+        tds += '<td class="h-' + esc(c.estilo || "") + '"' + (c.f ? ' title="' + esc(c.f) + '"' : "") + ">" +
+          esc(celdaTexto(c, x)) + "</td>";
+      });
+      if (hay) filas += '<tr><th>' + f + "</th>" + tds + "</tr>";
+    }
+    return '<div class="rueda-x"><table class="hx"><thead><tr><th></th>' +
+      cols.map(function (c) { return "<th>" + c + "</th>"; }).join("") + "</tr></thead><tbody>" + filas + "</tbody></table></div>";
+  }
+  function pintaHojas(fallo) {
+    if (!m3) {
+      $("centro").innerHTML = '<div class="hoja"><h2>Hojas Excel</h2><p class="lead">el galpón no se puede montar: ' +
+        esc(fallo ? fallo.titulo : "—") + ". Se corrige en Geometría.</p></div>";
+      $("derecha").innerHTML = "";
+      return;
+    }
+    var lista = HOJAS.HOJAS.map(function (x) {
+      var st = hojaEstado[x.nombre];
+      return '<li class="' + (x.listo ? "" : "falta") + '"><b>' + esc(x.titulo) + "</b> · " + esc(x.que) +
+        (x.listo ? "" : " · <i>todavía no</i>") + (st ? ' <span class="st-' + st.estado + '">' + esc(st.texto) + "</span>" : "") +
+        "</li>";
+    }).join("");
+    var r = hojaCargasActual(), cuerpo;
+    if (r.faltas) {
+      cuerpo = '<p class="lead">la hoja de cargas todavía no se puede escribir: falta lo que sigue</p>' + listaFaltas(r.faltas, true);
+    } else {
+      var h = r.hoja, chk = h.comprobacion;
+      var puede = chk.ok && enExcel();
+      cuerpo = '<div class="tarj"><h4>CARGAS · ' + chk.comprobadas + " fórmulas</h4>" +
+        (chk.ok ? '<p class="sub">todas dan el número del motor (fila H.coincide)</p>'
+          : '<p class="sub mal">' + chk.malas.length + " fórmula(s) no dan el número del motor: la hoja no se escribe</p>" +
+            "<ul>" + chk.malas.slice(0, 8).map(function (x) {
+              return "<li>" + esc(x.celda + " · " + x.que + " · " + x.formula + " da " + x.sale + ", el motor " + x.debe) + "</li>";
+            }).join("") + "</ul>") +
+        (r.sinAnalisis ? '<p class="sub">sin el análisis de los dos pórticos, el cortante basal no se escribe</p>' : "") +
+        '<button type="button" class="b pri" id="b-hoja-cargas"' + (puede ? "" : " disabled") + ">Escribir la hoja CARGAS en el libro</button>" +
+        (enExcel() ? "" : '<p class="pie">Para escribirla hay que abrir el modelador desde Excel: aquí se ve, pero no hay libro.</p>') +
+        "</div>" + vistaHoja(h);
+    }
+    $("centro").innerHTML = '<div class="hoja"><h2>Hojas Excel</h2><p class="lead">el cálculo se queda en las hojas, ' +
+      "con fórmulas vivas</p><ul class=\"hojas-l\">" + lista + "</ul>" + cuerpo + "</div>";
+    var b = $("b-hoja-cargas");
+    if (b && b.onclick !== undefined) b.onclick = function () { mandaHoja(r.hoja); };
+    $("derecha").innerHTML = '<div class="tarj"><h4>Qué es cada color</h4>' +
+      '<p class="pie"><span class="h-dato">azul</span>: dato del proyecto, se puede cambiar en la hoja · ' +
+      '<span class="h-norma">morado</span>: valor o tabla de la norma · <b>negro</b>: fórmula viva · ' +
+      '<span class="h-analisis">verde</span>: sale de resolver el pórtico, entra como valor (fila H.analisis)</p></div>' +
+      '<div class="tarj"><h4>Cómo se lee</h4><p class="pie">Cada magnitud tiene un nombre en la hoja, que es su símbolo: ' +
+      "la barra de fórmulas dice <code>=Lo*(0.25+4.6/SQRT(Ai))</code> y no un cruce de celdas. Las tablas de la norma " +
+      "van a la derecha, de la columna H en adelante, y si cambias la zona o el V̄s30 en la hoja, se recalcula sola. " +
+      "Lo que cambia QUÉ filas hay —las aberturas, si hay nieve— se cambia aquí, en Cargas.</p>" +
+      '<p class="pie">La vista de la izquierda enseña las columnas A a F; las tablas de la norma (H a M) van en la hoja.</p></div>';
+  }
+  function mandaHoja(h) {
+    try {
+      var sp = ESCRITOR.paraEnviar(h);
+      hojaEstado[h.nombre] = { estado: "mandada", texto: "escribiéndose…" };
+      LIBRO.troceaMensaje("hojas", JSON.stringify(sp)).forEach(manda);
+    } catch (e) { hojaEstado[h.nombre] = { estado: "mal", texto: e.message.split("\n")[0] }; }
+    recalcula();
+  }
+
   /* ---------- LO QUE TODAVIA NO TIENE PANTALLA ----------
      No se pone una maqueta. Un paso que parece hecho y esta vacio engana
      mas que uno que avisa, y lo que dice es util: QUE hara, QUE modulo lo
@@ -1856,6 +1966,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     if (pasoActivo === "diseno") { pintaDiseno(fallo); return; }
     if (pasoActivo === "cimen") { pintaCimentacion(fallo); return; }
     if (pasoActivo === "conex") { pintaConexiones(fallo); return; }
+    if (pasoActivo === "hojas") { pintaHojas(fallo); return; }
 
     if (fallo) {
       $("metricas").innerHTML = "";
@@ -2193,6 +2304,13 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
           Office.EventType.DialogParentMessageReceived, function (arg) {
             var msg;
             try { msg = JSON.parse(arg.message); } catch (e) { return; }
+            if (msg.a === "hojasOk" || msg.a === "hojasMal") {
+              hojaEstado[msg.nombre] = msg.a === "hojasOk"
+                ? { estado: "escrita", texto: "escrita en el libro · " + msg.celdas + " celdas" }
+                : { estado: "mal", texto: "no se escribió: " + msg.e };
+              if (pasoActivo === "hojas") recalcula();
+              return;
+            }
             if (msg.a !== "mod" || msg.n === 0) return;
             var texto = LIBRO.juntaMensaje(cesta, msg);
             if (texto === null) return;

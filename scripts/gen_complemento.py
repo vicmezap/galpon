@@ -58,7 +58,7 @@ GUID = "7b3e1f42-9c6a-4d58-8e21-5a0f6b2c4d93"
 # no viaje al panel no es una optimizacion, es la consecuencia de que el panel
 # no elige secciones. Lo que queda son las filas del inventario, que si
 # viajan porque libro.js y panel.js declaran filas como todos los demas.
-MODULOS_PANEL = ["inventario.js", "libro.js", "panel.js"]
+MODULOS_PANEL = ["inventario.js", "libro.js", "escritor.js", "panel.js"]
 
 # ORDEN DE DEPENDENCIA, no alfabetico.
 MODULOS = [
@@ -94,6 +94,9 @@ MODULOS = [
     "vistas.js",        # lee GENERADOR, MONTAJE y VISTA3D
     "libro.js",         # el modelo dentro del libro de Excel
     "resultados.js",    # lee VISTAS, E020, VIENTO, COMBINACIONES, ANALISIS y LIBRO
+    "excel.js",         # evalua las formulas de las hojas · E9
+    "hojas.js",         # las hojas del libro, con formulas vivas · E9
+    "escritor.js",      # las copia al libro: lo usa el panel, que tiene Excel.run
     "panel.js",         # lo que ensena el panel de tareas
     "proyecto.js",
 ]

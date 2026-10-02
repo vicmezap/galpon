@@ -179,6 +179,25 @@ ol.uso b { color:var(--tinta); }
       return;
     }
 
+    /* la ventana manda una hoja de cálculo para escribirla · E9 */
+    if (msg.a === "hojas") {
+      var txt = LIBRO.juntaMensaje(cesta, msg);
+      if (txt === null) return;
+      var sp;
+      try { sp = JSON.parse(txt); } catch (e) { responde({ a: "hojasMal", e: "la hoja llegó rota" }); return; }
+      Excel.run(function (context) { return ESCRITOR.escribe(context, sp); })
+        .then(function (r) {
+          S.hojas = (S.hojas || []).filter(function (x) { return x !== r.nombre; }).concat([r.nombre]);
+          S.error = null; pinta();
+          responde({ a: "hojasOk", nombre: r.nombre, celdas: r.celdas });
+        })
+        .catch(function (e) {
+          S.error = "Al escribir la hoja " + sp.nombre + ": " + e.message; pinta();
+          responde({ a: "hojasMal", nombre: sp.nombre, e: e.message });
+        });
+      return;
+    }
+
     /* la ventana manda el modelo */
     if (msg.a === "mod") {
       var texto = LIBRO.juntaMensaje(cesta, msg);
