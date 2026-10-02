@@ -124,6 +124,7 @@
 
   /* Los datos de diseño · misma regla: lo que no está en la lista PARA. */
   const DISENO = ["arriostreInferior_m", "separacionLargueros_m", "LbColumna_m", "cartela",
+    "tensores", "panelTramos", "clipCorreas",
     "separadores_cm", "conexionSeparadores", "condicionesE5", "uniones", "soldadura_cm",
     "pernosPorLinea", "diametroPerno", "arriostreComprobado"];
 

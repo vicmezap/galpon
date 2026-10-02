@@ -236,7 +236,8 @@
       origenFuerzas: d.origenFuerzas,
       fuerzas: { Mux_kgfcm: Mux, Muy_kgfcm: Muy, Vu_kgf: Vu, Pu_kgf: d.Pu_kgf || 0 },
       longitudes: { Lb_cm: Lb_cm, Lc_cm: d.Lc_cm, r_cm: d.r_cm },
-      geometriaF2: d.geometriaF2, Cb: d.Cb, bF6_cm: d.bF6_cm, noEsbelta: d.noEsbelta
+      geometriaF2: d.geometriaF2, Cb: d.Cb, bF6_cm: d.bF6_cm, noEsbelta: d.noEsbelta,
+      elementosEsbeltez: d.elementosEsbeltez
     });
 
     return Object.assign({}, r, {

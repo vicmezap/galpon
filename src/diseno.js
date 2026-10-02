@@ -29,12 +29,13 @@
     module.exports = definir(require("./inventario.js"), require("./acero.js"),
       require("./elemento.js"), require("./tijeral.js"), require("./columnas.js"),
       require("./analisis.js"), require("./conexiones.js"), require("./perfiles.js"),
-      require("./combinaciones.js"), require("./estabilidad.js"));
+      require("./combinaciones.js"), require("./estabilidad.js"), require("./correas.js"));
   } else {
     raiz.DISENO = definir(raiz.INVENTARIO, raiz.ACERO, raiz.ELEMENTO, raiz.TIJERAL,
-      raiz.COLUMNAS, raiz.ANALISIS, raiz.CONEXIONES, raiz.PERFILES, raiz.COMBINACIONES, raiz.ESTABILIDAD);
+      raiz.COLUMNAS, raiz.ANALISIS, raiz.CONEXIONES, raiz.PERFILES, raiz.COMBINACIONES, raiz.ESTABILIDAD,
+      raiz.CORREAS);
   }
-})(typeof self !== "undefined" ? self : this, function (INV, AC, EL, TI, CO, AN, CX, PERF, CB, ES) {
+})(typeof self !== "undefined" ? self : this, function (INV, AC, EL, TI, CO, AN, CX, PERF, CB, ES, CR) {
   "use strict";
 
   const ART = INV.declara("diseno.js", [
@@ -43,7 +44,9 @@
     "D.DIS.longitudes",
     "D.DIS.E5", "D.DIS.cartela", "D.DIS.unicos",
     "LG.factores", "LG.techo.armadura", "LG.correa.puntal", "LG.cerramiento", "LG.esquina", "LG.cordon",
-    "T.varillas", "SV.hastial.L", "MT.mismo.pano", "E.A8.Cm.transv"
+    "T.varillas", "SV.hastial.L", "MT.mismo.pano", "E.A8.Cm.transv",
+    "CR.cargas", "CR.simple", "CR.combinaciones", "CR.segundo.orden", "D.DIS.correas",
+    "F.hipotesis", "SV.deflex", "SV.carga.defl", "SV.correa.Ld", "D.cobertura.tabla", "CAT.precor"
   ]);
 
   function exige(c, msg) { if (!c) throw new Error("diseno: " + msg); }
@@ -491,11 +494,25 @@
     }
 
     /* las correas de puntal · fila LG.correa.puntal: la axial va CON la flexión de la correa,
-       y la correa todavía no se diseña en este paso */
-    piezas.push(Object.assign(piezaOmitida("correa de puntal", "correa", (perfilDe("correa") || {}).id || null,
-      "la correa con su axial de puntal", "la axial (" + (env.correaPuntal.valor / 1000).toFixed(2).replace(".", ",") +
-      " t, " + env.correaPuntal.estado + ") va junto con la flexión de la correa, y las correas todavía no se " +
-      "diseñan (correas.js no está conectado): queda pendiente"), { demanda: env.correaPuntal.valor }));
+       así que sale del diseño de las correas, en las líneas que hacen de puntal */
+    {
+      const cr = d.correas;
+      const pts = cr && cr.ok && cr.lineas ? cr.lineas.filter((l) => l.puntal) : [];
+      if (pts.length) {
+        const conR = pts.filter((l) => typeof l.ratio === "number");
+        const peorL = pts.filter((l) => !l.cumple)[0] ||
+          (conR.length ? conR.reduce((a, l) => (l.ratio > a.ratio ? l : a)) : pts[0]);
+        piezas.push(Object.assign({}, peorL, { pieza: "correa de puntal", demanda: env.correaPuntal.valor,
+          nota: "la peor línea de correa que hace de puntal (x = " + peorL.x_m.toFixed(2).replace(".", ",") +
+            " m), con su flexión y su axial en la misma combinación" }));
+      } else {
+        const motivo = !cr ? "las correas no se han verificado" :
+          (!cr.ok ? "faltan los datos de las correas: " + cr.faltan.map((f) => f.que).join(" · ") :
+            (cr.omitida ? cr.omitida.motivo : "ninguna línea de correa hace de puntal"));
+        piezas.push(Object.assign(piezaOmitida("correa de puntal", "correa", (perfilDe("correa") || {}).id || null,
+          "la correa con su axial de puntal", motivo), { demanda: env.correaPuntal.valor }));
+      }
+    }
 
     /* las columnas hastiales · columnas.columnaHastial(), con su peso y el cerramiento · fila LG.cerramiento */
     const hastiales = lg.columnas.filter((c) => c && c.tipo === "hastial");
@@ -605,6 +622,190 @@
       art: ART["LG.factores"] };
   }
 
+  /* =====================================================================
+     LAS CORREAS · cada línea de correa, con sus combinaciones · filas CR.*
+     d = { m3, interior, cargas, seccion, acero, diseno, espesor_mm, lg? }
+     `cargas` es el de resultados: { D_kgfm2, Lr_kgfm2, S, viento, sismo }.
+     ===================================================================== */
+  function faltanCorreas(dz) {
+    const F = [];
+    if (!(dz.tensores >= 0) || dz.tensores !== Math.round(dz.tensores)) {
+      F.push({ campo: "di_ten", que: "cuántos tensores lleva cada correa por paño (0 si ninguno)" });
+    }
+    if ([1, 2, 3].indexOf(dz.panelTramos) < 0) {
+      F.push({ campo: "di_ptram", que: "sobre cuántos tramos de correa apoya cada plancha (1, 2 ó 3)" });
+    }
+    if (typeof dz.clipCorreas !== "boolean") {
+      F.push({ campo: "di_clip", que: "si la correa se fija al tijeral con clip" });
+    }
+    return F;
+  }
+
+  function verificaCorreas(d) {
+    const dz = d.diseno || {}, r = d.interior, c = d.cargas, acero = d.acero;
+    exige(r && r.sistema, "verificaCorreas() necesita el análisis del pórtico interior");
+    exige(c && c.viento, "verificaCorreas() necesita las cargas, con el viento");
+    const F = faltanCorreas(dz);
+    if (F.length) return { ok: false, faltan: F };
+    const p = d.seccion({ id: "clase:correa", clase: "correa" });
+    const base = { ok: true, perfil: p ? (p.id || p.nombre) : null };
+    const todoFalta = (que, motivo) => Object.assign(base, { lineas: [], cumple: false, omitida: { que: que, motivo: motivo } });
+    if (!p) return todoFalta("el perfil de la correa", "no tiene perfil asignado en Geometría");
+    if (p.estado === "espera") {
+      return todoFalta("una correa conformada en frío", "se verifica con el AISI S100, que es la fase 2 (fila CAT.precor): " +
+        "este paso verifica correas laminadas (canal C o perfil I)");
+    }
+    if (p.familia !== "C" && p.familia !== "I") {
+      return todoFalta("una correa de familia " + p.familia, "este paso verifica correas de canal C o perfil I");
+    }
+    if (dz.clipCorreas !== true) {
+      return todoFalta("la correa sin clip", "el Capítulo F supone los apoyos restringidos contra el giro sobre su eje " +
+        "(F1(b), fila F.hipotesis): una correa posada no lo cumple y no se puede dar por verificada");
+    }
+
+    const g = AN.geometria(d.m3, r.sistema, r.eje);
+    const tr = AN.tramosTecho(g);
+    const nq = tr.length + 1;
+    const L = d.m3.ejes.sepPorticos_m, n = dz.tensores, Lc = L * 100, Lm = Lc / (n + 1);
+    const vientos = AN.casosViento(g, c.viento).casos;
+    const hayS = !!(c.S && c.S.Qt_kgfm2 > 0);
+    const f2 = datosF2(p, acero);
+    const mat = AC.material(acero);
+    const Ev = r.sismo ? r.sismo.Ev : 0;
+
+    /* la axial de puntal de una línea en un estado de longitudinal.js · fila LG.correa.puntal */
+    const axialDe = (e, q) => !e ? 0 : Math.max(e.correas[q] ? e.correas[q].N_kgf : 0,
+      Math.max.apply(null, [0].concat(e.armaduras.map((a) => a.correas_kgf[q] || 0))));
+    const lgW = (Ci) => d.lg ? d.lg.estados.filter((e) => e.tipo === "W" && Math.abs(e.Ci - Ci) < 1e-9)[0] : null;
+    const lgE = d.lg ? d.lg.estados.filter((e) => e.tipo === "E")[0] : null;
+
+    /* las combinaciones, con los estados físicos */
+    const fam = CB.paraAcero({ casos: { D: true, Lr: !hayS, S: hayS, W: true, E: !!r.sismo } }).combinaciones;
+    const estadosDe = (k) => {
+      if (k === "W") return vientos.map((w) => ({ tipo: "W", w: w }));
+      if (k === "E") return r.sismo ? [{ tipo: "E", signo: -1 }, { tipo: "E", signo: +1 }] : [];
+      return [{ tipo: k }];
+    };
+    const combos = [];
+    for (const cb of fam) {
+      let listas = [[]];
+      for (const [k, f] of cb.terminos) {
+        const ests = estadosDe(k);
+        if (!ests.length) { listas = []; break; }
+        const nuevas = [];
+        for (const l of listas) for (const e of ests) nuevas.push(l.concat([[e, (k === "W" || k === "E") ? Math.abs(f) : f]]));
+        listas = nuevas;
+      }
+      for (const l of listas) {
+        const nom = l.map(([e]) => e.tipo === "W" ? e.w.id : (e.tipo === "E" ? (e.signo > 0 ? "E↑" : "E↓") : null))
+          .filter(Boolean).join(" ");
+        combos.push({ id: cb.id + (nom ? " · " + nom : ""), partes: l });
+      }
+    }
+
+    const unit = (x, y) => { const m = Math.hypot(x, y); return [x / m, y / m]; };
+    const lineas = [];
+    const yMax = Math.max.apply(null, tr.map((t) => Math.max(g.yDe[t.a], g.yDe[t.b])));
+    for (let q = 0; q < nq; q++) {
+      const lados = [];
+      if (q > 0) lados.push(q - 1);
+      if (q < nq - 1) lados.push(q);
+      /* la orientación de la correa: la media de sus dos tramos · fila CR.cargas */
+      let tx = 0, ty = 0;
+      for (const k of lados) { tx += tr[k].dx_m / tr[k].L_m; ty += tr[k].dy_m / tr[k].L_m; }
+      const [ux, uy] = unit(tx, ty);
+      const nx = -uy, ny = ux;                  /* normal hacia arriba */
+      const theta = Math.abs(Math.atan2(uy, ux)) * 180 / Math.PI;
+      /* las cargas por metro de correa de cada estado, como vector (x, y) */
+      const vec = { D: [0, -(p.peso_kgfm || 0)], Lr: [0, 0], S: [0, 0] };
+      const W = {};
+      let ancho = 0;
+      for (const k of lados) {
+        const t = tr[k], ell = t.L_m / 2;
+        ancho += ell;
+        vec.D[1] -= c.D_kgfm2 * ell;
+        if (c.Lr_kgfm2 > 0) vec.Lr[1] -= c.Lr_kgfm2 * ell;
+        if (hayS) vec.S[1] -= c.S.Qt_kgfm2 * ell * Math.abs(t.dx_m) / t.L_m;
+        const ntx = -t.dy_m / t.L_m, nty = t.dx_m / t.L_m;
+        for (const w of vientos) {
+          const ph = w.techo[k];
+          W[w.id] = W[w.id] || [0, 0];
+          W[w.id][0] += -ph * ell * ntx; W[w.id][1] += -ph * ell * nty;
+        }
+      }
+      const mayor = (v) => -(v[0] * nx + v[1] * ny);   /* + hacia el techo */
+      const menor = (v) => v[0] * ux + v[1] * uy;
+      const lista = [], fuerzas = [];
+      let Nmax = 0;
+      for (const cb of combos) {
+        let vx = 0, vy = 0, N = 0;
+        for (const [e, f] of cb.partes) {
+          if (e.tipo === "W") {
+            vx += f * W[e.w.id][0]; vy += f * W[e.w.id][1];
+            if (e.w.direccion === "longitudinal") N = Math.max(N, f * axialDe(lgW(e.w.Ci), q));
+          } else if (e.tipo === "E") {
+            vy += f * e.signo * Ev * vec.D[1];     /* la vertical, sobre la muerta · fila S.vertical */
+            N = Math.max(N, f * axialDe(lgE, q));
+          } else {
+            vx += f * vec[e.tipo][0]; vy += f * vec[e.tipo][1];
+          }
+        }
+        const wM = mayor([vx, vy]), wm = menor([vx, vy]);
+        let Mux = Math.abs(wM) / 100 * Lc * Lc / 8, Muy = Math.abs(wm) / 100 * Lm * Lm / 8;
+        const Vu = Math.abs(wM) / 100 * Lc / 2;
+        Nmax = Math.max(Nmax, N);
+        const gobY = Lm / p.ry_cm >= Lc / p.rx_cm;
+        let res;
+        try {
+          if (N > 0) {                              /* fila CR.segundo.orden · si pandea, B1 lo dice */
+            Mux *= b1Articulada(N, p.Ix_cm4, Lc).B1;
+            Muy *= b1Articulada(N, p.Iy_cm4, Lm).B1;
+          }
+          res = CR.verifica({ id: "CO" + q, perfil: p, acero: acero, theta_grad: theta, L_m: L, tensores: n,
+            Mux_kgfcm: Mux, Muy_kgfcm: Muy, Vu_kgf: Vu, Pu_kgf: -N, Lb_cm: Lm,
+            Lc_cm: N > 0 ? (gobY ? Lm : Lc) : undefined, r_cm: N > 0 ? (gobY ? p.ry_cm : p.rx_cm) : undefined,
+            origenFuerzas: N > 0 ? "segundo-orden" : undefined, combinacion: cb.id,
+            geometriaF2: f2.geometriaF2, elementosEsbeltez: f2.elementosEsbeltez });
+        } catch (e) {
+          res = { ratio: null, combinacion: cb.id, omitidos: [{ que: "la correa", esencial: true,
+            motivo: e.message.split("\n")[0].replace(/^\w+: /, "") }] };
+        }
+        res.combinacion = cb.id;
+        lista.push(res);
+        fuerzas.push({ combo: cb.id, Mux_kgfcm: Mux, Muy_kgfcm: Muy, Vu_kgf: Vu, Pu_kgf: -N,
+          wMayor_kgfm: wM, wMenor_kgfm: wm, ratio: res.ratio });
+      }
+      const x = envolvente("CO" + q, { id: "CO" + q, clase: "correa" }, p, lista);
+      const tipo = (q === 0 || q === nq - 1) ? "alero" : (Math.abs(g.yDe[tr[Math.min(q, nq - 2)].a] - yMax) < 1e-9 &&
+        q > 0 && q < nq - 1 ? "cumbrera" : "típica");
+      lineas.push(Object.assign(x, { q: q, x_m: g.nudos.filter((nd) => nd.id === (q < nq - 1 ? tr[q].a : tr[q - 1].b))[0].x_m,
+        ancho_m: ancho, theta_grad: theta, puntal: Nmax > 0, Nmax_kgf: Nmax, fuerzas: fuerzas,
+        tipo: (Math.abs(theta) < 1e-9 && q > 0 && q < nq - 1) ? "cumbrera" : tipo }));
+    }
+
+    /* EL SERVICIO de la correa típica · filas SV.deflex, SV.carga.defl y SV.correa.Ld */
+    const tip = lineas.reduce((a, l) => (l.ancho_m > a.ancho_m ? l : a));
+    const viva = hayS ? c.S.Qt_kgfm2 : c.Lr_kgfm2;
+    const wServ = 0.5 * viva * tip.ancho_m * Math.cos(tip.theta_grad * Math.PI / 180);
+    const delta = 5 * (wServ / 100) * Math.pow(Lc, 4) / (384 * AC.E_ACERO * p.Ix_cm4);
+    const deflexion = { delta_cm: delta, limite_cm: Lc / 240, pasa: delta <= Lc / 240 + 1e-12,
+      carga: "0,5·" + (hayS ? "S" : "Lr"), art: ART["SV.deflex"], artCarga: ART["SV.carga.defl"] };
+    const Ld = CR.esbeltezLd({ L_cm: Lc, d_cm: p.d_cm, Fy_kgcm2: mat.Fy });
+    /* LA PLANCHA ENTRE CORREAS · fila D.cobertura.tabla */
+    let panel;
+    try {
+      panel = CR.verificaPanel({ espesor_mm: d.espesor_mm, separacion_m: Math.max.apply(null, tr.map((t) => t.L_m)),
+        tramos: dz.panelTramos, vivaNeta_kgfm2: viva });
+    } catch (e) {
+      panel = { ratio: null, cumple: false, motivo: e.message.split("\n")[0].replace(/^\w+: /, "") };
+    }
+    const peor = lineas.filter((l) => typeof l.ratio === "number").reduce((a, l) => (!a || l.ratio > a.ratio ? l : a), null);
+    const cumple = lineas.every((l) => l.cumple) && deflexion.pasa && panel.cumple;
+    return Object.assign(base, { lineas: lineas, L_m: L, tensores: n, peor: peor, deflexion: deflexion, Ld: Ld,
+      panel: panel, cumple: cumple, combinaciones: combos.length,
+      art: ART["CR.cargas"], artSimple: ART["CR.simple"], artCombos: ART["CR.combinaciones"] });
+  }
+
   return { ART, CARTELAS, faltan, feFlexotorsional, verificaPortico, envolvente,
-    verificaTruss, verificaColumna, verificaLongitudinal };
+    verificaTruss, verificaColumna, verificaLongitudinal, faltanCorreas, verificaCorreas };
 });

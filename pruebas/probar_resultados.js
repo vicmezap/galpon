@@ -339,6 +339,22 @@ comp("NI UNA línea de Cimentación sin procedencia válida",
     cierto("una cruz de VAR3/8 no llega: Comprobación lo da como ERROR y la nombra",
       avp.some((x) => x.nivel === "error" && /no cumplen/.test(x.que) && /cruz de fachada/.test(x.porque)));
   }
+  /* las correas */
+  const DZC = Object.assign({}, DZ, { tensores: 1, panelTramos: 3, clipCorreas: true });
+  const cr0 = R.correas(m3, mok, P);
+  comp("sin sus datos, las correas los piden a Diseño", [cr0.ok, cr0.faltas.map((f) => f.campo)], [false, ["di_ten", "di_ptram", "di_clip"]]);
+  comp("y el libro los guarda y los lee", R.leeDiseno(R.valoresDeDiseno(DZC)), DZC);
+  const cr = R.correas(m3, Object.assign({}, mok, { diseno: DZC }), P);
+  cierto("con ellos, verifica cada línea con el C8X11.5 del modelo", cr.ok && cr.perfil === "C8X11.5" && cr.lineas.length === 13);
+  cierto("y las de puntal llevan la axial del sistema a lo largo", cr.lineas.some((l) => l.puntal));
+  comp("NI UNA línea de Correas sin procedencia válida",
+    cr.fichas.reduce((a, f) => a.concat(f.lineas), []).filter((l) => V.ORIGENES.indexOf(l.origen) < 0).map((l) => l.q), []);
+  const crNo = R.correas(m3, L.asignaPerfil(Object.assign({}, mok, { diseno: DZC }), { clase: "correa" }, "C3X4.1").modelo, P);
+  cierto("un C3X4.1 no llega, y Comprobación lo da como error",
+    !crNo.cumple && R.avisosCorreas(crNo).some((x) => x.nivel === "error" && /correa/.test(x.que)));
+  const crSin = R.correas(m3, Object.assign({}, mok, { diseno: Object.assign({}, DZC, { clipCorreas: false }) }), P);
+  cierto("sin clip, Comprobación dice que las correas no se verifican",
+    R.avisosCorreas(crSin).some((x) => x.nivel === "error" && /no se verifican/.test(x.que)));
   comp("NI UNA línea de A lo largo sin procedencia válida",
     lo.fichas.reduce((a, f) => a.concat(f.lineas), []).filter((l) => V.ORIGENES.indexOf(l.origen) < 0).map((l) => l.q), []);
   cierto("cada eslabón cita su fila", lo.cadena.every((x) => INV.existe(x.fuente)));

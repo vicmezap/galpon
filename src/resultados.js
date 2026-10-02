@@ -45,7 +45,8 @@
     "J.llave.flexion", "J.anclaje.geometria", "J.anclaje.concreto", "J.base.momento.soldadura",
     "J.anclaje.E060.confinamiento",
     "LG.vertical", "LG.correa.puntal", "LG.techo.armadura", "LG.fachada.cruz", "LG.sismo.sistema",
-    "LG.hastial.reparto", "LG.factores"
+    "LG.hastial.reparto", "LG.factores", "D.DIS.correas", "F.F6.sinLTB", "F.hipotesis", "D.cobertura.tabla",
+    "SV.deflex", "SV.correa.Ld", "CR.cargas"
   ]);
   const ln = V.ln, ficha = V.ficha;
   const n2 = (x, d) => (Math.round(x * Math.pow(10, d)) / Math.pow(10, d))
@@ -574,7 +575,14 @@
       { id: "dperno", clave: "diametroPerno", etiqueta: "Diámetro de los pernos", tipo: "opcion",
         fuente: "T.U.c8", soloSi: "un=empernadas",
         opciones: [ELEGIR, ["1/2", "1/2\""], ["5/8", "5/8\""], ["3/4", "3/4\""], ["7/8", "7/8\""],
-          ["M16", "M16"], ["M20", "M20"], ["M22", "M22"]] }] }
+          ["M16", "M16"], ["M20", "M20"], ["M22", "M22"]] }] },
+    { grupo: "Correas", campos: [
+      { id: "ten", clave: "tensores", etiqueta: "Tensores por correa en cada paño (0 si ninguno)", tipo: "numero",
+        fuente: "F.F6.sinLTB" },
+      { id: "ptram", clave: "panelTramos", etiqueta: "Cada plancha apoya sobre", tipo: "opcion", fuente: "D.cobertura.tabla",
+        opciones: [ELEGIR, ["1", "1 tramo de correa"], ["2", "2 tramos"], ["3", "3 tramos o más"]] },
+      { id: "clip", clave: "clipCorreas", etiqueta: "La correa se fija al tijeral con clip", tipo: "opcion",
+        fuente: "F.hipotesis", opciones: SINO }] }
   ];
 
   function leeDiseno(val) {
@@ -595,6 +603,9 @@
       pon("pernosPorLinea", num(val.pern));
       if (val.dperno) d.diametroPerno = val.dperno;
     }
+    pon("tensores", num(val.ten));
+    if (["1", "2", "3"].indexOf(val.ptram) >= 0) d.panelTramos = +val.ptram;
+    if (val.clip === "si" || val.clip === "no") d.clipCorreas = val.clip === "si";
     return d;
   }
   function valoresDeDiseno(dz) {
@@ -605,6 +616,8 @@
     s("cart", d.cartela); s("sep", d.separadores_cm); s("consep", d.conexionSeparadores);
     if (typeof d.condicionesE5 === "boolean") v.e5 = d.condicionesE5 ? "si" : "no";
     s("un", d.uniones); s("sold", d.soldadura_cm); s("pern", d.pernosPorLinea); s("dperno", d.diametroPerno);
+    s("ten", d.tensores); s("ptram", d.panelTramos);
+    if (typeof d.clipCorreas === "boolean") v.clip = d.clipCorreas ? "si" : "no";
     return v;
   }
 
@@ -941,6 +954,7 @@
       return { ok: false, faltas: [{ paso: "analisis", que: e.message.split("\n").join(" ").replace(/^\w+: /, "") }] };
     }
     const out = { ok: true, lg: lg, r: aI.r, fichas: fichasLongitudinal(lg), cadena: cadena(lg), diseno: null };
+    out.correas = correasDe(m3, modelo, perfiles, aI, lg);
     /* el diseño, con los mismos datos de diseño que los pórticos */
     const seccion = seccionDesde(modelo, perfiles);
     const F = DI.faltan(AN.geometria(m3, modelo.sistema), seccion, modelo.diseno || {});
@@ -948,9 +962,83 @@
       out.faltasDiseno = F.map((f) => ({ paso: "diseno", que: f.que, campo: f.campo }));
     } else {
       out.diseno = DI.verificaLongitudinal({ lg: lg, interior: aI.r, fachada: aF.r, m3: m3, seccion: seccion,
-        acero: modelo.sitio.acero, diseno: modelo.diseno, cerramiento_kgfm2: c.D_kgfm2 });
+        acero: modelo.sitio.acero, diseno: modelo.diseno, cerramiento_kgfm2: c.D_kgfm2, correas: out.correas });
     }
     return out;
+  }
+
+  /* =====================================================================
+     LAS CORREAS · con el pórtico interior y, si está, el sistema a lo largo
+     (las que hacen de puntal llevan su axial)
+     ===================================================================== */
+  function correasDe(m3, modelo, perfiles, aI, lg) {
+    const v = DI.verificaCorreas({ m3: m3, interior: aI.r, cargas: aI.cargas.cargas,
+      seccion: seccionDesde(modelo, perfiles), acero: modelo.sitio.acero, diseno: modelo.diseno || {},
+      espesor_mm: modelo.sitio.espesorCobertura_mm, lg: lg });
+    if (!v.ok) v.faltas = v.faltan.map((f) => ({ paso: "diseno", que: f.que, campo: f.campo }));
+    return v;
+  }
+
+  function correas(m3, modelo, perfiles, ai, af) {
+    const lo = longitudinal(m3, modelo, perfiles, ai, af);
+    if (!lo.ok) {
+      /* sin el sistema a lo largo, igual se pueden verificar a flexión... pero las de puntal no: se dice */
+      const aI = ai || analisis(m3, modelo, perfiles, "interior");
+      if (!aI.ok) return { ok: false, faltas: lo.faltas };
+      const v = correasDe(m3, modelo, perfiles, aI, null);
+      v.sinLargo = true;
+      return v.ok ? Object.assign(v, { fichas: fichasCorreas(v) }) : v;
+    }
+    const v = lo.correas;
+    return v.ok ? Object.assign(v, { fichas: fichasCorreas(v) }) : v;
+  }
+
+  function fichasCorreas(v) {
+    if (v.omitida) {
+      return [ficha("Las correas", "no se verifican", [ln(v.omitida.que, "FALTA", "medido",
+        { estado: "no", nota: v.omitida.motivo })])];
+    }
+    const L = [
+      ln("Perfil", v.perfil, "entrada"),
+      ln("Luz", n2(v.L_m, 2) + " m", "geometria", { nota: v.tensores + " tensor(es): el eje menor, con " +
+        n2(v.L_m / (v.tensores + 1), 2) + " m" }),
+      ln("La peor", v.peor ? "línea " + v.peor.q + " · " + n2(v.peor.ratio, 3) : "—", "medido",
+        { estado: v.peor && v.peor.ratio <= 1 ? "ok" : "no", nota: v.peor ? v.peor.combo + " · " + v.peor.estado : null }),
+      ln("Flecha con " + v.deflexion.carga, n2(v.deflexion.delta_cm, 2) + " cm", "norma", { fuente: "SV.deflex",
+        estado: v.deflexion.pasa ? "ok" : "no", nota: "límite L/240 = " + n2(v.deflexion.limite_cm, 2) + " cm" }),
+      ln("Esbeltez L/d", n2(v.Ld.Ld, 1), "norma", { fuente: "SV.correa.Ld",
+        estado: v.Ld.pasa ? "ok" : "no", nota: "límite " + n2(v.Ld.limite, 1) + " · criterio adoptado: se avisa, no rechaza" }),
+      v.panel.ratio === null
+        ? ln("La plancha entre correas", "FALTA", "medido", { estado: "no", nota: v.panel.motivo })
+        : ln("La plancha entre correas", n2(v.panel.ratio, 3), "norma", { fuente: "D.cobertura.tabla",
+          estado: v.panel.cumple ? "ok" : "no", nota: "aguanta " + n2(v.panel.P_kgfm2, 0) + " kgf/m² netos con " +
+            v.panel.tramos + " tramo(s)" })
+    ];
+    if (v.sinLargo) L.push(ln("Correas de puntal", "sin axial", "medido", { estado: "no",
+      nota: "el sistema a lo largo todavía no corre, así que la axial de las correas de puntal no está" }));
+    return [ficha("Las correas", v.combinaciones + " combinaciones por línea", L, v.cumple && !v.sinLargo ? "bien" : null)];
+  }
+
+  function avisosCorreas(v) {
+    if (!v || !v.ok) return [];
+    const L = [];
+    if (v.omitida) {
+      L.push({ nivel: "error", que: "Las correas no se verifican: " + v.omitida.que, porque: v.omitida.motivo, paso: "diseno" });
+      return L;
+    }
+    const no = v.lineas.filter((l) => !l.cumple);
+    if (no.length) L.push({ nivel: "error", que: no.length + " línea(s) de correa no cumplen",
+      porque: "la peor, la " + (v.peor ? v.peor.q + " con " + n2(v.peor.ratio, 2) : "—") + ". Se cambia el perfil o los tensores.",
+      paso: "diseno" });
+    if (!v.deflexion.pasa) L.push({ nivel: "error", que: "La correa flecta más de L/240", porque: n2(v.deflexion.delta_cm, 2) +
+      " cm con " + v.deflexion.carga, fuente: "SV.deflex", paso: "diseno" });
+    if (!v.panel.cumple) L.push({ nivel: "error", que: "La plancha no aguanta entre correas",
+      porque: v.panel.motivo || ("pide " + n2(v.panel.demanda_kgfm2, 0) + " kgf/m² y aguanta " + n2(v.panel.P_kgfm2, 0)),
+      fuente: "D.cobertura.tabla", paso: "diseno" });
+    if (!v.Ld.pasa) L.push({ nivel: "aviso", que: "La correa es esbelta: L/d = " + n2(v.Ld.Ld, 1),
+      porque: "pasa de " + n2(v.Ld.limite, 1) + " (criterio adoptado de Zapata 7.4): no es rechazo, pero se ve",
+      fuente: "SV.correa.Ld", paso: "diseno" });
+    return L;
   }
 
   /* La cadena, eslabón por eslabón, con su mayor fuerza factorizada · fila LG.factores */
@@ -1245,7 +1333,8 @@
   }
 
   return {
-    ART, DIRECCIONES, ACEROS, MODOS, PORTICOS, longitudinal, fichasLongitudinal, avisosLongitudinal, cadena, CAMPOS_CARGAS, CAMPOS_ANALISIS, CAMPOS_DISENO, avisosResultados,
+    ART, DIRECCIONES, ACEROS, MODOS, PORTICOS, longitudinal, fichasLongitudinal, avisosLongitudinal, cadena,
+    correas, fichasCorreas, avisosCorreas, CAMPOS_CARGAS, CAMPOS_ANALISIS, CAMPOS_DISENO, avisosResultados,
     CAMPOS_CIMENTACION, leeCimentacion, valoresDeCimentacion, cimentacion, fichasCimentacion, dibujoCimentacion,
     leeSitio, valoresDeSitio, leeSistema, leeDiseno, valoresDeDiseno,
     diseno, fichasDiseno, dibujoDiseno, tablaDiseno, lineasDiseno, nivelRatio,

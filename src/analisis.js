@@ -377,18 +377,21 @@
           cargaMuro(L, "izq", Ph(izq - Ci));
           cargaMuro(L, "der", Ph(der - Ci));
           let ceBar = null;
+          const techo = [];
           for (const t of tramos) {
             const ct = VI.ceTecho(t.theta_grad);
             const barlo = t.s * signo >= 0;        /* sube en la dirección del viento */
             const ce = barlo ? ct.barlovento[Math.min(op, ct.barlovento.length - 1)] : ct.sotavento;
             if (barlo && ceBar === null) ceBar = ce;
+            techo.push(Ph(ce - Ci));
             cargaTramo(L, t, Ph(ce - Ci));
           }
           k++;
+          /* `techo`: la presión de cada tramo, la misma que carga el pórtico; las correas la leen de aquí */
           out.push({ id: "W" + k, tipo: "W", direccion: dir,
             desc: "viento " + nombre + " · Ci " + fmt(Ci) +
               (ceBar !== null ? " · techo a barlovento Ce " + fmt(ceBar) : ""),
-            Ci: Ci, cargas: L });
+            Ci: Ci, cargas: L, techo: techo });
         }
       }
     }
@@ -402,7 +405,8 @@
       for (const t of tramos) cargaTramo(L, t, Ph(cePar - Ci));
       k++;
       out.push({ id: "W" + k, tipo: "W", direccion: "longitudinal",
-        desc: "viento longitudinal · todo a " + fmt(cePar) + " · Ci " + fmt(Ci), Ci: Ci, cargas: L });
+        desc: "viento longitudinal · todo a " + fmt(cePar) + " · Ci " + fmt(Ci), Ci: Ci, cargas: L,
+        techo: tramos.map(() => Ph(cePar - Ci)) });
     }
     return { casos: out, Vh_kmh: vel.Vh_kmh, hCumbre_m: hCumbre,
       art: ART["A.viento.casos"], artMuro: ART["A.muro"] };

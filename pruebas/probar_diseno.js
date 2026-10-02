@@ -264,8 +264,8 @@ cierto("y gobierna la interacción del Cap. H o un estado individual con su cap�
     blanda.ratio < 1 && blanda.servicio.pasa === false && blanda.cumple === false && /L\/120/.test(blanda.falla));
   /* lo pendiente se dice */
   const co = pz("correa de puntal");
-  cierto("LA CORREA DE PUNTAL NO SE DA POR BUENA: falta diseñar las correas, y se dice",
-    co.cumple === false && co.faltanEsenciales && /correas todavía no se diseñan/.test(co.omitidos[0].motivo));
+  cierto("SIN EL DISEÑO DE LAS CORREAS, la correa de puntal no se da por buena, y se dice",
+    co.cumple === false && co.faltanEsenciales && /no se han verificado/.test(co.omitidos[0].motivo));
   cerca("con su axial a la vista", co.demanda, lg.envolvente.correaPuntal.valor, 1e-12);
 
   /* la esquina y la brida del paño arriostrado */
@@ -282,6 +282,101 @@ cierto("y gobierna la interacción del Cap. H o un estado individual con su cap�
   comp("el resumen cuenta lo que cumple y lo que falta", [v.resumen.total, v.resumen.conOmitidosEsenciales],
     [v.piezas.length, v.piezas.filter((x) => x.faltanEsenciales).length]);
   lanza("sin el análisis longitudinal no hay nada que verificar", () => DI.verificaLongitudinal({}), ["longitudinal.analiza"]);
+
+  /* ================================================================
+     LAS CORREAS · verificaCorreas()
+     ================================================================ */
+  const CRG = { D_kgfm2: 8.35, Lr_kgfm2: 20.1, viento: CL.viento, sismo: CL.sismo };
+  const DC = { tensores: 1, panelTramos: 3, clipCorreas: true };
+  const vc = (nom, dz, conLg) => DI.verificaCorreas({ m3: m3L, interior: ri, cargas: CRG, seccion: secL(nom),
+    acero: "A36", diseno: dz || DC, espesor_mm: 0.4, lg: conLg === false ? null : lg });
+  comp("sin datos, pide los tres: tensores, tramos de la plancha y clip",
+    DI.verificaCorreas({ m3: m3L, interior: ri, cargas: CRG, seccion: secL(NL), acero: "A36", diseno: {} })
+      .faltan.map((f) => f.campo), ["di_ten", "di_ptram", "di_clip"]);
+  const sinClip = vc(NL, Object.assign({}, DC, { clipCorreas: false }));
+  cierto("SIN CLIP la correa no se da por verificada (F1(b), fila F.hipotesis)",
+    sinClip.cumple === false && /F1\(b\)/.test(sinClip.omitida.motivo));
+  const precor = P.catalogo().filter((x) => x.estado === "espera" && x.familia === "C")[0];
+  const fria = vc(Object.assign({}, NL, { "correa": precor.id }));
+  cierto("una correa conformada en frío se dice: es el AISI, la fase 2", fria.omitida && /AISI/.test(fria.omitida.motivo));
+
+  const c0 = vc(NL);
+  const C8 = P.busca("C8X11.5");
+  comp("una línea por nudo de brida superior: 13", c0.lineas.length, 13);
+  const tipica = c0.lineas[3], alero = c0.lineas[0], cumbre = c0.lineas[6];
+  const tr = 20 / 12, Lt = Math.hypot(tr, 0.2 * tr), th = Math.atan(0.2);
+  cerca("la típica recoge medio tramo a cada lado, por la superficie", tipica.ancho_m, Lt, 1e-12);
+  cerca("el alero, medio tramo", alero.ancho_m, Lt / 2, 1e-12);
+  comp("la cumbrera queda horizontal: las componentes de los dos faldones se cancelan", cumbre.tipo, "cumbrera");
+  cerca("(θ = 0 salvo el redondeo)", cumbre.theta_grad, 0, 1e-12);
+  /* 1,4·D a mano: (D·ancho + peso) vertical, proyectada en el eje mayor; M = w·L²/8 */
+  const f14 = tipica.fuerzas.filter((x) => x.combo === "1.4-1")[0];
+  const wD = 8.35 * Lt + C8.peso_kgfm;
+  cerca("1,4·D · eje mayor: 1,4·(D·ancho + peso)·cos θ", f14.wMayor_kgfm, 1.4 * wD * Math.cos(th), 1e-9);
+  cerca("y el menor, con sen θ", Math.abs(f14.wMenor_kgfm), 1.4 * wD * Math.sin(th), 1e-9);
+  cerca("Mux = w·L²/8 con la luz entera", f14.Mux_kgfcm, 1.4 * wD * Math.cos(th) / 100 * 600 * 600 / 8, 1e-6);
+  cerca("Muy con la luz partida por el tensor: L/2", f14.Muy_kgfcm, 1.4 * wD * Math.sin(th) / 100 * 300 * 300 / 8, 1e-6);
+  /* el viento: la MISMA presión que el pórtico, por tramo */
+  const vw = A.casosViento(A.geometria(m3L, SL, ri.eje), CL.viento).casos;
+  const w9 = vw.filter((x) => x.direccion === "longitudinal")[0];
+  const fw = tipica.fuerzas.filter((x) => x.combo === "1.4-6 · " + w9.id)[0];
+  /* la presión Ph es + hacia el techo: la succión es negativa y entra sumando */
+  cerca("0,9·D − 1,3·W: la succión del techo levanta la correa", fw.wMayor_kgfm,
+    0.9 * wD * Math.cos(th) + 1.3 * w9.techo[3] * Lt, 1e-9);
+  cierto("(y es succión: la correa queda levantada)", fw.wMayor_kgfm < 0);
+  /* el puntal: la axial del MISMO estado, con su Ci · fila CR.combinaciones */
+  const eW = lg.estados.filter((e) => e.tipo === "W" && Math.abs(e.Ci - w9.Ci) < 1e-9)[0];
+  const lineaH = c0.lineas.filter((l) => Math.abs(l.x_m - 5) < 1e-9)[0];
+  const Nw = Math.max(eW.correas[lineaH.q].N_kgf, eW.armaduras[0].correas_kgf[lineaH.q]);
+  cerca("en la línea de la columna hastial, la axial del viento longitudinal con su Ci y el 1,3",
+    -lineaH.fuerzas.filter((x) => x.combo === "1.4-6 · " + w9.id)[0].Pu_kgf, 1.3 * Nw, 1e-9);
+  {
+    /* EL Ci IMPORTA cuando cada hastial tiene su paño: con un solo paño, la correa del paño lleva los dos
+       hastiales sumados y 0,5 + 0,9 = 1,1 + 0,3; con los paños 0 y 9, cada uno lleva el suyo */
+    const m3e = MON.monta({ luz_m: 20, largo_m: 60, sepPorticos_m: 6, alturaColumna_m: 6, paneles: 6,
+      peralteApoyo_m: 1.2, pendiente: 0.20, cuerdas: "dos_aguas", alma: "howe", panosArriostradosTecho: [0, 9],
+      panosArriostradosFachada: [0, 9], columnasHastiales: [5, 10, 15] });
+    const lge = LG.analiza({ m3: m3e, sistema: SL, viento: CL.viento, P_interior_kgf: 1, P_fachada_kgf: 1 });
+    const ce = DI.verificaCorreas({ m3: m3e, interior: ri, cargas: Object.assign({}, CRG, { sismo: undefined }),
+      seccion: secL(NL), acero: "A36", diseno: DC, espesor_mm: 0.4, lg: lge });
+    const lh = ce.lineas.filter((l) => Math.abs(l.x_m - 5) < 1e-9)[0];
+    const Nci = (w) => {
+      const e = lge.estados.filter((x) => x.tipo === "W" && Math.abs(x.Ci - w.Ci) < 1e-9)[0];
+      return Math.max.apply(null, e.armaduras.map((a) => a.correas_kgf[lh.q]));
+    };
+    const [wa, wb] = vw.filter((x) => x.direccion === "longitudinal");
+    cierto("(con los paños 0 y 9, los dos Ci dan axiales distintas)", Math.abs(Nci(wa) - Nci(wb)) > 1);
+    for (const w of [wa, wb]) {
+      cerca("Ci " + w.Ci + ": la axial de SU estado longitudinal", -lh.fuerzas.filter((x) => x.combo === "1.4-6 · " + w.id)[0].Pu_kgf,
+        1.3 * Nci(w), 1e-9);
+    }
+  }
+  comp("con el viento transversal no hay axial", lineaH.fuerzas.filter((x) => x.combo === "1.4-6 · W1")[0].Pu_kgf, -0);
+  cierto("las líneas que hacen de puntal se marcan", lineaH.puntal);
+  const sin = vc(NL, DC, false);
+  cierto("sin el sistema a lo largo la axial no está, y la correa sale menos cargada",
+    sin.lineas.every((l) => !l.puntal) && sin.lineas[3].ratio <= c0.lineas[3].ratio + 1e-12);
+  {
+    const flaca = vc(Object.assign({}, NL, { "correa": "C3X4.1" }));
+    const lp = flaca.lineas.filter((l) => l.puntal && l.faltanEsenciales)[0];
+    cierto("una correa de puntal que pandea con su axial (Pr ≥ Pe1) se dice, no revienta",
+      lp && /pandea/.test(lp.omitidos.filter((o) => o.esencial)[0].motivo) && !flaca.cumple);
+  }
+  /* el servicio y la plancha */
+  cerca("la flecha con 0,5·Lr: 5·w·L⁴/(384·E·I)", c0.deflexion.delta_cm,
+    5 * (0.5 * 20.1 * Lt * Math.cos(th) / 100) * Math.pow(600, 4) / (384 * AC.E_ACERO * C8.Ix_cm4), 1e-9);
+  cerca("contra L/240", c0.deflexion.limite_cm, 2.5, 1e-12);
+  cerca("la plancha: la viva contra la tabla del TR-4 con la separación de las correas",
+    c0.panel.ratio, 20.1 / c0.panel.P_kgfm2, 1e-12);
+  comp("con 3 tramos", c0.panel.tramos, 3);
+  /* y la correa de puntal del sistema longitudinal sale de aquí */
+  const vlc = DI.verificaLongitudinal({ lg: lg, interior: ri, fachada: rf, m3: m3L, seccion: secL(NL), acero: "A36",
+    diseno: DZL, cerramiento_kgfm2: 8.35, correas: c0 });
+  const cp = vlc.piezas.filter((x) => x.pieza === "correa de puntal")[0];
+  const pts = c0.lineas.filter((l) => l.puntal);
+  cerca("la correa de puntal del sistema a lo largo es la peor línea que hace de puntal", cp.ratio,
+    Math.max.apply(null, pts.map((l) => l.ratio)), 1e-12);
+  cierto("y ya no falta", !cp.faltanEsenciales);
 }
 
 fin();

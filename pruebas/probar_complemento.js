@@ -449,6 +449,18 @@ cierto("y Comprobación oye a la zapata de LOS DOS pórticos",
   cierto("en Cimentación no está, y vuelve al pórtico interior",
     !/data-portico="longitudinal"/.test(sel()) && /data-portico="interior" aria-pressed="true"/.test(sel()));
   cierto("Comprobación oye también a lo largo", /avisosLongitudinal\(largoActual\(\)\)/.test(modeHtml));
+  /* LAS CORREAS: solo en Diseño */
+  pulsa(M.dom, "pasos", "data-paso", "diseno");
+  cierto("en Diseño está «correas»", /data-portico="correas"/.test(sel()));
+  cierto("y el formulario pide tensores, tramos de la plancha y clip, sin valor",
+    /di_ten/.test(pinto(M.dom, "fd").innerHTML) && /di_ptram/.test(pinto(M.dom, "fd").innerHTML) &&
+    /di_clip/.test(pinto(M.dom, "fd").innerHTML));
+  pulsa(M.dom, "centro", "data-portico", "correas");
+  cierto("al pulsarlo, enseña las correas o dice qué les falta", /correas/.test(sel()));
+  pulsa(M.dom, "pasos", "data-paso", "analisis");
+  cierto("en Análisis no está, y vuelve al interior",
+    !/data-portico="correas"/.test(sel()) && /data-portico="interior" aria-pressed="true"/.test(sel()));
+  cierto("Comprobación oye a las correas", /avisosCorreas\(correasActual\(\)\)/.test(modeHtml));
   pulsa(M.dom, "centro", "data-portico", "interior");
 }
 

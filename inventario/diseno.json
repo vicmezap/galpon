@@ -62,6 +62,66 @@
       "clave": true,
       "fuente": "elemento.js · AISC 360-22 Cap. H",
       "nota": "Una barra del tijeral solo tiene axial, y su ratio crece con |N| en cada signo: basta la combinación de mayor tracción y la de mayor compresión. La columna es viga-columna, y la combinación que gobierna la interacción del Cap. H no tiene por qué ser la de mayor axial ni la de mayor momento: se verifican todas."
+    },
+    {
+      "id": "CR.cargas",
+      "grupo": "Las correas",
+      "magnitud": "Lo que recoge cada línea de correa",
+      "valor": "medio tramo de techo a cada lado · D y Lr sobre la superficie, nieve sobre la proyección, viento normal con la presión de cada tramo · proyectado en los ejes de la correa",
+      "unidad": "kgf/m",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "filas A.reparto.techo, A.Lr.area y N.Qt.a · la misma presión de viento que carga el pórtico (analisis.casosViento)",
+      "nota": "Es el mismo reparto con que el pórtico recibe el techo, mirado desde la correa: cada línea lleva la mitad de los dos tramos de brida superior que le llegan. Cada mitad se carga con su propio viento (barlovento o sotavento) y se proyecta en los ejes de la correa: el eje mayor perpendicular al techo y el menor paralelo al faldón. La orientación de la correa es la media de sus dos tramos, así que en la cumbrera queda horizontal y las componentes paralelas de los dos faldones se cancelan. El peso propio de la correa va vertical."
+    },
+    {
+      "id": "CR.simple",
+      "grupo": "Las correas",
+      "magnitud": "Cómo trabaja la correa",
+      "valor": "simplemente apoyada entre pórticos: M = w·L²/8 en el eje mayor · en el menor, con la luz partida por los tensores",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "correas.js luces() · fila F.F6.sinLTB",
+      "nota": "La correa se toma simplemente apoyada en cada paño, que es como se diseña si no se garantiza la continuidad en el empalme sobre el tijeral. Los tensores parten el tramo del eje menor y no tocan el mayor; el Lb del pandeo lateral es también la luz partida. Con continuidad los momentos bajarían, pero hay que detallarla: no se supone."
+    },
+    {
+      "id": "CR.combinaciones",
+      "grupo": "Las correas",
+      "magnitud": "Con qué combinaciones se diseña la correa",
+      "valor": "las de la E.090 con cada estado físico de viento, y el sismo vertical ±Ev·D · en las líneas de puntal, la axial del mismo estado",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.090 §1.4.1 · filas A.viento.signo, S.vertical y LG.correa.puntal",
+      "nota": "Cada viento entra como estado físico con la magnitud del factor (fila A.viento.signo): la succión del 0,9·D − 1,3·W levanta la correa y comprime su ala inferior. El sismo entra con su componente vertical (2/3·Z·U·S sobre la carga muerta, fila S.vertical) hacia arriba y hacia abajo. En las líneas que hacen de puntal, la axial es la del MISMO estado: el viento longitudinal con el mismo Ci, porque es el mismo viento el que succiona el techo y empuja el hastial; y el sismo longitudinal. Se toma a compresión, del lado seguro."
+    },
+    {
+      "id": "CR.segundo.orden",
+      "grupo": "Las correas",
+      "magnitud": "El segundo orden de la correa de puntal",
+      "valor": "B1 en cada eje, Cm = 1 por carga transversal · Pe1 con la luz entera en el mayor y la partida por los tensores en el menor",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC 360-22 Ap. 8 · filas E.A8.Cm.transv y CR.simple",
+      "nota": "La correa de puntal es una viga-columna articulada que no se desplaza: su segundo orden es solo B1. Lleva carga transversal, así que Cm = 1,0. El pandeo con el r de cada eje y su longitud: la luz en el mayor y la luz partida por los tensores en el menor, y gobierna la mayor esbeltez."
+    },
+    {
+      "id": "D.DIS.correas",
+      "grupo": "Las correas",
+      "magnitud": "Los datos de las correas",
+      "valor": "tensores por paño · tramos del panel (1, 2 ó 3) · si la correa se fija con clip · sin valor por omisión",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "filas F.F6.sinLTB, D.cobertura.tabla y F.hipotesis",
+      "nota": "Los tres cambian la respuesta y los decide el proyectista: los tensores parten el eje menor y el Lb; los tramos sobre los que apoya cada plancha cambian lo que aguanta (la ficha da 150 kgf/m² con uno y 188 con tres a 1,50 m); y sin clip el F1(b) no se cumple y el Capítulo F no aplica tal cual: la correa no se puede dar por verificada."
     }
   ]
 }

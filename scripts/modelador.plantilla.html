@@ -314,6 +314,13 @@ svg.lg circle.hastial { fill:var(--ficha); stroke:var(--tinta); stroke-width:1.6
 svg.lg circle.esquina { fill:var(--tinta); }
 svg.lg .flecha { stroke:var(--acero); stroke-width:2; fill:none; }
 svg.lg text { font-family:var(--cifra); font-size:13px; fill:var(--tinta-2); }
+svg.cr { width:100%; height:auto; display:block; background:var(--papel);
+  border:1px solid var(--linea); border-radius:4px; margin:10px 0 6px; }
+svg.cr .faldon { fill:none; stroke:var(--tinta); stroke-width:2.4; }
+svg.cr rect.ok { fill:var(--ok); } svg.cr rect.no { fill:var(--alerta); }
+svg.cr rect.falta { fill:none; stroke:var(--aviso); stroke-dasharray:3 2; }
+svg.cr .pt { fill:var(--acero); }
+svg.cr text { font-family:var(--cifra); font-size:12px; fill:var(--tinta-2); }
 table.lgp td:last-child, table.lgp th:last-child { white-space:normal; font-family:var(--cuerpo); text-align:left; }
 svg.zp .placa.planta { fill:none; stroke-dasharray:6 4; }
 svg.zp .perno { stroke:var(--tinta); stroke-width:2.2; }
@@ -524,6 +531,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
         extra = extra.concat(RESULTADOS.avisosResultados(analisisVigente(p), disenoVigente(p), cimenVigente(p)));
       });
       extra = extra.concat(RESULTADOS.avisosLongitudinal(largoActual()));
+      extra = extra.concat(RESULTADOS.avisosCorreas(correasActual()));
     }
     if (!extra.length) return c;
     var lista = extra.concat(c.lista);
@@ -714,9 +722,10 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
      Cimentación enseñan uno, y cada uno tiene su caché; Comprobación pide
      los dos. */
   var porticoSel = "interior";
-  var NOMBRE_PORTICO = { interior: "pórtico interior", fachada: "pórtico de fachada", longitudinal: "a lo largo" };
-  function selPortico(conLargo) {
-    var lista = RESULTADOS.PORTICOS.concat(conLargo ? ["longitudinal"] : []);
+  var NOMBRE_PORTICO = { interior: "pórtico interior", fachada: "pórtico de fachada", longitudinal: "a lo largo",
+    correas: "correas" };
+  function selPortico(conLargo, conCorreas) {
+    var lista = RESULTADOS.PORTICOS.concat(conLargo ? ["longitudinal"] : []).concat(conCorreas ? ["correas"] : []);
     return '<div class="modos" role="group" aria-label="pórtico">' +
       lista.map(function (p) {
         return '<button type="button" data-portico="' + p + '" aria-pressed="' + (p === porticoSel) + '">' +
@@ -724,7 +733,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
       }).join("") + "</div>";
   }
   /* «a lo largo» no es un pórtico: la cimentación y las cachés de pórtico usan el interior */
-  function porticoMarco() { return porticoSel === "longitudinal" ? "interior" : porticoSel; }
+  function porticoMarco() { return (porticoSel === "longitudinal" || porticoSel === "correas") ? "interior" : porticoSel; }
   var analisisCache = {};
   var modoAnalisis = "compresion";
   function claveAnalisis() {
@@ -784,6 +793,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
   }
 
   function pintaAnalisis(fallo) {
+    if (porticoSel === "correas") porticoSel = "interior";
     if (porticoSel === "longitudinal") { pintaLongitudinal("analisis", fallo); return; }
     if (!m3) {
       $("centro").innerHTML = '<div class="hoja"><h2>Análisis</h2>' + selPortico(true) + '<p class="lead">el galpón no ' +
@@ -870,15 +880,16 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
 
   function pintaDiseno(fallo) {
     if (porticoSel === "longitudinal") { pintaLongitudinal("diseno", fallo); return; }
+    if (porticoSel === "correas") { pintaCorreas(fallo); return; }
     if (!m3) {
-      $("centro").innerHTML = '<div class="hoja"><h2>Diseño</h2>' + selPortico(true) + '<p class="lead">el galpón no ' +
+      $("centro").innerHTML = '<div class="hoja"><h2>Diseño</h2>' + selPortico(true, true) + '<p class="lead">el galpón no ' +
         "se puede montar: " + esc(fallo ? fallo.titulo : "—") + ". Se corrige en Geometría.</p></div>";
       $("derecha").innerHTML = "";
       return;
     }
     var d = disenoActual();
     if (!d.ok) {
-      $("centro").innerHTML = '<div class="hoja"><h2>Diseño</h2>' + selPortico(true) + '<p class="lead">todavía no se ' +
+      $("centro").innerHTML = '<div class="hoja"><h2>Diseño</h2>' + selPortico(true, true) + '<p class="lead">todavía no se ' +
         "puede verificar: falta lo que sigue</p>" + listaFaltas(d.faltas, true) + "</div>";
       $("derecha").innerHTML = '<p class="nohay">El diseño compara las fuerzas de segundo orden del ' +
         "análisis con la capacidad de cada barra, por su capítulo del AISC 360-22. Lo que no se " +
@@ -898,7 +909,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
         esc(c.barra) + "</td><td>" + (c.noCumplen ? c.noCumplen + " de " + c.cuantas : "todas") +
         "</td><td>" + esc(c.combo || "") + "</td></tr>";
     }).join("");
-    $("centro").innerHTML = '<div class="hoja"><h2>Diseño</h2>' + selPortico(true) + '<p class="lead">' +
+    $("centro").innerHTML = '<div class="hoja"><h2>Diseño</h2>' + selPortico(true, true) + '<p class="lead">' +
       R.cumplen + " de " + R.total + " barras cumplen · " + (d.r.fachada ? "pórtico de fachada" : "pórtico interior") + " · " + esc(d.r.sistema.nombre) + "</p>" +
       dibujaFuerzas(dj, d.r) + ley +
       '<h3>Por clase de barra</h3><div class="tarj"><div class="rueda-x"><table class="rx"><thead><tr>' +
@@ -1057,7 +1068,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
   }
 
   function pintaCimentacion(fallo) {
-    if (porticoSel === "longitudinal") porticoSel = "interior";
+    if (porticoSel === "longitudinal" || porticoSel === "correas") porticoSel = "interior";
     if (!m3) {
       $("centro").innerHTML = '<div class="hoja"><h2>Cimentación</h2>' + selPortico() + '<p class="lead">el galpón no ' +
         "se puede montar: " + esc(fallo ? fallo.titulo : "—") + ". Se corrige en Geometría.</p></div>";
@@ -1157,15 +1168,16 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
 
   function pintaLongitudinal(paso, fallo) {
     var titulo = paso === "analisis" ? "Análisis" : "Diseño";
+    var selL = function () { return selPortico(true, paso === "diseno"); };
     if (!m3) {
-      $("centro").innerHTML = '<div class="hoja"><h2>' + titulo + "</h2>" + selPortico(true) + '<p class="lead">el galpón ' +
+      $("centro").innerHTML = '<div class="hoja"><h2>' + titulo + "</h2>" + selL() + '<p class="lead">el galpón ' +
         "no se puede montar: " + esc(fallo ? fallo.titulo : "—") + ". Se corrige en Geometría.</p></div>";
       $("derecha").innerHTML = "";
       return;
     }
     var lo = largoActual();
     if (!lo.ok) {
-      $("centro").innerHTML = '<div class="hoja"><h2>' + titulo + "</h2>" + selPortico(true) + '<p class="lead">todavía ' +
+      $("centro").innerHTML = '<div class="hoja"><h2>' + titulo + "</h2>" + selL() + '<p class="lead">todavía ' +
         "no se puede ver a lo largo: falta lo que sigue</p>" + listaFaltas(lo.faltas, true) + "</div>";
       $("derecha").innerHTML = '<p class="nohay">A lo largo el galpón no tiene pórtico: el viento de los hastiales y el ' +
         "sismo longitudinal bajan por las columnas hastiales, el arriostre vertical, las correas, el arriostre de " +
@@ -1191,7 +1203,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     }
     /* Diseño */
     if (!lo.diseno) {
-      $("centro").innerHTML = '<div class="hoja"><h2>Diseño</h2>' + selPortico(true) + '<p class="lead">todavía no se ' +
+      $("centro").innerHTML = '<div class="hoja"><h2>Diseño</h2>' + selL() + '<p class="lead">todavía no se ' +
         "puede verificar a lo largo: falta lo que sigue</p>" + listaFaltas(lo.faltasDiseno, true) + "</div>";
       $("derecha").innerHTML = "";
       return;
@@ -1204,13 +1216,89 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
         (x.ratio === null || x.ratio === undefined ? "—" : n2(x.ratio, 2)) + (x.faltanEsenciales ? " ?" : "") + "</td><td>" +
         esc(falta ? "FALTA · " + falta.motivo : (x.falla || x.estado || "")) + "</td></tr>";
     }).join("");
-    $("centro").innerHTML = '<div class="hoja"><h2>Diseño</h2>' + selPortico(true) + '<p class="lead">a lo largo · ' +
+    $("centro").innerHTML = '<div class="hoja"><h2>Diseño</h2>' + selL() + '<p class="lead">a lo largo · ' +
       D.resumen.cumplen + " de " + D.resumen.total + " piezas cumplen</p>" +
       '<div class="tarj"><div class="rueda-x"><table class="rx lgp"><thead><tr><th>pieza</th><th>perfil</th>' +
       "<th>ratio</th><th>lo que manda</th></tr></thead><tbody>" + piezas + "</tbody></table></div>" +
       '<p class="pie">Cada pieza con la mayor fuerza de su clase y el perfil de la clase. El perfil se cambia en la ' +
       "tabla de Geometría; los tirantes se hacen con varilla (familia VAR).</p></div></div>";
     $("derecha").innerHTML = lo.fichas.map(pintaFicha).join("");
+  }
+
+  /* ---------- LAS CORREAS ----------
+     El faldón en sección con cada correa pintada por su ratio, y una tabla
+     línea por línea. Las de puntal llevan la axial del sistema a lo largo. */
+  var correasCache = { clave: null, res: null };
+  function correasActual() {
+    var k = claveAnalisis() + JSON.stringify(modelo.diseno || {});
+    if (correasCache.clave !== k) {
+      correasCache = { clave: k, res: RESULTADOS.correas(m3, modelo, PERFILES,
+        analisisActual("interior"), analisisActual("fachada")) };
+    }
+    return correasCache.res;
+  }
+
+  function svgCorreas(v) {
+    var sup = m3.tijeral.nudos.filter(function (n) { return n.clase === "superior"; })
+      .sort(function (a, b) { return a.x_m - b.x_m; });
+    var W = 1000, m = 50, luz = m3.luz_m;
+    var ys = sup.map(function (n) { return n.y_m; });
+    var y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+    var k = (W - 2 * m) / luz, H = (y1 - y0) * k + 2 * m + 40;
+    var f = function (x) { return x.toFixed(1); };
+    var X = function (x) { return m + x * k; }, Y = function (y) { return H - m - 20 - (y - y0) * k; };
+    var h = '<svg class="cr" viewBox="0 0 ' + W + " " + f(H) + '">';
+    h += '<polyline class="faldon" points="' + sup.map(function (n) { return f(X(n.x_m)) + "," + f(Y(n.y_m)); }).join(" ") + '"/>';
+    v.lineas.forEach(function (l, i) {
+      var n = sup[i], cls = l.faltanEsenciales ? "falta" : (l.cumple ? "ok" : "no");
+      h += '<rect class="' + cls + '" x="' + f(X(n.x_m) - 7) + '" y="' + f(Y(n.y_m) - 16) + '" width="14" height="16" rx="2"/>';
+      if (l.puntal) h += '<circle class="pt" cx="' + f(X(n.x_m)) + '" cy="' + f(Y(n.y_m) - 24) + '" r="3"/>';
+      h += '<text x="' + f(X(n.x_m)) + '" y="' + f(Y(n.y_m) + 18) + '" text-anchor="middle">' +
+        (l.ratio === null ? "?" : n2(l.ratio, 2)) + "</text>";
+    });
+    return h + "</svg>";
+  }
+
+  function pintaCorreas(fallo) {
+    if (!m3) {
+      $("centro").innerHTML = '<div class="hoja"><h2>Diseño</h2>' + selPortico(true, true) + '<p class="lead">el galpón no ' +
+        "se puede montar: " + esc(fallo ? fallo.titulo : "—") + ". Se corrige en Geometría.</p></div>";
+      $("derecha").innerHTML = "";
+      return;
+    }
+    var v = correasActual();
+    if (!v.ok) {
+      $("centro").innerHTML = '<div class="hoja"><h2>Diseño</h2>' + selPortico(true, true) + '<p class="lead">todavía no se ' +
+        "pueden verificar las correas: falta lo que sigue</p>" + listaFaltas(v.faltas, true) + "</div>";
+      $("derecha").innerHTML = '<p class="nohay">Cada línea de correa con su parte de techo, su viento y, si hace de ' +
+        "puntal, la axial del sistema a lo largo.</p>";
+      return;
+    }
+    if (v.omitida) {
+      $("centro").innerHTML = '<div class="hoja"><h2>Diseño</h2>' + selPortico(true, true) + '<p class="lead">las correas ' +
+        "no se verifican</p>" + '<ol class="avisos"><li class="error"><span class="niv">falta</span><b>' + esc(v.omitida.que) +
+        "</b><p>" + esc(v.omitida.motivo) + "</p></li></ol></div>";
+      $("derecha").innerHTML = v.fichas.map(pintaFicha).join("");
+      return;
+    }
+    var cumplen = v.lineas.filter(function (l) { return l.cumple; }).length;
+    var filas = v.lineas.map(function (l) {
+      var falta = (l.omitidos || []).filter(function (o) { return o.esencial; })[0];
+      return "<tr><td>" + l.q + "</td><td>" + n2(l.x_m, 2) + "</td><td>" + esc(l.tipo) + "</td><td>" + n2(l.ancho_m, 2) +
+        '</td><td class="' + (l.cumple ? "" : "neg") + '">' + (l.ratio === null ? "—" : n2(l.ratio, 2)) + "</td><td>" +
+        (l.puntal ? n2(l.Nmax_kgf / 1000, 2) + " t" : "—") + "</td><td>" + esc(l.combo || "") + "</td><td>" +
+        esc(falta ? "FALTA · " + falta.motivo : (l.estado || "")) + "</td></tr>";
+    }).join("");
+    $("centro").innerHTML = '<div class="hoja"><h2>Diseño</h2>' + selPortico(true, true) + '<p class="lead">correas · ' +
+      esc(v.perfil) + " · " + cumplen + " de " + v.lineas.length + " líneas cumplen</p>" + svgCorreas(v) +
+      '<div class="ley"><span><i style="border-top-color:var(--ok)"></i>cumple</span>' +
+      '<span><i style="border-top-color:var(--alerta)"></i>no cumple</span><span>● hace de puntal</span>' +
+      "<span>sección del techo, en el plano del pórtico</span></div>" +
+      '<div class="tarj"><div class="rueda-x"><table class="rx lgp"><thead><tr><th>línea</th><th>x (m)</th><th>tipo</th>' +
+      "<th>ancho (m)</th><th>ratio</th><th>axial</th><th>combinación</th><th>lo que manda</th></tr></thead><tbody>" + filas +
+      "</tbody></table></div>" + '<p class="pie">Simplemente apoyadas entre pórticos (fila CR.simple). Las de puntal, con ' +
+      "la axial del sistema a lo largo en el mismo estado (fila CR.combinaciones).</p></div></div>";
+    $("derecha").innerHTML = v.fichas.map(pintaFicha).join("");
   }
 
   /* ---------- LO QUE TODAVIA NO TIENE PANTALLA ----------
