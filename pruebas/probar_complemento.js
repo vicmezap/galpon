@@ -582,7 +582,7 @@ cierto("y Comprobación oye a la zapata de LOS DOS pórticos",
 pulsa(M.dom, "pasos", "data-paso", "inicio");
 const inicio = pinto(M.dom, "centro").innerHTML;
 comp("Inicio tampoco ensena la barra de vistas", pinto(M.dom, "vistas").hidden, true);
-comp("el tablero trae tres fichas", (inicio.match(/class="tarj/g) || []).length, 3);
+comp("el tablero trae tres fichas, y aparte la del ejemplo", [(inicio.match(/class="tarj/g) || []).length - (inicio.match(/class="tarj ejemplo"/g) || []).length, (inicio.match(/class="tarj ejemplo"/g) || []).length], [3, 1]);
 cierto("con el galpon que hay ahora mismo", /1200 m²/.test(inicio));
 cierto("los once pasos y cuantos estan listos",
   inicio.indexOf(M.win.VISTAS.PASOS.filter((p) => p.listo).length + " de 11") >= 0);
@@ -785,6 +785,21 @@ cierto("el panel se hornea con una lista corta y propia",
   cierto("y en alambre, el de siempre, que deja pinchar las barras", /data-modo3d="alambre" aria-pressed="true"/.test(
     pinto(M.dom, "centro").innerHTML) && !/no da WebGL/.test(pinto(M.dom, "centro").innerHTML));
   pulsa(M.dom, "vistas", "data-v", "portico");
+}
+
+
+/* EL EJEMPLO COMPLETO · fila V.ejemplo: un botón en Inicio, y a Hojas Excel */
+{
+  pulsa(M.dom, "pasos", "data-paso", "inicio");
+  cierto("en Inicio, el botón para cargar el ejemplo completo", /id="b-ejemplo"/.test(pinto(M.dom, "centro").innerHTML) &&
+    /Reemplaza lo que haya/.test(pinto(M.dom, "centro").innerHTML));
+  for (const fn of M.dom.nodos.centro._ev.click) fn({ target: { id: "b-ejemplo", closest: () => null } });
+  const c = pinto(M.dom, "centro").innerHTML;
+  cierto("al pulsarlo, va a Hojas Excel con la hoja CARGAS lista: todas las fórmulas dan el número del motor",
+    /CARGAS · \d+ fórmulas/.test(c) && /todas dan el número del motor/.test(c));
+  cierto("y los datos quedan en los formularios", pinto(M.dom, "ma_acero").value === "A36" && pinto(M.dom, "ed_dist").value !== "");
+  cierto("NINGÚN campo traía valor antes: el ejemplo no es un valor por omisión", /EJEMPLO\.modelo\(\)/.test(modeHtml) &&
+    (modeHtml.match(/EJEMPLO\.modelo\(\)/g) || []).length === 1);
 }
 
 fin();

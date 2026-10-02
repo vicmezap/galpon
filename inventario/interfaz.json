@@ -7,7 +7,8 @@
     "libro.js",
     "panel.js",
     "hojas.js",
-    "solidos.js"
+    "solidos.js",
+    "ejemplo.js"
   ],
   "version": 1,
   "fecha": "2026-10-02",
@@ -235,6 +236,18 @@
       "clave": true,
       "fuente": "pedido del usuario, 2026-10-02 · medidas: el catálogo de perfiles (fila CAT.*)",
       "nota": "«Me gustaría ver el material de acero real»: el alambre dibujaba el eje y un W10X33 se veía igual que una varilla. La orientación es un CONVENIO de dibujo, no un resultado del cálculo, y se escribe para que nadie lo lea como una decisión de diseño. Se simplifica, y se dice: sin radios de acuerdo, el HSS por fuera (no se ve hueco), las barras no se recortan en los nudos y no se dibujan cartelas, pernos ni soldaduras. Las barras sin perfil se ven como línea, para que se note lo que falta. La vista se dibuja con WebGL con la MISMA matriz de cámara que el alambre (vista3d.matriz), que ya se comprobó contra la proyección punto por punto; el alambre se queda, porque es el que deja pinchar las barras."
+    },
+    {
+      "id": "V.ejemplo",
+      "grupo": "La interfaz y su enlace con el libro",
+      "magnitud": "El proyecto de ejemplo, completo, que se carga con un botón",
+      "valor": "almacén de 20 × 60 m en Miraflores (Lima), depósito común, A36, W10X33 + tijeral Howe de ángulos dobles, correas C10X15.3, TR-4 de 0,40 mm, suelo S2 de 1,5 kgf/cm², f'c 210",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "pedido del usuario, 2026-10-02: «déjame cargado un ejemplo completo para probar las hojas de una»",
+      "nota": "NO son valores por omisión: ningún campo trae valor, y un proyecto nuevo sigue pidiéndolo todo. Es un proyecto de muestra que entra SOLO si se pulsa «Cargar el ejemplo completo» en Inicio, y reemplaza lo que haya en la ventana (el libro no cambia hasta «Guardar y cerrar»). Sus datos son los de un depósito corriente en Lima; el cálculo lo hace el motor, igual que con cualquier proyecto, y las pruebas exigen que con él los ocho pasos queden completos."
     }
   ]
 }

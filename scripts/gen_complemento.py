@@ -96,6 +96,7 @@ MODULOS = [
     "solidos.js",       # el acero de verdad para la 3D: secciones extruidas
     "vistas.js",        # lee GENERADOR, MONTAJE y VISTA3D
     "libro.js",         # el modelo dentro del libro de Excel
+    "ejemplo.js",       # el proyecto de muestra, que entra solo con su botón
     "resultados.js",    # lee VISTAS, E020, VIENTO, COMBINACIONES, ANALISIS y LIBRO
     "excel.js",         # evalua las formulas de las hojas · E9
     "hojas.js",         # las hojas del libro, con formulas vivas · E9

@@ -619,7 +619,13 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
         ? "lo que hay en este libro, y en qué paso está"
         : "el galpón no se puede montar con los datos de ahora: " +
           esc(fallo ? fallo.titulo : "—") + ". Se corrige en Geometría.") + "</p>" +
-      '<div class="rejilla">' + f.map(pintaFicha).join("") + "</div></div>";
+      '<div class="rejilla">' + f.map(pintaFicha).join("") + "</div>" +
+      /* EL EJEMPLO · fila V.ejemplo: un proyecto completo, solo si se pide */
+      '<div class="tarj ejemplo"><h4>¿Probar de una vez?</h4><p class="sub">un galpón completo, listo para las hojas</p>' +
+      '<p class="pie">Almacén de 20 × 60 m en Miraflores (Lima): todos los datos, los perfiles, el sistema, el diseño y ' +
+      "la cimentación, y con él los ocho pasos quedan completos y todas las barras cumplen. Reemplaza lo que haya en " +
+      "esta ventana; el libro no cambia hasta «Guardar y cerrar».</p>" +
+      '<button type="button" class="b pri" id="b-ejemplo">Cargar el ejemplo completo</button></div></div>';
   }
 
   /* ---------- COMPROBACION · lo que las guardas tienen que decir -----
@@ -2464,6 +2470,12 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
       recalcula();
       return;
     }
+    /* el ejemplo completo: se carga y se va a Hojas Excel, que es para lo que se pidió */
+    if (ev.target && ev.target.id === "b-ejemplo") {
+      aplicaModelo(EJEMPLO.modelo());
+      vePaso("hojas");
+      return;
+    }
     /* acero o alambre */
     var md = ev.target.closest ? ev.target.closest("button[data-modo3d]") : null;
     if (md) { modo3d = md.getAttribute("data-modo3d"); repinta(); return; }
@@ -2715,7 +2727,10 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     for (k in mapa) if (p[mapa[k]] !== undefined && $("c_" + k)) {
       $("c_" + k).value = p[mapa[k]];
     }
-    if (p.pendiente !== undefined && $("c_pend")) $("c_pend").value = p.pendiente * 100;
+    if (p.pendiente !== undefined && $("c_pend")) $("c_pend").value = Math.round(p.pendiente * 1e6) / 1e4;
+    if (p.pendienteInferior !== undefined && $("c_pendi")) $("c_pendi").value = Math.round(p.pendienteInferior * 1e6) / 1e4;
+    if (p.ajustaSeparacion !== undefined && $("c_ajusta")) $("c_ajusta").checked = !!p.ajustaSeparacion;
+    if (p.columnasHastiales && $("c_ch")) $("c_ch").value = p.columnasHastiales.join(", ");
     if (p.cuerdas && $("c_cuerdas")) $("c_cuerdas").value = p.cuerdas;
     if (p.alma && $("c_alma")) $("c_alma").value = p.alma;
     if (p.panosArriostradosTecho && $("c_at")) {
