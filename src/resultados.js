@@ -35,6 +35,8 @@
     "A.sistema", "A.acero.Pns", "A.reacciones.casos", "SV.viento.H", "A.segundo.orden",
     "S.Z", "S.U", "S.perfil", "S.R0", "S.pendulo", "S.T.rayleigh", "S.C.estatico", "S.V", "S.CR",
     "S.vertical", "S.despl", "S.deriva", "S.deriva.industrial", "A.sismo.sistema", "A.sismo.periodo",
+    "S.categoria.uso", "S.categoria.riesgo", "S.usos.combinados", "S.sistemas.categoria", "S.cobertura.liviana",
+    "S.irregularidad.categoria", "S.P", "A.sismo.regular",
     "D.DIS.longitudes", "D.DIS.cartela", "D.DIS.E5", "E.C3.arriostre", "C.E6.a", "C.E5.cond",
     "T.U.c2", "T.U.c8", "C.E4.2L",
     "Z.sigma.neta", "Z.inc30", "Z.levantamiento", "Z.deslizamiento", "Z.punzon.momento", "Z.Vc.viga",
@@ -99,6 +101,94 @@
     return v;
   }
 
+  const ELEGIR = ["", "— elegir —"];          /* ningún campo trae valor: se elige */
+
+  /* LA EDIFICACIÓN · el uso da la categoría (filas S.categoria.uso y siguientes) */
+  const CAMPOS_EDIFICACION = [
+    { grupo: "Edificación", campos: [
+      { id: "uso", clave: "uso", etiqueta: "Uso de la edificación", tipo: "opcion", fuente: "S.categoria.uso",
+        opciones: [ELEGIR].concat(Object.keys(E030.USOS).map((k) => [k, E030.USOS[k].nombre])) },
+      { id: "riesgo", clave: "riesgoAdicional", etiqueta: "¿Su falla puede acarrear incendio o fuga de contaminantes?",
+        tipo: "opcion", fuente: "S.categoria.riesgo", soloSi: "uso=deposito|industrial",
+        opciones: [ELEGIR, ["no", "no · categoría C"], ["si", "sí · categoría A2"]] },
+      { id: "sec", clave: "usoSecCat", etiqueta: "¿Una parte tiene otro uso? Su categoría", tipo: "opcion",
+        fuente: "S.usos.combinados", opciones: [ELEGIR, ["no", "no, todo es del mismo uso"], ["A2", "A2 · esencial"],
+          ["B", "B · importante"], ["C", "C · común"]] },
+      { id: "secpct", clave: "usoSecPct", etiqueta: "Área de ese otro uso, sin sótanos", unidad: "% del total", tipo: "numero",
+        fuente: "S.usos.combinados", soloSi: "sec=A2|B|C" },
+      { id: "indus", clave: "industrial", etiqueta: "¿Es de uso industrial? (deriva hasta 2× la tabla)",
+        tipo: "opcion", fuente: "S.deriva.industrial", opciones: [ELEGIR, ["no", "no"], ["si", "sí"]] }] }];
+  function leeEdificacion(val) {
+    const s = {};
+    if (val.uso && E030.USOS[val.uso]) s.uso = val.uso;
+    if (s.uso && E030.USOS[s.uso].conRiesgo && (val.riesgo === "si" || val.riesgo === "no")) s.riesgoAdicional = val.riesgo === "si";
+    if (val.sec === "no") s.usoSecCat = "no";
+    if (["A2", "B", "C"].indexOf(val.sec) >= 0) {
+      s.usoSecCat = val.sec;
+      if (val.secpct !== "" && val.secpct !== undefined && !isNaN(+val.secpct)) s.usoSecPct = +val.secpct;
+    }
+    if (val.indus === "si" || val.indus === "no") s.industrial = val.indus === "si";
+    return s;
+  }
+  function valoresDeEdificacion(sitio) {
+    const s = sitio || {}, v = {};
+    if (s.uso) v.uso = s.uso;
+    if (typeof s.riesgoAdicional === "boolean") v.riesgo = s.riesgoAdicional ? "si" : "no";
+    if (s.usoSecCat) v.sec = s.usoSecCat;
+    if (s.usoSecPct !== undefined) v.secpct = String(s.usoSecPct);
+    if (typeof s.industrial === "boolean") v.indus = s.industrial ? "si" : "no";
+    return v;
+  }
+  /* la clasificación, o por qué no la hay · lo que falta va a Datos */
+  function clasificacion(s) {
+    const sit = s || {};
+    if (!sit.uso) return { falta: { campo: "ed_uso", paso: "datos", que: "el uso de la edificación, que da su categoría (en Datos)" } };
+    if (!sit.usoSecCat) return { falta: { campo: "ed_sec", paso: "datos", que: "si una parte de la edificación tiene otro uso (en Datos)" } };
+    try {
+      return { c: E030.clasifica({ uso: sit.uso, riesgoAdicional: sit.riesgoAdicional,
+        usoSecCat: sit.usoSecCat === "no" ? undefined : sit.usoSecCat, usoSecPct: sit.usoSecPct,
+        zona: sit.zona, sistema: sit.sistemaSismico }) };
+    } catch (e) {
+      return { falta: { campo: "ed_uso", paso: "datos", que: e.message.split("\n")[0].replace(/^e030: /, "") } };
+    }
+  }
+  function fichaEdificacion(sitio) {
+    const k = clasificacion(sitio);
+    if (k.falta) return [ficha("La edificación", "E.030-2026 Cap. III", [ln(k.falta.que, "FALTA", "medido", { estado: "no" })])];
+    const c = k.c, s = sitio || {};
+    const L = [ln("Uso", c.nombre, "entrada"),
+      ln("Categoría", c.sub + " · U = " + n2(c.U, 1), "norma", { fuente: c.combinado && c.combinado.manda ? "S.usos.combinados"
+        : (E030.USOS[c.uso].conRiesgo ? "S.categoria.riesgo" : "S.categoria.uso"), nota: "«" + c.cita + "»" })];
+    if (c.combinado) {
+      L.push(ln("Otro uso", c.combinado.sub + " en el " + n2(c.combinado.pct, 0) + " % del área", "norma",
+        { fuente: "S.usos.combinados", nota: c.combinado.cuenta ? (c.combinado.manda ? "supera el 15 % y su U es mayor: manda"
+          : "supera el 15 %, pero su U no es mayor") : "no supera el 15 % del área: no cuenta" }));
+    }
+    L.push(ln("Peso sísmico", n2(100 * c.pctVivaTecho, 0) + " % de la viva de techo", "norma", { fuente: "S.P",
+      nota: "inciso d); si hubiera entrepiso, su viva entraría al " + n2(100 * c.pctVivaPiso, 0) + " % por ser " + c.categoria }));
+    if (c.sistemas) {
+      L.push(ln("Sistemas de la Tabla N° 9", c.sistemas.tabla9, "norma", { fuente: "S.sistemas.categoria",
+        nota: "para " + c.sub + " en " + s.zona }));
+      L.push(ln("Con cobertura liviana", "cualquier sistema", "norma", { fuente: "S.cobertura.liviana",
+        estado: "ok", nota: c.sistemas.sistema
+          ? (c.sistemas.enTabla9 ? s.sistemaSismico + " está además en la tabla"
+            : s.sistemaSismico + " no está en la Tabla N° 9: lo permite este artículo, por la cobertura TR-4 (fila Lr.liviana)")
+          : "el sistema transversal se elige en Cargas" }));
+      L.push(ln("Irregularidades", c.irregularidad.texto, "norma", { fuente: "S.irregularidad.categoria",
+        nota: "Galpón solo acepta estructura regular (fila A.sismo.regular)" }));
+    } else {
+      L.push(ln("Sistemas e irregularidades", "según la zona", "medido", { nota: "la zona sísmica se elige en Cargas" }));
+    }
+    if (typeof s.industrial === "boolean") {
+      L.push(ln("Uso industrial", s.industrial ? "sí" : "no", "entrada"));
+      L.push(ln("Límite de la deriva", s.industrial ? "hasta el doble de la Tabla N° 14" : "el de la Tabla N° 14", "norma",
+        { fuente: s.industrial ? "S.deriva.industrial" : "S.deriva" }));
+    } else {
+      L.push(ln("Uso industrial", "FALTA", "medido", { estado: "no", nota: "cambia el límite de la deriva" }));
+    }
+    return [ficha("La edificación", "E.030-2026 Art. 19, 21, 25 y 31", L, "bien")];
+  }
+
   /* Las normas que mandan, y para qué · cada número que sale de ellas tiene su fila */
   const NORMAS = [
     ["E.020", "Cargas: muerta, viva de techo, nieve y viento"],
@@ -141,9 +231,9 @@
       const sinPerfil = V.tablaPerfiles(o.m3, modelo).filas.filter((f) => f.sinPerfil).map((f) => f.clase);
       if (sinPerfil.length) pon("geom", { que: "el perfil de " + sinPerfil.join(", ") });
       const c = cargas(o.m3, modelo.sitio || {});
-      for (const f of c.faltan) pon("cargas", f);
+      for (const f of c.faltan) pon(f.paso || "cargas", f);
       if (ACEROS.indexOf((modelo.sitio || {}).acero) < 0) pon("cargas", { que: "el acero del proyecto (A36 ó A572)", campo: "ca_acero" });
-      if (!c.completo || P.cargas.faltas.length) P.hojas.espera.push("cargas");
+      if (!c.completo) P.hojas.espera.push(P.cargas.faltas.length ? "cargas" : "datos");
       const a = o.analisis || analisis(o.m3, modelo, o.perfiles, "interior");
       if (!modelo.sistema) pon("analisis", { que: "el sistema estructural: la base y la unión columna–tijeral" });
       if (!a.ok) {
@@ -293,21 +383,23 @@
     let sismo = null;
     for (const [k, campo, que] of [["zona", "ca_zona", "la zona sísmica"],
       ["suelo", "ca_suelo", "el perfil de suelo"],
-      ["categoria", "ca_categoria", "la categoría de la edificación"],
       ["sistemaSismico", "ca_sissis", "el sistema sísmico de la dirección transversal"]]) {
       if (!s[k]) faltan.push({ campo: campo, que: que });
     }
+    const cl = clasificacion(s);
+    if (cl.falta) faltan.push(cl.falta);
     if (typeof s.industrial !== "boolean") {
-      faltan.push({ campo: "ca_indus", que: "si el uso es industrial (cambia el límite de deriva)" });
+      faltan.push({ campo: "ed_indus", paso: "datos", que: "si el uso es industrial, que cambia el límite de la deriva (en Datos)" });
     }
-    if (s.zona && s.suelo && s.categoria && s.sistemaSismico) {
+    const categoria = cl.c ? cl.c.categoria : null;
+    if (s.zona && s.suelo && categoria && s.sistemaSismico) {
       try {
         const st = E030.sitio({ zona: s.zona, suelo: s.suelo, vs30_ms: s.vs30_ms });
-        const u = E030.factorU(s.categoria);
+        const u = E030.factorU(categoria);
         const pend = s.sistemaSismico === "pendulo";
         const rr = E030.coefR({ pendulo: pend, sistema: pend ? undefined : s.sistemaSismico });
         L3.push(ln("Factor de zona Z", n2(st.Z, 2), "norma", { fuente: "S.Z" }));
-        L3.push(ln("Factor de uso U", n2(u.U, 2), "norma", { fuente: "S.U" }));
+        L3.push(ln("Factor de uso U", n2(u.U, 2), "norma", { fuente: "S.U", nota: "categoría " + cl.c.sub + " por el uso (Datos)" }));
         L3.push(ln("Factor de suelo S", n2(st.S, 3), "norma", { fuente: "S.perfil",
           nota: st.sinVs30 ? "sin Vs30 medido: el mayor valor del intervalo" : null }));
         L3.push(ln("Períodos TP / TL", n2(st.TP, 2) + " / " + n2(st.TL, 2) + " s", "norma",
@@ -319,7 +411,7 @@
         L3.push(ln("Período y cortante", "en el Análisis", "medido",
           { nota: "T sale de Rayleigh con el propio pórtico (Art. 36.2), que aquí no está resuelto" }));
         if (typeof s.industrial === "boolean") {
-          sismo = { zona: s.zona, suelo: s.suelo, vs30_ms: s.vs30_ms, categoria: s.categoria,
+          sismo = { zona: s.zona, suelo: s.suelo, vs30_ms: s.vs30_ms, categoria: categoria, sub: cl.c.sub, uso: cl.c.uso,
             sistema: s.sistemaSismico, industrial: s.industrial };
         }
       } catch (e) {
@@ -536,7 +628,6 @@
   /* =====================================================================
      LOS FORMULARIOS, como datos · cada campo dice a qué clave del modelo va
      ===================================================================== */
-  const ELEGIR = ["", "— elegir —"];
   const ABERTURAS = [ELEGIR, ["repartidas", "repartidas · Ci ±0,3"],
     ["barlovento", "principales a barlovento · Ci +0,8"],
     ["sotavento", "a sotavento o en los costados · Ci −0,6"]];
@@ -572,15 +663,10 @@
           ["S2", "S2 · suelo intermedio"], ["S3", "S3 · suelo blando"], ["S4", "S4 · excepcional"]] },
       { id: "vs30", clave: "vs30_ms", etiqueta: "Vs30 medido (opcional)", unidad: "m/s", tipo: "numero",
         fuente: "S.perfil" },
-      { id: "categoria", clave: "categoria", etiqueta: "Categoría de la edificación", tipo: "opcion",
-        fuente: "S.U", opciones: [ELEGIR, ["A", "A · esencial (1,5)"], ["B", "B · importante (1,3)"],
-          ["C", "C · común (1,0)"]] },
       { id: "sissis", clave: "sistemaSismico", etiqueta: "Sistema sísmico transversal", tipo: "opcion",
         fuente: "S.R0", opciones: [ELEGIR, ["pendulo", "péndulo invertido · R₀ 2,5"],
           ["OMF", "ordinario OMF · R₀ 4"], ["IMF", "intermedio IMF · R₀ 5"],
-          ["SMF", "especial SMF · R₀ 8"]] },
-      { id: "indus", clave: "industrial", etiqueta: "Uso industrial (deriva hasta 2× la tabla)",
-        tipo: "opcion", fuente: "S.deriva.industrial", opciones: [ELEGIR, ["no", "no"], ["si", "sí"]] }] },
+          ["SMF", "especial SMF · R₀ 8"]] }] },
     { grupo: "Material", campos: [
       { id: "acero", clave: "acero", etiqueta: "Acero de los perfiles", tipo: "opcion",
         fuente: "A.acero.Pns", opciones: [ELEGIR, ["A36", "A36"], ["A572", "A572 Gr. 50"]] }] }
@@ -612,9 +698,7 @@
     if (val.zona) s.zona = val.zona;
     if (val.suelo) s.suelo = val.suelo;
     if (num(val.vs30) !== undefined) s.vs30_ms = num(val.vs30);
-    if (val.categoria) s.categoria = val.categoria;
     if (val.sissis) s.sistemaSismico = val.sissis;
-    if (val.indus === "si" || val.indus === "no") s.industrial = val.indus === "si";
     return s;
   }
   function valoresDeSitio(sitio) {
@@ -631,9 +715,7 @@
     if (s.zona) v.zona = s.zona;
     if (s.suelo) v.suelo = s.suelo;
     if (s.vs30_ms !== undefined) v.vs30 = String(s.vs30_ms);
-    if (s.categoria) v.categoria = s.categoria;
     if (s.sistemaSismico) v.sissis = s.sistemaSismico;
-    if (typeof s.industrial === "boolean") v.indus = s.industrial ? "si" : "no";
     return v;
   }
   function leeSistema(val) {
@@ -1852,7 +1934,8 @@
     correas, fichasCorreas, avisosCorreas, conexiones, fichasConexiones, avisosConexiones, faltanUniones, CAMPOS_CARGAS, CAMPOS_ANALISIS, CAMPOS_DISENO, avisosResultados,
     TIPOS_ZAPATA, CAMPOS_CIMENTACION, leeCimentacion, casosZapata, valoresDeCimentacion, cimentacion, fichasCimentacion, dibujoCimentacion,
     leeSitio, valoresDeSitio, leeSistema, leeDiseno, valoresDeDiseno,
-    CAMPOS_PROYECTO, leeProyecto, valoresDeProyecto, NORMAS, materiales, pendientes, faltanCimentacion,
+    CAMPOS_PROYECTO, leeProyecto, valoresDeProyecto, CAMPOS_EDIFICACION, leeEdificacion, valoresDeEdificacion,
+    clasificacion, fichaEdificacion, NORMAS, materiales, pendientes, faltanCimentacion,
     diseno, fichasDiseno, dibujoDiseno, tablaDiseno, lineasDiseno, nivelRatio,
     forma, cargas, seccionDesde, analisis, fichasAnalisis, tablaReacciones, dibujo, lineasFuerzas
   };

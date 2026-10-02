@@ -6,7 +6,7 @@
     "sismo.js"
   ],
   "version": 1,
-  "fecha": "2026-09-30",
+  "fecha": "2026-10-02",
   "regla": "Ningún número entra al código sin fila aquí. Sin fuente primaria leída, no entra.",
   "estados": {
     "verificado": "leído en el texto original de la fuente",
@@ -304,6 +304,102 @@
       "clave": true,
       "fuente": "E.030-2026 Tabla N° 14, nota",
       "nota": "«Los límites de la distorsión (deriva) para estructuras de uso industrial son establecidos por el proyectista, pero en ningún caso exceden el doble de los valores de esta Tabla.» Es una licencia explícita para el galpón — y como toda licencia, se adopta y se declara. No confundir con el desplazamiento por viento, que es otra verificación y otra fuente (AISC DG3, H/100)."
+    },
+    {
+      "id": "S.categoria.uso",
+      "grupo": "La edificación",
+      "magnitud": "La categoría sale del uso de la edificación",
+      "valor": "A2 (1,5): esenciales —puertos y aeropuertos, bomberos y cuarteles, electricidad y agua, instituciones educativas, archivos del Estado, salud fuera de A1, y las que su colapso es un riesgo adicional— · B (1,3): reunión de mucha gente, patrimonio, depósitos de granos y almacenes importantes para el abastecimiento · C (1,0): comunes, incluidos «depósitos e instalaciones industriales cuya falla no acarree peligros adicionales de incendios o fugas de contaminantes»",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.030-2026 Art. 19.1 y Tabla N° 7",
+      "nota": "Leído en la página 10 renderizada (pág. 14 del PDF). Textual, C: «Edificaciones comunes tales como: viviendas, oficinas, hoteles, restaurantes, depósitos e instalaciones industriales cuya falla no acarree peligros adicionales de incendios o fugas de contaminantes». B: «Edificaciones donde se reúnen gran cantidad de personas tales como cines, teatros, estadios, coliseos, centros comerciales, terminales de buses de pasajeros, establecimientos penitenciarios, o que guardan patrimonios valiosos como museos y bibliotecas» y «Depósitos de granos y otros almacenes importantes para el abastecimiento». A2: «Edificaciones esenciales para el manejo de las emergencias, el funcionamiento del gobierno y en general aquellas edificaciones que puedan servir de refugio después de un desastre», con la lista. El proyectista elige el USO y el módulo da la categoría con la frase de la tabla que la sostiene."
+    },
+    {
+      "id": "S.categoria.riesgo",
+      "grupo": "La edificación",
+      "magnitud": "Depósito o nave industrial: C o A2 según su falla",
+      "valor": "C si su falla no acarrea peligros adicionales de incendio o fuga de contaminantes · A2 si su colapso puede representar un riesgo adicional (grandes hornos, materiales inflamables o tóxicos) · SE PREGUNTA, no se supone",
+      "unidad": "—",
+      "estado": "conflicto",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.030-2026 Tabla N° 7, filas A2 y C",
+      "nota": "LA MISMA TABLA NOMBRA LAS FÁBRICAS DOS VECES. A2: «Edificaciones cuyo colapso puede representar un riesgo adicional, tales como grandes hornos, fábricas y depósitos de materiales inflamables o tóxicos». C: «depósitos e instalaciones industriales cuya falla no acarree peligros adicionales de incendios o fugas de contaminantes». Leída entera, el criterio no es la palabra «fábrica» sino el riesgo adicional: una fábrica cuyo colapso no incendia ni contamina es una instalación industrial común. DECISIÓN: para un depósito o una nave industrial el módulo PREGUNTA si su falla puede acarrear incendio o fuga de contaminantes, y no tiene respuesta por omisión: la diferencia es U = 1,0 contra 1,5."
+    },
+    {
+      "id": "S.usos.combinados",
+      "grupo": "La edificación",
+      "magnitud": "Usos combinados en la misma edificación",
+      "valor": "manda el mayor U si el área de ese uso supera el 15 % del área total, sin sótanos",
+      "unidad": "%",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.030-2026 Art. 19.2",
+      "nota": "Textual: «Para edificaciones con áreas de usos combinados, se debe usar el mayor valor del factor de uso U, siempre que el área correspondiente a dicho uso supere el 15% del área total de la edificación sin incluir sótanos». «Supere»: con exactamente el 15 % no manda."
+    },
+    {
+      "id": "S.provisional",
+      "grupo": "La edificación",
+      "magnitud": "Construcciones provisionales",
+      "valor": "U a cargo del proyectista · el módulo no lo resuelve",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.030-2026 Art. 19.3",
+      "nota": "Textual: «Para construcciones provisionales tales como almacenes de obra, módulos de casetas, entre otras de naturaleza temporal, la determinación del factor de uso U queda bajo responsabilidad del proyectista, quien debe proveer a estas edificaciones la resistencia y rigidez adecuadas frente a acciones laterales». Un almacén de obra es justo un galpón, pero la norma no da el número y el módulo no lo inventa: se niega y lo dice."
+    },
+    {
+      "id": "S.A1",
+      "grupo": "La edificación",
+      "magnitud": "Salud de segundo y tercer nivel (A1)",
+      "valor": "aislamiento sísmico en zonas 3 y 4 · U ≥ 1,5 sin él en 1 y 2",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.030-2026 Tabla N° 7, nota",
+      "nota": "Textual: «Las nuevas edificaciones de categoría A1 tienen aislamiento sísmico en la base cuando se encuentren en las zonas sísmicas 4 y 3, en cuyo caso debe considerarse U = 1 [...] Si no se utiliza aislamiento sísmico en las zonas sísmicas 1 y 2, el valor de U es como mínimo 1,5». El aislamiento se rige por la E.031 (Art. 27.1), que este módulo no tiene: A1 se niega con ese motivo."
+    },
+    {
+      "id": "S.sistemas.categoria",
+      "grupo": "La edificación",
+      "magnitud": "Los sistemas permitidos según la categoría y la zona",
+      "valor": "A2 en zonas 4, 3 y 2: acero SCBF y EBF · B en 4, 3 y 2: acero SMF, IMF, SCBF, OCBF y EBF · A2 y B en zona 1, y C en todas: cualquier sistema",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.030-2026 Art. 21.1 y Tabla N° 9",
+      "nota": "Leída en la página 12 renderizada (pág. 16 del PDF): el texto extraído mezcla las columnas. Se toma solo lo de acero; la tabla da además concreto, albañilería y madera. A1 (zonas 4 y 3: aislamiento; 2 y 1: SCBF y EBF) no se usa: A1 se niega (fila S.A1)."
+    },
+    {
+      "id": "S.cobertura.liviana",
+      "grupo": "La edificación",
+      "magnitud": "Con cobertura liviana, cualquier sistema",
+      "valor": "permitido cualquier sistema estructural",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.030-2026 Art. 21.2",
+      "nota": "Textual, página 12: «Para edificaciones con cobertura liviana se permite usar cualquier sistema estructural». La cobertura del galpón son planchas TR-4, que la E.020 Art. 7.1 d) llama cobertura liviana (fila Lr.liviana). Así que la Tabla N° 9 se enseña, pero no restringe: el pórtico OMF o el péndulo invertido de un coliseo B en zona 4 están permitidos por este artículo y no por la tabla, y el módulo lo dice así."
+    },
+    {
+      "id": "S.irregularidad.categoria",
+      "grupo": "La edificación",
+      "magnitud": "Las irregularidades prohibidas según la categoría y la zona",
+      "valor": "A1 y A2: zonas 4, 3 y 2 ninguna, zona 1 ninguna extrema · B: 4, 3 y 2 ninguna extrema, 1 sin restricciones · C: 4 y 3 ninguna extrema, 2 ninguna extrema salvo edificios de hasta 2 pisos u 8 m de altura total, 1 sin restricciones",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.030-2026 Art. 25.1 y Tabla N° 13",
+      "nota": "Leída en las páginas 15 y 16 renderizadas. Un galpón es de un piso, así que en C zona 2 cae en la excepción. Galpón solo acepta estructura regular (fila A.sismo.regular), que cumple cualquier fila de la tabla: se enseña lo que la norma permitiría, no se usa para nada más."
     }
   ]
 }

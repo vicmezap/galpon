@@ -21,7 +21,7 @@ const D = { luz_m: 20, largo_m: 60, sepPorticos_m: 6, alturaColumna_m: 6, panele
 const m3 = MON.monta(D);
 const SITIO = { espesorCobertura_mm: 0.4, Dotras_kgfm2: 5, hayNieve: false, V_kmh: 75,
   tipoEdificacion: 1, aberturas: { izqDer: "repartidas", derIzq: "repartidas", longitudinal: "repartidas" },
-  acero: "A36", zona: "Z4", suelo: "S2", categoria: "C", sistemaSismico: "OMF", industrial: false };
+  acero: "A36", zona: "Z4", suelo: "S2", uso: "deposito", riesgoAdicional: false, usoSecCat: "no", sistemaSismico: "OMF", industrial: false };
 const NOMBRES = { "columna": "W10X33", "brida superior": "2L3X3X1/4", "brida inferior": "2L3X3X1/4",
   "diagonal": "L2X2X3/16", "montante": "L2X2X3/16", "correa": "C8X11.5", "viga de alero": "C8X11.5" };
 const conPerfiles = (m) => {
@@ -38,17 +38,18 @@ const vac = R.cargas(m3, {});
 comp("vacío no está completo", vac.completo, false);
 const campos = vac.faltan.map((f) => f.campo).sort();
 comp("y pide cada dato de proyecto, sin rellenar ninguno",
-  campos, ["ca_ab_derIzq", "ca_ab_izqDer", "ca_ab_longitudinal", "ca_categoria", "ca_esp", "ca_indus",
-    "ca_nieve", "ca_sissis", "ca_suelo", "ca_tipo", "ca_v", "ca_zona"]);
-comp("cada falta apunta a un campo que existe en el formulario",
-  vac.faltan.filter((f) => !R.CAMPOS_CARGAS.some((g) => g.campos.some((c) => "ca_" + c.id === f.campo))), []);
+  campos, ["ca_ab_derIzq", "ca_ab_izqDer", "ca_ab_longitudinal", "ca_esp", "ca_nieve", "ca_sissis", "ca_suelo",
+    "ca_tipo", "ca_v", "ca_zona", "ed_indus", "ed_uso"]);
+comp("cada falta apunta a un campo que existe: los de Cargas en Cargas, los de la edificación en Datos",
+  vac.faltan.filter((f) => !(R.CAMPOS_CARGAS.some((g) => g.campos.some((c) => "ca_" + c.id === f.campo)) ||
+    (f.paso === "datos" && R.CAMPOS_EDIFICACION.some((g) => g.campos.some((c) => "ed_" + c.id === f.campo))))), []);
 comp("sin cargas no hay nada que pasarle al análisis", vac.cargas, null);
 
 /* ---- completo ---- */
 const c = R.cargas(m3, SITIO);
 comp("con todo, completo", c.completo, true);
 comp("y el sismo va al análisis con lo que hace falta", c.cargas && c.cargas.sismo,
-  { zona: "Z4", suelo: "S2", vs30_ms: undefined, categoria: "C", sistema: "OMF", industrial: false });
+  { zona: "Z4", suelo: "S2", vs30_ms: undefined, categoria: "C", sub: "C", uso: "deposito", sistema: "OMF", industrial: false });
 comp("8 combinaciones de acero con D, Lr, W y E", c.combinaciones.acero.length, 8);
 const sinE = R.cargas(m3, Object.assign({}, SITIO, { zona: undefined }));
 comp("SIN SISMO NO ESTÁ COMPLETO: la E.030 aplica en todo el Perú", sinE.completo, false);
@@ -80,12 +81,17 @@ comp("y no hay Lr", cs.cargas.Lr_kgfm2, null);
    2 · LOS FORMULARIOS · ida y vuelta
    ================================================================ */
 const val = R.valoresDeSitio(SITIO);
-comp("del sitio a los campos y de vuelta, idéntico", R.leeSitio(val), SITIO);
+const ordena = (o) => Object.keys(o).sort().reduce((x, k) => { x[k] = o[k]; return x; }, {});
+comp("del sitio a los campos —Cargas y la edificación de Datos— y de vuelta, idéntico",
+  ordena(Object.assign(R.leeSitio(val), R.leeEdificacion(R.valoresDeEdificacion(SITIO)))), ordena(SITIO));
 comp("un campo vacío NO se guarda como cero", R.leeSitio({ esp: "", v: "", dotras: "" }), {});
 comp("cada dato de sitio que guarda el libro tiene su campo",
-  L.SITIO.filter((k) => !R.CAMPOS_CARGAS.some((g) => g.campos.some((c2) => c2.clave.split(".")[0] === k))), []);
+  L.SITIO.filter((k) => !R.CAMPOS_CARGAS.concat(R.CAMPOS_EDIFICACION).some((g) => g.campos.some((c2) => c2.clave.split(".")[0] === k))),
+  ["categoria"]);
+comp("(la categoría ya no tiene campo: sale del uso, y el libro solo la acepta de modelos viejos)",
+  R.CAMPOS_CARGAS.some((g) => g.campos.some((c2) => c2.clave === "categoria")), false);
 comp("ningún campo trae valor de partida",
-  R.CAMPOS_CARGAS.concat(R.CAMPOS_ANALISIS).reduce((a, g) => a.concat(g.campos), [])
+  R.CAMPOS_CARGAS.concat(R.CAMPOS_ANALISIS, R.CAMPOS_EDIFICACION).reduce((a, g) => a.concat(g.campos), [])
     .filter((c2) => c2.tipo === "opcion" && c2.opciones[0][0] !== "").map((c2) => c2.id), []);
 comp("el sistema solo se lee entero", [R.leeSistema({ base: "empotrada", union: "" }),
   R.leeSistema({ base: "empotrada", union: "rigida" })], [null, { base: "empotrada", union: "rigida" }]);
@@ -533,7 +539,8 @@ comp("NI UNA línea de Cimentación sin procedencia válida",
   comp("con perfiles en todo, Geometría queda completa", de(R.pendientes({ m3: m3, modelo: mok, perfiles: P, analisis: ok }),
     "geom").completo, !require("../src/vistas.js").tablaPerfiles(m3, mok).sinPerfil);
   comp("Cargas pide cada dato una vez, con su campo", de(vacio, "cargas").faltas.map((f) => f.campo).sort(),
-    R.cargas(m3, {}).faltan.map((f) => f.campo).concat(["ca_acero"]).sort());
+    R.cargas(m3, {}).faltan.filter((f) => !f.paso).map((f) => f.campo).concat(["ca_acero"]).sort());
+  comp("y los de la edificación, en Datos", de(vacio, "datos").faltas.map((f) => f.campo).sort(), ["ed_indus", "ed_uso", "pr_nom"]);
   comp("Diseño, Conexiones y Cimentación esperan al análisis", ["diseno", "conex", "cimen"].map((k) => de(vacio, k).espera
     .map((x) => x.paso)), [["analisis"], ["analisis"], ["analisis"]]);
   cierto("pero ya dicen sus propios datos, sin esperar", de(vacio, "conex").faltas.length > 0 &&
@@ -554,6 +561,33 @@ comp("NI UNA línea de Cimentación sin procedencia válida",
     .modelo.proyecto, { nombre: "A", ubicacion: "B" });
   lanza("y no guarda en silencio lo que no conoce", () => L.serializa(Object.assign(L.nuevo({}), { proyecto: { telefono: "1" } })),
     ["datos de proyecto desconocidos"]);
+}
+
+
+/* LA EDIFICACIÓN, en Datos · el uso da la categoría */
+{
+  const conUso = (x) => Object.assign({}, SITIO, x);
+  comp("una nave con riesgo de incendio sube a A2 y el sismo va con U = 1,5",
+    [R.cargas(m3, conUso({ uso: "industrial", riesgoAdicional: true })).cargas.sismo.categoria,
+      R.cargas(m3, conUso({ uso: "industrial", riesgoAdicional: true })).cargas.sismo.sub], ["A", "A2"]);
+  const sinR = R.cargas(m3, conUso({ uso: "industrial", riesgoAdicional: undefined }));
+  cierto("sin decir el riesgo, falta, y se pide en Datos", !sinR.completo &&
+    sinR.faltan.some((f) => f.paso === "datos" && /incendio o fuga/.test(f.que)));
+  cierto("un modelo viejo con la categoría a mano y sin uso pide el uso", !R.cargas(m3, Object.assign({}, SITIO,
+    { uso: undefined, categoria: "C" })).completo);
+  const prov = R.cargas(m3, conUso({ uso: "provisional" }));
+  cierto("lo provisional no se calcula, y dice por qué", !prov.completo && prov.faltan.some((f) => /19\.3/.test(f.que)));
+  const fe = R.fichaEdificacion(conUso({ uso: "reunion", zona: "Z4", sistemaSismico: "OMF" }));
+  const q = (re) => fe[0].lineas.filter((l) => re.test(l.q))[0];
+  comp("la ficha: categoría B con U = 1,3", q(/^Categoría/).v, "B · U = 1,3");
+  cierto("el OMF no está en la Tabla N° 9 y lo permite el Art. 21.2", /no está en la Tabla N° 9/.test(q(/cobertura liviana/).nota));
+  cierto("cada línea con su procedencia", fe[0].lineas.every((l) => l.fuente ? INV.existe(l.fuente) : true));
+  comp("sin uso, la ficha lo pide", R.fichaEdificacion({})[0].lineas[0].v, "FALTA");
+  comp("el libro guarda la edificación", L.deserializa(L.serializa(Object.assign(L.nuevo({}), { sitio: { uso: "deposito",
+    riesgoAdicional: false, usoSecCat: "B", usoSecPct: 20 } }))).modelo.sitio,
+    { uso: "deposito", riesgoAdicional: false, usoSecCat: "B", usoSecPct: 20 });
+  comp("el campo del riesgo solo sale para depósito y nave", R.CAMPOS_EDIFICACION[0].campos.filter((c2) => c2.id === "riesgo")[0].soloSi,
+    "uso=deposito|industrial");
 }
 
 fin();

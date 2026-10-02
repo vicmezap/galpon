@@ -28,7 +28,7 @@ const GEO = { luz_m: 20, largo_m: 60, sepPorticos_m: 6, alturaColumna_m: 6, pane
   panosArriostradosTecho: [5], panosArriostradosFachada: [5] };
 const SITIO = { espesorCobertura_mm: 0.4, Dotras_kgfm2: 5, hayNieve: false, V_kmh: 75,
   tipoEdificacion: 1, aberturas: { izqDer: "repartidas", derIzq: "repartidas", longitudinal: "repartidas" },
-  acero: "A36", zona: "Z4", suelo: "S2", categoria: "C", sistemaSismico: "OMF", industrial: false };
+  acero: "A36", zona: "Z4", suelo: "S2", uso: "deposito", riesgoAdicional: false, usoSecCat: "no", sistemaSismico: "OMF", industrial: false };
 const NOMBRES = { "columna": "W10X33", "brida superior": "2L3X3X1/4", "brida inferior": "2L3X3X1/4",
   "diagonal": "L2X2X3/16", "montante": "L2X2X3/16", "correa": "C8X11.5", "viga de alero": "C8X11.5" };
 let mod = Object.assign(L.nuevo({}), { sitio: SITIO, sistema: { base: "empotrada", union: "rigida" } });
@@ -172,6 +172,15 @@ cierto("toda fuente que cita es una fila del inventario o un dato",
     [["cargas", true], ["diseno", false], ["cimentacion", false], ["metrado", false]]);
   comp("todo texto lleva formato de texto: «1.4-3» no se vuelve una fecha al escribirse",
     Object.keys(h0.celdas).filter((k) => typeof h0.celdas[k].v === "string" && h0.celdas[k].fmt !== "@"), []);
+}
+
+
+/* la categoría de la hoja sale del uso de la edificación (Datos) */
+{
+  const hA2 = hoja(null, { uso: "industrial", riesgoAdicional: true }, false);
+  comp("una nave con riesgo de incendio: la hoja dice el uso, A2, y U = 1,5, sin separarse del motor",
+    [hA2.comprobacion.malas, v(hA2, "categoria"), v(hA2, "U")], [[], "A", 1.5]);
+  cierto("con el uso escrito en la hoja", Object.keys(hA2.celdas).some((k) => hA2.celdas[k].v === "Nave industrial, fábrica o taller"));
 }
 
 fin();

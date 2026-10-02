@@ -507,6 +507,14 @@ cierto("y Comprobación oye a la zapata de LOS DOS pórticos",
   cierto("pide el nombre, la ubicación, el propietario y el proyectista, sin valor",
     ["pr_nom", "pr_ubi", "pr_pro", "pr_ing"].every((id) => pinto(M.dom, "fp").innerHTML.indexOf(id) >= 0) &&
     !/<input[^>]*value="[^"]/.test(pinto(M.dom, "fp").innerHTML));
+  cierto("y la edificación: el uso, el riesgo de la nave, el otro uso y el uso industrial, sin valor",
+    ["ed_uso", "ed_riesgo", "ed_sec", "ed_secpct", "ed_indus"].every((id) => pinto(M.dom, "fe").innerHTML.indexOf(id) >= 0) &&
+    !/selected/.test(pinto(M.dom, "fe").innerHTML));
+  cierto("la categoría ya no se elige a mano en Cargas: sale del uso",
+    pinto(M.dom, "fc").innerHTML.indexOf("ca_categoria") < 0 && pinto(M.dom, "fc").innerHTML.indexOf("ca_indus") < 0);
+  cierto("el sitio se lee de los dos formularios, para que uno no borre al otro", /function sitioDeFormularios\(\)/.test(modeHtml) &&
+    (modeHtml.match(/modelo\.sitio = sitioDeFormularios\(\)/g) || []).length === 2);
+  cierto("y en el centro, la ficha de la edificación", /La edificación/.test(sel()));
   cierto("y dice lo que falta en cada paso, con el botón para ir",
     /Lo que falta, paso por paso/.test(sel()) && /data-ir="cargas"/.test(sel()) && /espera a/.test(sel()));
   cierto("a la derecha, los materiales y las normas que mandan",

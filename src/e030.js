@@ -47,7 +47,9 @@
     "S.V", "S.Z", "S.U", "S.perfil", "S.S", "S.TP.TL", "S.sinVs30", "S.interp",
     "S.C", "S.C.estatico", "S.CR", "S.R0", "S.pendulo", "S.R", "S.aisc341",
     "S.P", "S.T", "S.CT", "S.T.rayleigh", "S.Fi", "S.k",
-    "S.despl", "S.despl.min", "S.deriva", "S.deriva.industrial"
+    "S.despl", "S.despl.min", "S.deriva", "S.deriva.industrial",
+    "S.categoria.uso", "S.categoria.riesgo", "S.usos.combinados", "S.provisional", "S.A1",
+    "S.sistemas.categoria", "S.cobertura.liviana", "S.irregularidad.categoria"
   ]);
 
   /* ---------- Tabla N° 1 · factor de zona ------------------------------- */
@@ -58,6 +60,113 @@
      almacén corriente es C, un centro de reuniones cae en B, y un depósito de
      materiales inflamables o tóxicos está listado en A2. */
   const U = { A: 1.5, B: 1.3, C: 1.0 };
+
+  /* ---------- EL USO Y LA CATEGORÍA · filas S.categoria.uso y siguientes ----
+     El proyectista elige el USO; la categoría sale de la Tabla N° 7, con la
+     frase que la sostiene.  Depósito y nave industrial dependen de si su
+     falla acarrea incendio o fuga de contaminantes: se pregunta (fila
+     S.categoria.riesgo).  A1 y lo provisional se niegan con su motivo. */
+  const T7 = {
+    A2: "Edificaciones esenciales para el manejo de las emergencias, el funcionamiento del gobierno y en general " +
+      "aquellas edificaciones que puedan servir de refugio después de un desastre",
+    A2riesgo: "Edificaciones cuyo colapso puede representar un riesgo adicional, tales como grandes hornos, fábricas y " +
+      "depósitos de materiales inflamables o tóxicos",
+    B: "Edificaciones donde se reúnen gran cantidad de personas tales como cines, teatros, estadios, coliseos, centros " +
+      "comerciales, terminales de buses de pasajeros, establecimientos penitenciarios",
+    Bpatrimonio: "[edificaciones] que guardan patrimonios valiosos como museos y bibliotecas",
+    Bgranos: "Depósitos de granos y otros almacenes importantes para el abastecimiento",
+    C: "depósitos e instalaciones industriales cuya falla no acarree peligros adicionales de incendios o fugas de contaminantes"
+  };
+  const USOS = {
+    deposito: { nombre: "Depósito o almacén", sub: "C", conRiesgo: true, cita: T7.C },
+    industrial: { nombre: "Nave industrial, fábrica o taller", sub: "C", conRiesgo: true, cita: T7.C },
+    abastecimiento: { nombre: "Depósito de granos u otro almacén importante para el abastecimiento", sub: "B", cita: T7.Bgranos },
+    reunion: { nombre: "Reunión de mucha gente: coliseo, estadio, centro comercial, terminal de buses, cine o teatro",
+      sub: "B", cita: T7.B },
+    patrimonio: { nombre: "Guarda patrimonio valioso: museo o biblioteca", sub: "B", cita: T7.Bpatrimonio },
+    transporte: { nombre: "Puerto, aeropuerto (hangar), estación ferroviaria de pasajeros o sistema masivo de transporte",
+      sub: "A2", cita: T7.A2 + ": «Puertos, aeropuertos, estaciones ferroviarias de pasajeros, sistemas masivos de transporte»" },
+    educativo: { nombre: "Institución educativa, instituto o universidad (su coliseo, taller o almacén)", sub: "A2",
+      cita: T7.A2 + ": «Instituciones educativas, institutos superiores tecnológicos y universidades»" },
+    emergencia: { nombre: "Estación de bomberos, cuartel de las fuerzas armadas o de la policía", sub: "A2",
+      cita: T7.A2 + ": «Estaciones de bomberos, cuarteles de las fuerzas armadas y policía»" },
+    servicios: { nombre: "Generación o transformación de electricidad, reservorio o planta de tratamiento de agua", sub: "A2",
+      cita: T7.A2 + ": «Instalaciones de generación y transformación de electricidad, reservorios y plantas de tratamiento de agua»" },
+    archivo: { nombre: "Archivos e información esencial del Estado", sub: "A2",
+      cita: T7.A2 + ": «Edificios que almacenen archivos e información esencial del Estado»" },
+    salud: { nombre: "Establecimiento de salud del primer nivel (no A1)", sub: "A2",
+      cita: T7.A2 + ": «Establecimientos de salud no comprendidos en la categoría A1»" },
+    saludA1: { nombre: "Establecimiento de salud de segundo o tercer nivel (A1)", sub: "A1", niega: "S.A1",
+      motivo: "A1 lleva aislamiento sísmico en las zonas 4 y 3 (E.031), y sin él en 1 y 2 U es «como mínimo» 1,5: " +
+        "Galpón no diseña aislamiento ni elige ese U" },
+    provisional: { nombre: "Construcción provisional: almacén de obra, casetas", sub: null, niega: "S.provisional",
+      motivo: "el Art. 19.3 deja U «bajo responsabilidad del proyectista»: la norma no da el número y Galpón no lo inventa" }
+  };
+  const SUB_U = { A2: "A", B: "B", C: "C" };          /* la subcategoría, a la categoría que da U */
+  const UMBRAL_COMBINADO = 0.15;                      /* Art. 19.2 · fila S.usos.combinados */
+
+  /* Tabla N° 9, lo de acero · fila S.sistemas.categoria */
+  const ACERO_T9 = { A2: ["SCBF", "EBF"], B: ["SMF", "IMF", "SCBF", "OCBF", "EBF"] };
+  /* Tabla N° 13 · fila S.irregularidad.categoria */
+  function irregularidad(sub, zona) {
+    const z = +String(zona).replace("Z", "");
+    if (sub === "A2") return z >= 2 ? "No se permiten irregularidades" : "No se permiten irregularidades extremas";
+    if (sub === "B") return z >= 2 ? "No se permiten irregularidades extremas" : "Sin restricciones";
+    if (z >= 3) return "No se permiten irregularidades extremas";
+    if (z === 2) return "No se permiten irregularidades extremas excepto en edificios de hasta 2 pisos u 8 m de altura " +
+      "total: un galpón de un piso cae en la excepción";
+    return "Sin restricciones";
+  }
+
+  /* d = { uso, riesgoAdicional (si es depósito o nave), usoSecCat ("A2"|"B"|"C"), usoSecPct (%), zona, sistema } */
+  function clasifica(d) {
+    const u = USOS[d.uso];
+    if (!u) {
+      throw new Error("e030: el uso de la edificación es uno de " + Object.keys(USOS).join(" · ") + ", no «" + d.uso + "»");
+    }
+    if (u.niega) throw new Error("e030: «" + u.nombre + "» no se resuelve aquí: " + u.motivo + " (" + ART[u.niega] + ").");
+    let sub = u.sub, cita = u.cita, art = ART["S.categoria.uso"];
+    if (u.conRiesgo) {
+      if (typeof d.riesgoAdicional !== "boolean") {
+        throw new Error("e030: para «" + u.nombre + "» hay que decir si su falla puede acarrear incendio o fuga de " +
+          "contaminantes: la Tabla N° 7 la pone en C si no y en A2 si sí, y eso es U = 1,0 contra 1,5 (" +
+          ART["S.categoria.riesgo"] + ").");
+      }
+      if (d.riesgoAdicional) { sub = "A2"; cita = T7.A2riesgo; }
+      art = ART["S.categoria.riesgo"];
+    }
+    let combinado = null;
+    if (d.usoSecCat) {
+      if (!SUB_U[d.usoSecCat]) throw new Error("e030: la categoría del otro uso es A2, B ó C, no «" + d.usoSecCat + "»");
+      if (!(d.usoSecPct >= 0 && d.usoSecPct <= 100)) {
+        throw new Error("e030: falta qué porcentaje del área total ocupa el otro uso (Art. 19.2)");
+      }
+      const cuenta = d.usoSecPct / 100 > UMBRAL_COMBINADO;
+      const mayor = U[SUB_U[d.usoSecCat]] > U[SUB_U[sub]];
+      combinado = { sub: d.usoSecCat, pct: d.usoSecPct, cuenta: cuenta, manda: cuenta && mayor, art: ART["S.usos.combinados"] };
+      if (combinado.manda) {
+        sub = d.usoSecCat;
+        cita = "el otro uso, " + d.usoSecCat + ", ocupa el " + d.usoSecPct + " % del área: supera el 15 % y su U es mayor";
+        art = ART["S.usos.combinados"];
+      }
+    }
+    const cat = SUB_U[sub];
+    const out = { uso: d.uso, nombre: u.nombre, sub: sub, categoria: cat, U: U[cat], cita: cita, art: art,
+      combinado: combinado, pctVivaPiso: PCT_VIVA[cat], pctVivaTecho: PCT_VIVA.techo, artPeso: ART["S.P"] };
+    if (d.zona) {
+      const z = +String(d.zona).replace("Z", "");
+      const lista = ACERO_T9[sub] && z >= 2 ? ACERO_T9[sub] : null;
+      out.sistemas = { tabla9: lista ? "acero " + lista.join(", ") : "cualquier sistema", lista: lista,
+        art: ART["S.sistemas.categoria"], artLiviana: ART["S.cobertura.liviana"] };
+      if (d.sistema) {
+        out.sistemas.sistema = d.sistema;
+        out.sistemas.enTabla9 = !lista || lista.indexOf(d.sistema) >= 0;
+        out.sistemas.permitido = true;           /* Art. 21.2: la cobertura es liviana */
+      }
+      out.irregularidad = { texto: irregularidad(sub, d.zona), art: ART["S.irregularidad.categoria"] };
+    }
+    return out;
+  }
 
   /* ---------- Tabla N° 3 · intervalos de V̄s30 (m/s) -------------------- */
   const VS30 = {
@@ -390,7 +499,7 @@
   }
 
   return {
-    ART, Z, U, VS30, TABLA_S, TABLA_TP, TABLA_TL, SIN_VS30, SUELOS, ZONAS,
+    ART, Z, U, USOS, T7, ACERO_T9, UMBRAL_COMBINADO, clasifica, irregularidad, VS30, TABLA_S, TABLA_TP, TABLA_TL, SIN_VS30, SUELOS, ZONAS,
     R0, R0_PENDULO, SISTEMAS, CT, PCT_VIVA, CR_MIN, FACTOR_DESPL, DERIVA,
     FACTOR_INDUSTRIAL, G,
     interpola, sitio, factorU, factorC, factorCestatico, coefR,

@@ -402,6 +402,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     <div id="lado-datos">
       <h3 class="sec">Datos del proyecto</h3>
       <form id="fp" autocomplete="off" onsubmit="return false"></form>
+      <form id="fe" autocomplete="off" onsubmit="return false"></form>
     </div>
     <div id="lado-cargas">
       <h3 class="sec">Cargas</h3>
@@ -654,6 +655,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     });
   }
   pintaForm("fp", RESULTADOS.CAMPOS_PROYECTO, "pr_");
+  pintaForm("fe", RESULTADOS.CAMPOS_EDIFICACION, "ed_");
   pintaForm("fc", RESULTADOS.CAMPOS_CARGAS, "ca_");
   pintaForm("fa", RESULTADOS.CAMPOS_ANALISIS, "an_");
   pintaForm("fd", RESULTADOS.CAMPOS_DISENO, "di_");
@@ -662,14 +664,14 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
   /* LOS CAMPOS QUE DEPENDEN DE OTRO · soloSi: "campo=valor".  El de la nieve
      básica solo con nieve; el de la soldadura solo con uniones soldadas. */
   function actualizaSolos() {
-    var pref = { fc: "ca_", fd: "di_" };
+    var pref = { fc: "ca_", fd: "di_", fe: "ed_" };
     for (var f in pref) {
       var form = $(f);
       if (!form || !form.querySelectorAll) continue;
       Array.prototype.forEach.call(form.querySelectorAll("[data-solo]"), function (el) {
         var q = el.getAttribute("data-solo").split("=");
         var otro = $(pref[f] + q[0]);
-        el.hidden = !(otro && otro.value === q[1]);
+        el.hidden = !(otro && q[1].split("|").indexOf(otro.value) >= 0);
       });
     }
   }
@@ -686,8 +688,18 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     modelo.cimentacion = RESULTADOS.leeCimentacion(valoresForm(RESULTADOS.CAMPOS_CIMENTACION, "ci_"));
     recalcula();
   });
+  /* el sitio se lee de DOS formularios: Cargas y la Edificación de Datos */
+  function sitioDeFormularios() {
+    return Object.assign(RESULTADOS.leeSitio(valoresForm(RESULTADOS.CAMPOS_CARGAS, "ca_")),
+      RESULTADOS.leeEdificacion(valoresForm(RESULTADOS.CAMPOS_EDIFICACION, "ed_")));
+  }
+  $("fe").addEventListener("change", function () {
+    modelo.sitio = sitioDeFormularios();
+    actualizaSolos();
+    recalcula();
+  });
   $("fc").addEventListener("change", function () {
-    modelo.sitio = RESULTADOS.leeSitio(valoresForm(RESULTADOS.CAMPOS_CARGAS, "ca_"));
+    modelo.sitio = sitioDeFormularios();
     actualizaSolos();
     recalcula();
   });
@@ -698,6 +710,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
   function ponSitioEnFormularios() {
     ponValores(RESULTADOS.CAMPOS_PROYECTO, "pr_", RESULTADOS.valoresDeProyecto(modelo.proyecto));
     ponValores(RESULTADOS.CAMPOS_CARGAS, "ca_", RESULTADOS.valoresDeSitio(modelo.sitio));
+    ponValores(RESULTADOS.CAMPOS_EDIFICACION, "ed_", RESULTADOS.valoresDeEdificacion(modelo.sitio));
     ponValores(RESULTADOS.CAMPOS_ANALISIS, "an_", modelo.sistema || {});
     ponValores(RESULTADOS.CAMPOS_DISENO, "di_", RESULTADOS.valoresDeDiseno(modelo.diseno));
     ponValores(RESULTADOS.CAMPOS_CIMENTACION, "ci_", RESULTADOS.valoresDeCimentacion(modelo.cimentacion));
@@ -722,11 +735,11 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
       return;
     }
     var c = RESULTADOS.cargas(m3, modelo.sitio);
-    var faltas = c.faltan.map(function (f) { return { que: f.que }; });
+    var faltas = c.faltan.map(function (f) { return { que: f.que, paso: f.paso }; });
     var h = '<div class="hoja"><h2>Cargas</h2><p class="lead">' +
       (c.completo ? "todo definido: el análisis tiene con qué correr"
         : "faltan " + faltas.length + " dato(s), que se piden a la izquierda") + "</p>" +
-      (faltas.length ? listaFaltas(faltas, false) : "") +
+      (faltas.length ? listaFaltas(faltas, true) : "") +
       '<div class="rejilla">' + c.fichas.map(pintaFicha).join("") + "</div>";
     if (c.tablaViento.length) {
       h += "<h3>Viento por superficie</h3><div class=\"tarj\"><table class=\"rx\"><thead><tr>" +
@@ -1423,7 +1436,9 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     }).join("");
     $("centro").innerHTML = '<div class="hoja"><h2>Datos</h2><p class="lead">' +
       esc((modelo.proyecto && modelo.proyecto.nombre) || "proyecto sin nombre") + " · " + hechos + " de " + est.length +
-      " pasos completos</p><h3>Lo que falta, paso por paso</h3><div class=\"rejilla\">" + filas + "</div></div>";
+      " pasos completos</p><h3>La edificación</h3><div class=\"rejilla\">" +
+      RESULTADOS.fichaEdificacion(modelo.sitio).map(pintaFicha).join("") + "</div>" +
+      "<h3>Lo que falta, paso por paso</h3><div class=\"rejilla\">" + filas + "</div></div>";
     var mat = RESULTADOS.materiales(modelo).map(function (x) {
       return '<div class="ln"><span class="q">' + esc(x.que) + '</span><span class="v">' +
         (x.v ? esc(x.v) : "se elige en " + esc(VISTAS.paso(x.paso).nombre)) + "</span></div>";

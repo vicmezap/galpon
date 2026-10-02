@@ -39,7 +39,7 @@
     "D.cobertura.peso", "Lr.liviana", "Lr.red.formula", "Lr.red.min40", "Lr.red.piso", "Lr.red.k",
     "N.Qs.min", "N.Qt.a", "N.Qt.b", "N.Qt.c", "N.desbal.corto", "N.desbal.largo",
     "W.Vh", "W.V.min", "W.Ph", "W.tipo", "W.T4", "W.T4.paralelas", "W.T5.repartidas", "W.C", "W.simultaneo",
-    "S.Z", "S.U", "S.perfil", "S.sinVs30", "S.interp", "S.R0", "S.pendulo", "S.C.estatico", "S.CR", "S.V",
+    "S.Z", "S.U", "S.categoria.uso", "S.perfil", "S.sinVs30", "S.interp", "S.R0", "S.pendulo", "S.C.estatico", "S.CR", "S.V",
     "S.vertical", "A.sismo.periodo", "S.T.rayleigh", "S.P", "A.sismo.regular", "J.costura", "A.portico.tipico"
   ]);
 
@@ -330,10 +330,13 @@
     h.linea({ n: "suelo", que: "Perfil de suelo", v: s.suelo, fuente: "dato del proyecto" });
     h.linea({ n: "vsMed", que: "V̄s30 medido (vacío si no hay)", v: typeof s.vs30_ms === "number" ? s.vs30_ms : "",
       u: "m/s", fmt: "0", fuente: fte("S.sinVs30") });
-    h.linea({ n: "categoria", que: "Categoría de la edificación", v: s.categoria, fuente: "dato del proyecto" });
+    const cat = c.sismo.categoria;
+    h.linea({ que: "Uso de la edificación", v: E030.USOS[c.sismo.uso].nombre, fuente: fte("S.categoria.uso") });
+    h.linea({ n: "categoria", que: "Categoría de la edificación (" + c.sismo.sub + "), por el uso", v: cat,
+      fuente: fte("S.categoria.uso") });
     h.linea({ n: "sistema", que: "Sistema en la dirección transversal", v: s.sistemaSismico, fuente: "dato del proyecto" });
     h.linea({ n: "Z", que: "Factor de zona Z", f: "=INDEX(tZ_v,MATCH(zona,tZ_k,0))", debe: st.Z, fuente: fte("S.Z") });
-    h.linea({ n: "U", que: "Factor de uso U", f: "=INDEX(tU_v,MATCH(categoria,tU_k,0))", debe: E030.factorU(s.categoria).U,
+    h.linea({ n: "U", que: "Factor de uso U", f: "=INDEX(tU_v,MATCH(categoria,tU_k,0))", debe: E030.factorU(cat).U,
       fuente: fte("S.U") });
     const look = (col) => "INDEX(tS_" + col + ",MATCH(zona&suelo,tS_k,0))";
     h.linea({ n: "uVs", que: "Posición en el intervalo del suelo (1 = el más blando)", fmt: "0.000",
@@ -356,7 +359,7 @@
     h.linea({ n: "fV", que: "Fracción de la vertical", v: AN.FRACCION_VERTICAL, estilo: "norma", fmt: "0.000",
       fuente: fte("S.vertical") });
     h.linea({ n: "Evf", que: "Sismo vertical, fracción del peso", fmt: "0.000", f: "=fV*Z*U*S",
-      debe: AN.FRACCION_VERTICAL * st.Z * E030.factorU(s.categoria).U * st.S, como: "2/3·Z·U·S, sin dividir por R",
+      debe: AN.FRACCION_VERTICAL * st.Z * E030.factorU(cat).U * st.S, como: "2/3·Z·U·S, sin dividir por R",
       fuente: fte("S.vertical") });
     h.linea({ n: "fT", que: "Factor del período por los elementos no estructurales", v: AN.FACTOR_T_NO_ESTRUCTURAL,
       estilo: "norma", fuente: fte("A.sismo.periodo") });

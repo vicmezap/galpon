@@ -245,4 +245,57 @@ lanza("un material fuera de la Tabla 14 PARA",
 cierto("cada resultado trae su artículo de la E.030",
   V.art.indexOf("E.030") >= 0 && dsp.art.indexOf("E.030") >= 0);
 
+
+/* ================================================================
+   LA EDIFICACIÓN · el uso da la categoría (Tabla N° 7, leída en la
+   página 10 renderizada) · filas S.categoria.uso y siguientes
+   ================================================================ */
+{
+  const cl = (d) => E.clasifica(Object.assign({ riesgoAdicional: false }, d));
+  comp("cada uso, a su categoría de la Tabla N° 7",
+    ["deposito", "industrial", "abastecimiento", "reunion", "patrimonio", "transporte", "educativo", "emergencia",
+      "servicios", "archivo", "salud"].map((u) => cl({ uso: u }).sub),
+    ["C", "C", "B", "B", "B", "A2", "A2", "A2", "A2", "A2", "A2"]);
+  comp("y su U: C 1,0 · B 1,3 · A2 1,5", ["deposito", "reunion", "educativo"].map((u) => cl({ uso: u }).U), [1.0, 1.3, 1.5]);
+  cierto("con la frase de la tabla que la sostiene", /cuya falla no acarree peligros adicionales/.test(cl({ uso: "deposito" }).cita) &&
+    /Instituciones educativas/.test(cl({ uso: "educativo" }).cita));
+  /* el depósito y la nave: C o A2 según su falla, y SE PREGUNTA */
+  comp("la nave cuya falla acarrea incendio o fuga de contaminantes es A2", [cl({ uso: "industrial", riesgoAdicional: true }).sub,
+    cl({ uso: "industrial", riesgoAdicional: true }).U], ["A2", 1.5]);
+  cierto("con la otra frase: «grandes hornos, fábricas y depósitos de materiales inflamables o tóxicos»",
+    /grandes hornos, fábricas/.test(cl({ uso: "deposito", riesgoAdicional: true }).cita));
+  lanza("sin decirlo, no hay categoría: es U = 1,0 contra 1,5", () => E.clasifica({ uso: "deposito" }),
+    ["incendio o fuga de contaminantes"]);
+  cierto("(a los usos que no dependen de eso no se les pregunta)", E.clasifica({ uso: "reunion" }).sub === "B");
+  /* lo que se niega, con su motivo */
+  lanza("A1 se niega: aislamiento sísmico (E.031)", () => cl({ uso: "saludA1" }), ["aislamiento"]);
+  lanza("lo provisional se niega: el Art. 19.3 deja U al proyectista", () => cl({ uso: "provisional" }), ["19.3"]);
+  lanza("un uso que no está en la lista", () => cl({ uso: "granja" }), ["el uso de la edificación es uno de"]);
+  /* usos combinados · Art. 19.2: «supere el 15 %» */
+  comp("un 15 % exacto de otro uso NO cuenta: «supere»", [cl({ uso: "deposito", usoSecCat: "B", usoSecPct: 15 }).sub,
+    cl({ uso: "deposito", usoSecCat: "B", usoSecPct: 15 }).combinado.cuenta], ["C", false]);
+  comp("un 15,1 % sí, y su U es mayor: manda", [cl({ uso: "deposito", usoSecCat: "B", usoSecPct: 15.1 }).sub,
+    cl({ uso: "deposito", usoSecCat: "B", usoSecPct: 15.1 }).U], ["B", 1.3]);
+  comp("un otro uso de menor U no baja la categoría", cl({ uso: "reunion", usoSecCat: "C", usoSecPct: 60 }).sub, "B");
+  lanza("otro uso sin su porcentaje", () => cl({ uso: "deposito", usoSecCat: "B" }), ["porcentaje"]);
+  /* Tabla N° 9 y Art. 21.2 */
+  const b4 = cl({ uso: "reunion", zona: "Z4", sistema: "OMF" });
+  comp("B en zona 4: la Tabla N° 9 da acero SMF, IMF, SCBF, OCBF y EBF", b4.sistemas.lista, ["SMF", "IMF", "SCBF", "OCBF", "EBF"]);
+  comp("el OMF no está en ella, pero la cobertura liviana permite cualquiera (Art. 21.2)",
+    [b4.sistemas.enTabla9, b4.sistemas.permitido], [false, true]);
+  comp("A2 en zonas 4, 3 y 2: SCBF y EBF; en la 1, cualquiera", ["Z4", "Z3", "Z2", "Z1"].map((z) =>
+    cl({ uso: "educativo", zona: z }).sistemas.tabla9), ["acero SCBF, EBF", "acero SCBF, EBF", "acero SCBF, EBF", "cualquier sistema"]);
+  comp("C, cualquiera en todas", cl({ uso: "deposito", zona: "Z4" }).sistemas.tabla9, "cualquier sistema");
+  /* Tabla N° 13 */
+  comp("las irregularidades de la Tabla N° 13, fila por fila",
+    [["educativo", "Z4"], ["educativo", "Z1"], ["reunion", "Z2"], ["reunion", "Z1"], ["deposito", "Z3"], ["deposito", "Z2"],
+      ["deposito", "Z1"]].map(([u, z]) => cl({ uso: u, zona: z }).irregularidad.texto.split(":")[0]),
+    ["No se permiten irregularidades", "No se permiten irregularidades extremas", "No se permiten irregularidades extremas",
+      "Sin restricciones", "No se permiten irregularidades extremas",
+      "No se permiten irregularidades extremas excepto en edificios de hasta 2 pisos u 8 m de altura total",
+      "Sin restricciones"]);
+  comp("el peso sísmico del techo, 25 % (inciso d); el de piso según la categoría", [cl({ uso: "reunion" }).pctVivaTecho,
+    cl({ uso: "reunion" }).pctVivaPiso, cl({ uso: "deposito" }).pctVivaPiso], [0.25, 0.5, 0.25]);
+}
+
 fin();
