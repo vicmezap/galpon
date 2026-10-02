@@ -302,6 +302,18 @@
       "clave": true,
       "fuente": "medido sobre los tres catálogos cargados",
       "nota": "«C» son 70 canales laminados del AISC y 63 canales de alas atiesadas de Precor, que es otra seccion y otra especificacion; «L» son 127 angulos laminados y 29 conformados. Misma letra, distinta pieza. NO SE RENOMBRAN: la designacion es la del catalogo, no la nuestra. Cada perfil lleva `grupo` = fabricacion + familia -laminado:C frente a frio:C- y es lo que la interfaz lista, porque «C» sola no identifica una seccion. catalogo() acepta las dos: la letra devuelve las dos fabricaciones mezcladas a proposito, el grupo devuelve una. Las dos letras en conflicto estan fijadas en la prueba: si entra un catalogo que choca en una tercera, sale en rojo en vez de mezclarse en silencio."
+    },
+    {
+      "id": "CAT.varillas",
+      "grupo": "Catálogos",
+      "magnitud": "Varillas lisas para tirantes",
+      "valor": "8 diámetros: 3/8\", 1/2\", 5/8\", 3/4\", 7/8\", 1\", 1 1/8\" y 1 1/4\" · familia VAR",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "geometría del círculo · peso con la fila D.acero.gamma · scripts/genera_varillas.py",
+      "nota": "Los arriostres que solo trabajan a tracción (cruz de fachada, arriostre vertical) se hacen con varilla, y ningún catálogo cargado la trae. No hay tabla que leer: el dato es el diámetro nominal en pulgadas y lo demás sale del círculo (A = π·d²/4, I = π·d⁴/64, r = d/4, Z = d³/6). Se verifican como varilla ROSCADA (filas T.varillas): el área de cálculo es la nominal sin roscar y la rosca entra con el 0,75 de la Tabla J3.2. Los diámetros son los comerciales en fracciones de pulgada; que el proveedor los tenga es cosa del proyecto."
     }
   ]
 }

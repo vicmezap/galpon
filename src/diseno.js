@@ -28,19 +28,22 @@
   if (typeof module === "object" && module.exports) {
     module.exports = definir(require("./inventario.js"), require("./acero.js"),
       require("./elemento.js"), require("./tijeral.js"), require("./columnas.js"),
-      require("./analisis.js"), require("./conexiones.js"), require("./perfiles.js"));
+      require("./analisis.js"), require("./conexiones.js"), require("./perfiles.js"),
+      require("./combinaciones.js"), require("./estabilidad.js"));
   } else {
     raiz.DISENO = definir(raiz.INVENTARIO, raiz.ACERO, raiz.ELEMENTO, raiz.TIJERAL,
-      raiz.COLUMNAS, raiz.ANALISIS, raiz.CONEXIONES, raiz.PERFILES);
+      raiz.COLUMNAS, raiz.ANALISIS, raiz.CONEXIONES, raiz.PERFILES, raiz.COMBINACIONES, raiz.ESTABILIDAD);
   }
-})(typeof self !== "undefined" ? self : this, function (INV, AC, EL, TI, CO, AN, CX, PERF) {
+})(typeof self !== "undefined" ? self : this, function (INV, AC, EL, TI, CO, AN, CX, PERF, CB, ES) {
   "use strict";
 
   const ART = INV.declara("diseno.js", [
     "C.E4.2L", "C.E4.Cw", "C.E4.Fe3", "C.E6.m1", "C.E6.a", "C.E5.cond", "C.B4a",
     "E.C3.K", "E.C3.arriostre", "T.U.c2", "T.U.c8", "F.Lp", "F.c", "F.B4.c10", "F.B4.c15",
     "D.DIS.longitudes",
-    "D.DIS.E5", "D.DIS.cartela", "D.DIS.unicos"
+    "D.DIS.E5", "D.DIS.cartela", "D.DIS.unicos",
+    "LG.factores", "LG.techo.armadura", "LG.correa.puntal", "LG.cerramiento", "LG.esquina", "LG.cordon",
+    "T.varillas", "SV.hastial.L", "MT.mismo.pano", "E.A8.Cm.transv"
   ]);
 
   function exige(c, msg) { if (!c) throw new Error("diseno: " + msg); }
@@ -233,7 +236,7 @@
     try {
       return CO.verifica({ id: b.id.split("@")[0], perfil: p, acero: acero, combinacion: combo,
         longitudes: lon, Lb_cm: Math.min(dz.LbColumna_m * 100, L),
-        Pu_kgf: f.Pr_kgf, Mux_kgfcm: f.Mr_kgfcm, Vu_kgf: f.Vr_kgf || 0,
+        Pu_kgf: f.Pr_kgf, Mux_kgfcm: f.Mr_kgfcm, Muy_kgfcm: f.Muy_kgfcm || 0, Vu_kgf: f.Vr_kgf || 0,
         geometriaF2: { Lp_cm: lp.Lp_cm, Lr_cm: lr.Lr_cm, rts_cm: rts, J_cm4: p.J_cm4, c: 1,
           ho_cm: p.ho_cm },
         elementosEsbeltez: [{ nombre: "ala", razon: p.bf_2tf, caso: 1 },
@@ -345,5 +348,263 @@
     };
   }
 
-  return { ART, CARTELAS, faltan, feFlexotorsional, verificaPortico, envolvente };
+  /* =====================================================================
+     LO QUE TRABAJA A LO LARGO · con las fuerzas de longitudinal.js
+     Cada pieza con su capítulo; lo que no se puede comprobar se dice y la
+     pieza NO cumple.  Las piezas que solo ven viento o sismo a lo largo se
+     diseñan con el mayor de 1,3·W y 1,0·E (fila LG.factores).
+     d = { lg, interior, fachada, m3, seccion, acero, diseno, cerramiento_kgfm2 }
+     ===================================================================== */
+  /* La geometría del F2 y los elementos para la esbeltez local de un perfil I o
+     de un canal, igual que en la columna del pórtico */
+  function datosF2(p, acero) {
+    const mat = AC.material(acero);
+    const canal = p.familia === "C";
+    const lp = AC.Lp({ ry_cm: p.ry_cm, Fy_kgcm2: mat.Fy });
+    const rts = p.rts_cm > 0 ? p.rts_cm : AC.rts({ Iy_cm4: p.Iy_cm4, Cw_cm6: p.Cw_cm6, Sx_cm3: p.Sx_cm3 }).rts_cm;
+    const c = AC.coefC(canal ? { tipo: "canal", ho_cm: p.ho_cm, Iy_cm4: p.Iy_cm4, Cw_cm6: p.Cw_cm6 } : { tipo: "I" }).c;
+    const lr = AC.Lr({ rts_cm: rts, Fy_kgcm2: mat.Fy, J_cm4: p.J_cm4, c: c, Sx_cm3: p.Sx_cm3, ho_cm: p.ho_cm });
+    /* el ala del canal es bf/tf entero; el alma, (d − 2·tf)/tw si el catálogo no trae h/tw: del lado seguro */
+    const ala = canal ? p.bf_cm / p.tf_cm : p.bf_2tf;
+    const alma = p.h_tw > 0 ? p.h_tw : (p.d_cm - 2 * p.tf_cm) / p.tw_cm;
+    return { geometriaF2: { Lp_cm: lp.Lp_cm, Lr_cm: lr.Lr_cm, rts_cm: rts, J_cm4: p.J_cm4, c: c, ho_cm: p.ho_cm },
+      elementosEsbeltez: [{ nombre: "ala", razon: ala, caso: 1 }, { nombre: "alma", razon: alma, caso: 5 }] };
+  }
+
+  /* EL SEGUNDO ORDEN DE UNA PIEZA ARTICULADA QUE NO SE DESPLAZA: solo B1, con
+     Cm = 1,0 porque lleva carga transversal (fila E.A8.Cm.transv) y Pe1 con la
+     inercia del eje en que flexiona y su longitud entera */
+  function b1Articulada(Pr_kgf, I_cm4, L_cm) {
+    if (!(Pr_kgf > 0)) return { B1: 1 };
+    const pe = ES.Pe1({ E_kgcm2: AC.E_ACERO, I_cm4: I_cm4, Lc1_cm: L_cm });
+    return Object.assign({ Cm: 1.0, art: ART["E.A8.Cm.transv"] },
+      ES.B1({ Cm: 1.0, Pr_kgf: Pr_kgf, Pe1_kgf: pe.Pe1_kgf }));
+  }
+
+  function piezaOmitida(pieza, clase, perfil, que, motivo) {
+    return { pieza: pieza, clase: clase, perfil: perfil, ratio: null, cumple: false, faltanEsenciales: true,
+      omitidos: [{ que: que, esencial: true, motivo: motivo }] };
+  }
+  function cierra(pieza, clase, p, r, demanda, extra) {
+    const omit = r.omitidos || [];
+    const falta = omit.some((o) => o.esencial) || typeof r.ratio !== "number";
+    return Object.assign({ pieza: pieza, clase: clase, perfil: p.id || p.nombre, ratio: typeof r.ratio === "number" ? r.ratio : null,
+      estado: r.gobierna || r.manda || null, omitidos: omit, faltanEsenciales: falta,
+      cumple: !falta && r.ratio <= 1 + 1e-12, demanda: demanda }, extra || {});
+  }
+
+  function verificaLongitudinal(d) {
+    const lg = d.lg, dz = d.diseno || {}, seccion = d.seccion, acero = d.acero;
+    exige(lg && lg.envolvente, "verificaLongitudinal() necesita el resultado de longitudinal.analiza()");
+    const mat = AC.material(acero);
+    const env = lg.envolvente;
+    const piezas = [];
+    /* por CLASE: cada pieza se verifica con la mayor fuerza de su clase y el perfil de la clase */
+    const perfilDe = (clase) => seccion({ id: "clase:" + clase, clase: clase });
+    const tirante = (pieza, clase, e) => {
+      const p = perfilDe(clase);
+      if (!p) return piezaOmitida(pieza, clase, null, "el perfil de " + clase, "no tiene perfil asignado en Geometría");
+      if (p.familia !== "VAR") {
+        return piezaOmitida(pieza, clase, p.id, "el tirante de familia " + p.familia,
+          "trabaja solo a tracción y este paso lo verifica como VARILLA (filas T.varillas y CAT.varillas); " +
+          "otra sección necesita el área neta y el U de su conexión, que no están conectados aquí");
+      }
+      const r = AC.varillaRoscada({ acero: acero, Ab_cm2: p.A_cm2, Pu_kgf: e.valor });
+      return cierra(pieza, clase, p, Object.assign({}, r, { gobierna: r.manda }), e.valor,
+        { estadoCarga: e.estado, nota: "solo a tracción: la otra diagonal toma el otro sentido" });
+    };
+    piezas.push(tirante("cruz de fachada", "arriostre de fachada", env.cruzFachada));
+    if (lg.geometria.lineas.some((L) => L.tipo === "hastial")) {
+      piezas.push(tirante("diagonal del arriostre vertical", "arriostre vertical", env.verticalDiagonal));
+    }
+
+    /* barras que van a tracción Y a compresión, con la lógica de las del tijeral */
+    const axial = (pieza, clase, e, L_cm, conTraccion) => {
+      const p = perfilDe(clase);
+      if (!p) return piezaOmitida(pieza, clase, null, "el perfil de " + clase, "no tiene perfil asignado en Geometría");
+      const b = { id: pieza, clase: clase };
+      let lista;
+      if (p.familia === "HSS_rect") {
+        /* EL TUBO RECTANGULAR: paredes por el caso 6 de la Tabla B4.1a, y pandeo con el r menor */
+        const base = { id: pieza, perfil: p, acero: acero, familia: p.familia, fabricacion: p.fabricacion,
+          elementosEsbeltez: [{ nombre: "pared", razon: Math.max(p.b_t, p.h_t), caso: 6 }] };
+        const una = (N) => {
+          try {
+            const r = EL.verifica(Object.assign({}, base, { combinacion: e.estado, fuerzas: { Pu_kgf: N },
+              An_cm2: p.A_cm2, U: 1, longitudes: { Lc_cm: L_cm, r_cm: Math.min(p.rx_cm, p.ry_cm) } }));
+            if (N > 0) {
+              r.omitidos = (r.omitidos || []).concat([{ que: "el U de la conexión del tubo", esencial: false,
+                motivo: "se tomó U = 1, que es el del tubo soldado en todo su contorno (Tabla D3.1, caso 1); con " +
+                  "plancha en ranura, U es el de los casos 5 y 6" }]);
+            }
+            return r;
+          } catch (err) {
+            return { ratio: null, combinacion: e.estado, omitidos: [{ que: "el tubo", esencial: true,
+              motivo: err.message.split("\n")[0].replace(/^\w+: /, "") }] };
+          }
+        };
+        lista = [una(-e.valor)].concat(conTraccion ? [una(e.valor)] : []);
+      } else if (p.familia !== "L" && p.familia !== "2L") {
+        return piezaOmitida(pieza, clase, p.id, "la pieza de familia " + p.familia,
+          "las piezas a lo largo se verifican de ángulo simple, ángulo doble o tubo rectangular; otra familia " +
+          "no está conectada todavía");
+      } else {
+        const ctx = { dz: dz, acero: acero, L_cm: L_cm,
+          longitudes: () => ({ Lcx_cm: L_cm, Lcy_cm: L_cm, Lcz_cm: L_cm }) };
+        lista = [verificaTruss(b, p, -e.valor, e.estado, ctx)];
+        if (conTraccion) lista.push(verificaTruss(b, p, e.valor, e.estado, ctx));
+      }
+      const x = envolvente(pieza, b, p, lista);
+      return Object.assign({ pieza: pieza, demanda: e.valor, estadoCarga: e.estado, L_cm: L_cm }, x);
+    };
+    /* el arriostre de techo: la diagonal más larga con la mayor fuerza, del lado seguro */
+    const ellTecho = Math.max.apply(null, lg.estados[0].armaduras.map((a) =>
+      Math.max.apply(null, a.paneles.map((p) => p.ell_m)))) * 100;
+    piezas.push(axial("arriostre de techo", "arriostre de techo", env.armaduraTecho, ellTecho, true));
+    if (lg.geometria.lineas.some((L) => L.tipo === "hastial")) {
+      piezas.push(axial("puntal del arriostre vertical", "puntal inferior", env.verticalPuntal,
+        lg.geometria.sep_m * 100, false));
+    }
+
+    /* la viga de alero de puntal: compresión y su propio peso · fila MT.mismo.pano */
+    {
+      const p = perfilDe("viga de alero");
+      if (!p) piezas.push(piezaOmitida("viga de alero de puntal", "viga de alero", null, "su perfil", "sin perfil"));
+      else {
+        const L = lg.geometria.sep_m * 100;
+        let r;
+        try {
+          const f2 = datosF2(p, acero);
+          const b1 = b1Articulada(env.aleroPuntal.valor, p.Ix_cm4, L);
+          r = EL.verifica({ id: "VA", perfil: p, acero: acero, familia: p.familia, fabricacion: p.fabricacion,
+            combinacion: env.aleroPuntal.estado, geometriaF2: f2.geometriaF2, elementosEsbeltez: f2.elementosEsbeltez,
+            origenFuerzas: "segundo-orden",
+            fuerzas: { Pu_kgf: -env.aleroPuntal.valor, Mux_kgfcm: b1.B1 * 1.2 * (p.peso_kgfm || 0) / 100 * L * L / 8 },
+            longitudes: { Lc_cm: L, r_cm: Math.min(p.rx_cm, p.ry_cm), Lb_cm: L } });
+        } catch (e) {
+          r = { ratio: null, omitidos: [{ que: "la viga de alero a compresión", esencial: true,
+            motivo: e.message.split("\n")[0].replace(/^\w+: /, "") }] };
+        }
+        piezas.push(cierra("viga de alero de puntal", "viga de alero", p, r, env.aleroPuntal.valor,
+          { estadoCarga: env.aleroPuntal.estado, nota: "con 1,2 veces su peso propio; las cargas de muro no" }));
+      }
+    }
+
+    /* las correas de puntal · fila LG.correa.puntal: la axial va CON la flexión de la correa,
+       y la correa todavía no se diseña en este paso */
+    piezas.push(Object.assign(piezaOmitida("correa de puntal", "correa", (perfilDe("correa") || {}).id || null,
+      "la correa con su axial de puntal", "la axial (" + (env.correaPuntal.valor / 1000).toFixed(2).replace(".", ",") +
+      " t, " + env.correaPuntal.estado + ") va junto con la flexión de la correa, y las correas todavía no se " +
+      "diseñan (correas.js no está conectado): queda pendiente"), { demanda: env.correaPuntal.valor }));
+
+    /* las columnas hastiales · columnas.columnaHastial(), con su peso y el cerramiento · fila LG.cerramiento */
+    const hastiales = lg.columnas.filter((c) => c && c.tipo === "hastial");
+    if (hastiales.length) {
+      const p = perfilDe("columna hastial");
+      if (!p) piezas.push(piezaOmitida("columna hastial", "columna hastial", null, "su perfil", "sin perfil"));
+      else if (!(dz.separacionLargueros_m > 0)) {
+        piezas.push(piezaOmitida("columna hastial", "columna hastial", p.id, "su Lb", "falta la separación de los largueros"));
+      } else {
+        let peor = null;
+        for (const c of hastiales) {
+          const H = c.H_m, Hc = H * 100;
+          const Pd = (p.peso_kgfm || 0) * H + (d.cerramiento_kgfm2 || 0) * c.ancho_m * H;
+          const fW = lg.factor.W;
+          const Lcy = Math.min(dz.separacionLargueros_m * 100, Hc);
+          const gobY = Lcy / p.ry_cm >= Hc / p.rx_cm;
+          const delta = 5 * (c.w_kgfm / 100) * Math.pow(Hc, 4) / (384 * AC.E_ACERO * p.Ix_cm4);
+          let r;
+          try {
+            const f2 = datosF2(p, acero);
+            const b1 = b1Articulada(1.2 * Pd, p.Ix_cm4, Hc);
+            r = CO.columnaHastial({ perfil: p, altura_m: H, wViento_kgfm: fW * c.w_kgfm, acero: acero,
+              geometriaF2: f2.geometriaF2, elementosEsbeltez: f2.elementosEsbeltez, origenFuerzas: "segundo-orden",
+              Mu_kgfcm: b1.B1 * fW * c.w_kgfm / 100 * Hc * Hc / 8, Vu_kgf: fW * c.w_kgfm / 100 * Hc / 2,
+              separacionLargueros_m: dz.separacionLargueros_m, Pu_kgf: -1.2 * Pd,
+              Lc_cm: gobY ? Lcy : Hc, r_cm: gobY ? p.ry_cm : p.rx_cm, desplazamiento_cm: delta,
+              combinacion: "1.4-4 · " + c.estado });
+          } catch (e) {
+            r = { ratio: null, omitidos: [{ que: "la columna hastial", esencial: true,
+              motivo: e.message.split("\n")[0].replace(/^\w+: /, "") }] };
+          }
+          const x = cierra("columna hastial", "columna hastial", p, r, fW * c.M_kgfm,
+            { x_m: c.x, H_m: H, servicio: r.servicio || null, estadoCarga: c.estado + " · " + c.papel,
+              Pu_kgf: 1.2 * Pd, art: ART["LG.cerramiento"] });
+          if (r.servicio && !r.servicio.pasa) { x.cumple = false; x.falla = "flecha mayor que L/120 (fila SV.hastial.L)"; }
+          if (!peor || (x.ratio || 0) > (peor.ratio || 0) || !x.cumple) peor = x;
+        }
+        piezas.push(peor);
+      }
+    }
+
+    /* las columnas de esquina · fila LG.esquina: el pórtico de fachada + el viento del hastial en eje menor */
+    if (d.fachada && d.fachada.corridas) {
+      const f = d.fachada, g = AN.geometria(d.m3, f.sistema, f.eje);
+      const col = g.columnas.filter((c) => c.id === "C0@" + f.eje)[0];
+      const p = seccion(col);
+      const esLong = {};
+      for (const c of f.casos) if (c.tipo === "W" && c.direccion === "longitudinal") esLong[c.id] = c.Ci;
+      const fam = CB.paraAcero({ casos: { D: true, Lr: true, W: true, E: !!f.sismo } }).combinaciones;
+      const fW = (base) => {
+        const c = fam.filter((x) => x.id === base)[0];
+        const t = c ? c.terminos.filter(([k]) => k === "W")[0] : null;
+        return t ? Math.abs(t[1]) : 0;
+      };
+      const Mesq = (Ci) => {
+        let m = 0;
+        for (const e of lg.estados) {
+          if (e.tipo !== "W" || Math.abs(e.Ci - Ci) > 1e-9) continue;
+          m = Math.max(m, Math.abs(e.hastialInicio[0].M_kgfm), Math.abs(e.hastialFinal[0].M_kgfm));
+        }
+        return m * 100;
+      };
+      const lista = [];
+      for (const c of f.corridas) {
+        const w = c.id.split(" · ").slice(1).join(" ").split(" ").filter((t) => esLong[t] !== undefined)[0];
+        if (!w) continue;
+        const fz = Object.assign({}, c.fuerzas[col.id], { Muy_kgfcm: fW(c.base) * Mesq(esLong[w]) });
+        lista.push(verificaColumna(col, p, fz, c.id, { dz: dz, acero: acero }));
+      }
+      if (lista.length) {
+        const x = envolvente("columna de esquina", col, p, lista);
+        piezas.push(Object.assign({ pieza: "columna de esquina (pórtico de fachada)", art: ART["LG.esquina"],
+          nota: "las fuerzas del pórtico de fachada con el viento longitudinal, más el viento del hastial en " +
+            "su eje menor, con el mismo Ci y el mismo factor" }, x));
+      }
+    }
+
+    /* la brida superior del paño arriostrado · fila LG.cordon: la del pórtico + el cordón de la armadura */
+    if (d.interior && d.interior.barras) {
+      const r = d.interior, g = AN.geometria(d.m3, r.sistema, r.eje);
+      const p = seccion({ id: "clase:brida superior", clase: "brida superior" });
+      let peorB = null;
+      for (const b of g.truss.filter((x) => x.clase === "brida superior")) {
+        const e = r.barras[b.id.split("@")[0]];
+        if (!peorB || e.compresion.Pr_kgf < peorB.e.compresion.Pr_kgf) peorB = { b: b, e: e };
+      }
+      if (p && peorB) {
+        const a = g.nudos.filter((n) => n.id === peorB.b.i)[0], c = g.nudos.filter((n) => n.id === peorB.b.j)[0];
+        const L = Math.hypot(c.x_m - a.x_m, c.y_m - a.y_m) * 100;
+        const N = peorB.e.compresion.Pr_kgf - env.cordonTecho.valor;
+        const ctx = { dz: dz, acero: acero, L_cm: L, longitudes: () => ({ Lcx_cm: L, Lcy_cm: L, Lcz_cm: L }) };
+        const x = envolvente("brida superior del paño arriostrado", peorB.b, p,
+          [verificaTruss(peorB.b, p, N, peorB.e.compresion.combo + " + " + env.cordonTecho.estado, ctx)]);
+        piezas.push(Object.assign({ pieza: "brida superior del paño arriostrado", demanda: -N, art: ART["LG.cordon"],
+          nota: "la mayor compresión del pórtico más el mayor cordón de la armadura de techo: suma de máximos, " +
+            "del lado seguro" }, x));
+      }
+    }
+
+    const cumplen = piezas.filter((x) => x.cumple).length;
+    const conRatio = piezas.filter((x) => typeof x.ratio === "number");
+    const peor = conRatio.length ? conRatio.reduce((a, x) => (x.ratio > a.ratio ? x : a)) : null;
+    return { ok: true, piezas: piezas,
+      resumen: { total: piezas.length, cumplen: cumplen,
+        conOmitidosEsenciales: piezas.filter((x) => x.faltanEsenciales).length,
+        peor: peor ? { pieza: peor.pieza, ratio: peor.ratio } : null },
+      art: ART["LG.factores"] };
+  }
+
+  return { ART, CARTELAS, faltan, feFlexotorsional, verificaPortico, envolvente,
+    verificaTruss, verificaColumna, verificaLongitudinal };
 });

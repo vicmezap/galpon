@@ -411,6 +411,42 @@
       "clave": true,
       "fuente": "E.090 §1.4.1, combinaciones 1.4-4, 1.4-5 y 1.4-6",
       "nota": "Los arriostres, los puntales y la cruz no reciben gravedad: su fuerza es solo del viento o del sismo longitudinal, así que de cada combinación cuenta solo el factor de W o de E. Las piezas que además llevan gravedad (columnas hastiales, correas, columnas de esquina) se combinan en el diseño."
+    },
+    {
+      "id": "LG.cerramiento",
+      "grupo": "El sistema longitudinal",
+      "magnitud": "Lo que carga la columna hastial en vertical",
+      "valor": "su peso propio y el cerramiento de su franja, con la carga muerta de la cubierta por m² · 1,2·D con 1,3·W",
+      "unidad": "kgf",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "fila A.hastial.deslizante (no lleva techo) · E.090 combinación 1.4-4",
+      "nota": "Con la unión deslizante la columna hastial no recibe nada del tijeral: en vertical solo lleva su peso y el del muro de su franja, hasta su cabeza. El muro se toma con la misma carga muerta por m² que la cubierta (plancha y lo que se haya declarado encima): el cerramiento del hastial no es dato aparte todavía. Se combina 1,2·D + 1,3·W (1.4-4, sin viva: la columna no lleva techo); 0,9·D + 1,3·W da menos compresión y, para una viga-columna, menos interacción."
+    },
+    {
+      "id": "LG.esquina",
+      "grupo": "El sistema longitudinal",
+      "magnitud": "La columna de esquina: el pórtico de fachada y el hastial a la vez",
+      "valor": "las fuerzas del pórtico de fachada en las corridas con viento longitudinal + el momento del hastial en su eje menor, con el mismo Ci y el mismo factor de W",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "estática · AISC 360-22 H1-1 (flexión biaxial) · fila LG.hastial.reparto",
+      "nota": "La columna de esquina es la del pórtico de fachada y es a la vez la primera línea del hastial: el viento a lo largo la flexiona en su eje MENOR, como viga simplemente apoyada en su altura. Ese viento es el mismo estado físico que, en el pórtico de fachada, da succión en el techo y los muros laterales (el estado longitudinal del análisis), así que se suman en las corridas que lo llevan, con su mismo Ci y su mismo factor. Se toma el mayor momento del pórtico y el mayor del hastial a la vez aunque no caigan a la misma altura: del lado seguro."
+    },
+    {
+      "id": "LG.cordon",
+      "grupo": "El sistema longitudinal",
+      "magnitud": "La brida superior del paño arriostrado de techo",
+      "valor": "la mayor compresión del pórtico interior + el mayor cordón de la armadura de techo, en la brida más comprimida",
+      "unidad": "kgf",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "fila LG.techo.armadura · suma de máximos, del lado seguro",
+      "nota": "Las bridas superiores de los dos pórticos del paño arriostrado son los cordones de la armadura horizontal del techo, así que a la fuerza que ya llevan en su pórtico se suma ±M/s. Se suma la mayor compresión de la brida en el pórtico (de cualquier combinación) y el mayor cordón factorizado, aunque no vengan de la misma combinación ni del mismo tramo: es una cota del lado seguro. Si no cumple con la cota, se puede afinar combinación por combinación."
     }
   ]
 }

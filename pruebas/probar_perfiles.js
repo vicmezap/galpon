@@ -23,13 +23,24 @@ const r = P.resumen();
 
 /* ---------- el catálogo cargó ----------------------------------------- */
 cierto("hay más de 2400 perfiles", r.total > 2400);
-comp("las dieciseis familias: siete del AISC, tres soldadas y ocho Precor",
+comp("las diecisiete familias: siete del AISC, tres soldadas, ocho Precor y las varillas",
   P.familias(),
   ["2L", "C", "CS", "CVS", "HSS_rect", "HSS_red", "I", "IC", "IU", "L",
-   "T", "TC", "TU", "U", "VS", "Z"]);
-comp("los tres catalogos", Object.keys(P.resumen().porCatalogo).sort(),
+   "T", "TC", "TU", "U", "VAR", "VS", "Z"]);
+comp("los cuatro catalogos", Object.keys(P.resumen().porCatalogo).sort(),
   ["AISC Shapes Database v13", "FAM Perfis Soldados (ABNT NBR 5884)",
-   "Precor · perfiles conformados en frio"]);
+   "Precor · perfiles conformados en frio", "Varillas lisas (geometría del círculo)"]);
+
+/* ---------- LAS VARILLAS · fila CAT.varillas: geometría del círculo ---------- */
+{
+  const v = P.busca("VAR5/8"), d = 5 / 8 * 2.54;
+  cerca("VAR5/8 · A = π·d²/4", v.A_cm2, Math.PI * d * d / 4, 1e-12);
+  cerca("r = d/4", v.ry_cm, d / 4, 1e-12);
+  cerca("Z = d³/6 (el plástico del círculo)", v.Zx_cm3, d * d * d / 6, 1e-12);
+  cerca("y su peso con 7850 kgf/m³", v.peso_kgfm, Math.PI * d * d / 4 / 1e4 * 7850, 1e-12);
+  comp("ocho diámetros, de 3/8\" a 1 1/4\"", P.catalogo().filter((x) => x.familia === "VAR").map((x) => x.nombre),
+    ["VAR3/8", "VAR1/2", "VAR5/8", "VAR3/4", "VAR7/8", "VAR1", "VAR1-1/8", "VAR1-1/4"]);
+}
 
 /* LA LETRA DE FAMILIA CHOCA ENTRE CATALOGOS · «C» es un canal laminado del
    AISC y tambien un canal de alas atiesadas de Precor, que es otra seccion;

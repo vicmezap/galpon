@@ -439,6 +439,16 @@ cierto("y Comprobación oye a la zapata de LOS DOS pórticos",
     /data-portico="fachada" aria-pressed="true"/.test(sel()));
   pulsa(M.dom, "pasos", "data-paso", "analisis");
   cierto("(en Análisis también)", /data-portico="fachada" aria-pressed="true"/.test(sel()));
+  /* A LO LARGO: en Análisis y Diseño, no en Cimentación */
+  pulsa(M.dom, "pasos", "data-paso", "analisis");
+  cierto("en Análisis está también «a lo largo»", /data-portico="longitudinal"/.test(sel()));
+  pulsa(M.dom, "centro", "data-portico", "longitudinal");
+  cierto("y al pulsarlo, enseña el sistema longitudinal o dice qué le falta",
+    /a lo largo|todavía no se puede ver a lo largo/.test(sel()));
+  pulsa(M.dom, "pasos", "data-paso", "cimen");
+  cierto("en Cimentación no está, y vuelve al pórtico interior",
+    !/data-portico="longitudinal"/.test(sel()) && /data-portico="interior" aria-pressed="true"/.test(sel()));
+  cierto("Comprobación oye también a lo largo", /avisosLongitudinal\(largoActual\(\)\)/.test(modeHtml));
   pulsa(M.dom, "centro", "data-portico", "interior");
 }
 

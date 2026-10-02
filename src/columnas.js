@@ -243,7 +243,7 @@
       fuerzas: { Mux_kgfcm: Mu, Vu_kgf: Vu, Pu_kgf: d.Pu_kgf || 0 },
       longitudes: { Lb_cm: sep * 100, Lc_cm: d.Lc_cm, r_cm: d.r_cm },
       geometriaF2: d.geometriaF2, Cb: d.Cb, bF6_cm: d.bF6_cm,
-      noEsbelta: d.noEsbelta
+      noEsbelta: d.noEsbelta, elementosEsbeltez: d.elementosEsbeltez
     });
     return Object.assign({}, r, {
       Mu_kgfcm: Mu, Vu_kgf: Vu, Lb_cm: sep * 100,

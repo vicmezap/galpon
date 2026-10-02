@@ -311,4 +311,37 @@ comp("NI UNA línea de Cimentación sin procedencia válida",
   cz.fichas.reduce((a, f) => a.concat(f.lineas), []).concat(czm.fichas.reduce((a, f) => a.concat(f.lineas), []))
     .filter((l) => V.ORIGENES.indexOf(l.origen) < 0).map((l) => l.q), []);
 
+
+/* ================================================================
+   A LO LARGO · longitudinal()
+   ================================================================ */
+{
+  const lo0 = R.longitudinal(m3, L.nuevo({}), P);
+  comp("sin el análisis de los pórticos no corre, y manda al análisis", [lo0.ok, lo0.faltas[0].paso], [false, "analisis"]);
+  const lo = R.longitudinal(m3, mok, P);
+  cierto("con el análisis, corre y da la cadena entera", lo.ok && lo.cadena.length >= 7);
+  cierto("con el sismo a lo largo, del peso de TODOS los pórticos",
+    lo.lg.sismo && Math.abs(lo.lg.sismo.P_kgf - (2 * R.analisis(m3, mok, P, "fachada").r.sismo.P_kgf +
+      (m3.ejes.porticos - 2) * ok.r.sismo.P_kgf)) < 1e-6);
+  comp("sin los datos de diseño, el diseño a lo largo los pide a Diseño", [lo.diseno, lo.faltasDiseno[0].paso], [null, "diseno"]);
+  const lod = R.longitudinal(m3, mdz, P);
+  cierto("con ellos, verifica cada pieza", lod.diseno && lod.diseno.piezas.length >= 5);
+  cierto("sin perfil asignado, la pieza lo dice y no cumple",
+    lod.diseno.piezas.filter((x) => x.pieza === "cruz de fachada")[0].faltanEsenciales);
+  const av = R.avisosLongitudinal(lod);
+  cierto("y Comprobación lo da como error, con el paso", av.length && av.every((x) => x.nivel === "error" && x.paso === "diseno") &&
+    av.some((x) => /^A lo largo/.test(x.que)));
+  {
+    let mp = mdz;
+    for (const [k, v] of [["arriostre de fachada", "VAR3/8"], ["arriostre de techo", "HSS4X4X1/4"]]) mp = L.asignaPerfil(mp, { clase: k }, v).modelo;
+    const lp = R.longitudinal(m3, mp, P);
+    const avp = R.avisosLongitudinal(lp);
+    cierto("una cruz de VAR3/8 no llega: Comprobación lo da como ERROR y la nombra",
+      avp.some((x) => x.nivel === "error" && /no cumplen/.test(x.que) && /cruz de fachada/.test(x.porque)));
+  }
+  comp("NI UNA línea de A lo largo sin procedencia válida",
+    lo.fichas.reduce((a, f) => a.concat(f.lineas), []).filter((l) => V.ORIGENES.indexOf(l.origen) < 0).map((l) => l.q), []);
+  cierto("cada eslabón cita su fila", lo.cadena.every((x) => INV.existe(x.fuente)));
+}
+
 fin();

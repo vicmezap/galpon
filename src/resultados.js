@@ -19,14 +19,14 @@
       require("./e020.js"), require("./viento.js"), require("./combinaciones.js"),
       require("./analisis.js"), require("./libro.js"), require("./e030.js"),
       require("./diseno.js"), require("./zapatas.js"), require("./pedestal.js"), require("./placabase.js"),
-      require("./conexiones.js"), require("./acero.js"));
+      require("./conexiones.js"), require("./acero.js"), require("./longitudinal.js"));
   } else {
     raiz.RESULTADOS = definir(raiz.INVENTARIO, raiz.VISTAS, raiz.E020, raiz.VIENTO,
       raiz.COMBINACIONES, raiz.ANALISIS, raiz.LIBRO, raiz.E030, raiz.DISENO, raiz.ZAPATAS,
-      raiz.PEDESTAL, raiz.PLACABASE, raiz.CONEXIONES, raiz.ACERO);
+      raiz.PEDESTAL, raiz.PLACABASE, raiz.CONEXIONES, raiz.ACERO, raiz.LONGITUDINAL);
   }
 })(typeof self !== "undefined" ? self : this, function (INV, V, E020, VI, CB, AN, LIBRO, E030, DI, ZA, PD, PB,
-  CX, AC) {
+  CX, AC, LG) {
   "use strict";
 
   const ART = INV.declara("resultados.js", [
@@ -43,7 +43,9 @@
     "PD.compatibilidad", "PD.Vs", "PD.friccion", "PD.anclaje.zapata", "PD.rho", "PD.esbeltez", "PD.rec",
     "J.base.momento.metodo", "J.base.momento.t", "J.base.phi", "J.anclaje.acero", "J.llave.aplast",
     "J.llave.flexion", "J.anclaje.geometria", "J.anclaje.concreto", "J.base.momento.soldadura",
-    "J.anclaje.E060.confinamiento"
+    "J.anclaje.E060.confinamiento",
+    "LG.vertical", "LG.correa.puntal", "LG.techo.armadura", "LG.fachada.cruz", "LG.sismo.sistema",
+    "LG.hastial.reparto", "LG.factores"
   ]);
   const ln = V.ln, ficha = V.ficha;
   const n2 = (x, d) => (Math.round(x * Math.pow(10, d)) / Math.pow(10, d))
@@ -916,6 +918,106 @@
       fichas: fichasCimentacion(z).concat(fichasPedestal(ped), fichasPlaca(placa)) };
   }
 
+  /* =====================================================================
+     A LO LARGO · el sistema longitudinal y sus piezas
+     Necesita los DOS pórticos: el peso sísmico de cada uno, y las corridas del
+     de fachada para la columna de esquina.
+     ===================================================================== */
+  function longitudinal(m3, modelo, perfiles, ai, af) {
+    const aI = ai || analisis(m3, modelo, perfiles, "interior");
+    const aF = af || analisis(m3, modelo, perfiles, "fachada");
+    if (!aI.ok || !aF.ok) {
+      return { ok: false, faltas: [{ paso: "analisis",
+        que: "lo que trabaja a lo largo necesita el análisis de los dos pórticos, y todavía no corre" }]
+        .concat(aI.ok ? [] : aI.faltas) };
+    }
+    const c = aI.cargas.cargas;
+    let lg;
+    try {
+      lg = LG.analiza({ m3: m3, sistema: modelo.sistema, viento: c.viento, sismo: c.sismo || null,
+        P_interior_kgf: aI.r.sismo ? aI.r.sismo.P_kgf : undefined,
+        P_fachada_kgf: aF.r.sismo ? aF.r.sismo.P_kgf : undefined });
+    } catch (e) {
+      return { ok: false, faltas: [{ paso: "analisis", que: e.message.split("\n").join(" ").replace(/^\w+: /, "") }] };
+    }
+    const out = { ok: true, lg: lg, r: aI.r, fichas: fichasLongitudinal(lg), cadena: cadena(lg), diseno: null };
+    /* el diseño, con los mismos datos de diseño que los pórticos */
+    const seccion = seccionDesde(modelo, perfiles);
+    const F = DI.faltan(AN.geometria(m3, modelo.sistema), seccion, modelo.diseno || {});
+    if (F.length) {
+      out.faltasDiseno = F.map((f) => ({ paso: "diseno", que: f.que, campo: f.campo }));
+    } else {
+      out.diseno = DI.verificaLongitudinal({ lg: lg, interior: aI.r, fachada: aF.r, m3: m3, seccion: seccion,
+        acero: modelo.sitio.acero, diseno: modelo.diseno, cerramiento_kgfm2: c.D_kgfm2 });
+    }
+    return out;
+  }
+
+  /* La cadena, eslabón por eslabón, con su mayor fuerza factorizada · fila LG.factores */
+  function cadena(lg) {
+    const e = lg.envolvente;
+    const fila = (que, x, fuente, nota) => ({ que: que, valor_kgf: x.valor, estado: x.estado, fuente: fuente, nota: nota });
+    const L = [];
+    const hast = lg.columnas.filter((c) => c && c.tipo === "hastial");
+    if (hast.length) {
+      const peor = hast.reduce((a, c) => (c.M_kgfm > a.M_kgfm ? c : a));
+      L.push({ que: "columna hastial · momento", valor_kgfm: lg.factor.W * peor.M_kgfm, estado: peor.estado,
+        fuente: "LG.hastial.reparto", nota: "x = " + n2(peor.x, 2) + " m · " + peor.papel });
+      L.push(fila("arriostre vertical · diagonal", e.verticalDiagonal, "LG.vertical"));
+      L.push(fila("arriostre vertical · puntal", e.verticalPuntal, "LG.vertical"));
+    }
+    L.push(fila("correa de puntal", e.correaPuntal, "LG.correa.puntal"));
+    L.push(fila("viga de alero de puntal", e.aleroPuntal, "LG.correa.puntal"));
+    L.push(fila("arriostre de techo · diagonal", e.armaduraTecho, "LG.techo.armadura"));
+    L.push(fila("brida superior · cordón añadido", e.cordonTecho, "LG.techo.armadura"));
+    L.push(fila("cruz de fachada · diagonal", e.cruzFachada, "LG.fachada.cruz"));
+    L.push(fila("base del paño arriostrado · cortante a lo largo", e.baseCortante, "LG.fachada.cruz"));
+    L.push(fila("base del paño arriostrado · tirón y compresión", e.baseVertical, "LG.fachada.cruz"));
+    return L;
+  }
+
+  function fichasLongitudinal(lg) {
+    const F = [];
+    const g = lg.geometria;
+    F.push(ficha("El sistema a lo largo", "del hastial al suelo", [
+      ln("Paños arriostrados de techo", g.panosTecho.join(", "), "entrada"),
+      ln("Paños arriostrados de fachada", g.panosFachada.join(", "), "entrada"),
+      ln("Líneas del hastial", String(g.lineas.length), "conteo",
+        { nota: g.lineas.filter((L) => L.tipo === "hastial").length + " columnas hastiales y las dos esquinas" }),
+      ln("Estados", String(lg.estados.length), "conteo",
+        { nota: lg.estados.filter((x) => x.tipo === "W").length + " de viento longitudinal" + (lg.sismo ? " y el sismo" : "") }),
+      ln("Factor de diseño", "1,3·W · 1,0·E", "norma", { fuente: "LG.factores" })
+    ]));
+    if (lg.sismo) {
+      const s = lg.sismo;
+      F.push(ficha("Sismo a lo largo", "E.030 · OCBF", [
+        ln("Peso sísmico P", t2(s.P_kgf), "medido", { nota: "todos los pórticos" }),
+        ln("Período T = hn/45", n2(s.T_s, 3) + " s", "norma", { fuente: "LG.sismo.peso" }),
+        ln("R", n2(s.R, 1), "norma", { fuente: "LG.sismo.sistema" }),
+        ln("Cortante basal V", t2(s.V_kgf), "medido", { nota: "C/R = " + n2(s.CR_usado, 3) })
+      ]));
+    }
+    return F;
+  }
+
+  function avisosLongitudinal(lo) {
+    const L = [];
+    if (!lo || !lo.ok || !lo.diseno) return L;
+    const no = lo.diseno.piezas.filter((x) => !x.faltanEsenciales && !x.cumple);
+    const falta = lo.diseno.piezas.filter((x) => x.faltanEsenciales);
+    if (no.length) {
+      L.push({ nivel: "error", que: "A lo largo · " + no.length + " pieza(s) no cumplen",
+        porque: no.map((x) => x.pieza + (x.ratio !== null ? " (" + n2(x.ratio, 2) + ")" : "")).join(" · ") +
+          ". Se cambia el perfil en la tabla de Geometría.", paso: "diseno" });
+    }
+    if (falta.length) {
+      L.push({ nivel: "error", que: "A lo largo · " + falta.length + " pieza(s) con un control esencial sin hacer",
+        porque: falta.map((x) => x.pieza + ": " + x.omitidos.filter((o) => o.esencial)[0].motivo).join(" · "),
+        paso: "diseno" });
+    }
+    return L;
+  }
+
   /* ---------- LA PLACA BASE: con las corridas, que son E.090 y segundo orden ---------- */
   function faltanPlaca(c) {
     const F = [];
@@ -1143,7 +1245,7 @@
   }
 
   return {
-    ART, DIRECCIONES, ACEROS, MODOS, PORTICOS, CAMPOS_CARGAS, CAMPOS_ANALISIS, CAMPOS_DISENO, avisosResultados,
+    ART, DIRECCIONES, ACEROS, MODOS, PORTICOS, longitudinal, fichasLongitudinal, avisosLongitudinal, cadena, CAMPOS_CARGAS, CAMPOS_ANALISIS, CAMPOS_DISENO, avisosResultados,
     CAMPOS_CIMENTACION, leeCimentacion, valoresDeCimentacion, cimentacion, fichasCimentacion, dibujoCimentacion,
     leeSitio, valoresDeSitio, leeSistema, leeDiseno, valoresDeDiseno,
     diseno, fichasDiseno, dibujoDiseno, tablaDiseno, lineasDiseno, nivelRatio,

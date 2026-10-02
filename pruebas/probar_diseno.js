@@ -181,4 +181,107 @@ const c0 = v.barras.C0;
 cierto("la columna se verifica en TODAS las combinaciones", c0.verificadas === r.corridas.length);
 cierto("y gobierna la interacción del Cap. H o un estado individual con su capítulo", !!c0.capitulo);
 
+
+/* ================================================================
+   LO QUE TRABAJA A LO LARGO · verificaLongitudinal()
+   ================================================================ */
+{
+  const LG = require("../src/longitudinal.js");
+  const m3L = MON.monta({ luz_m: 20, largo_m: 60, sepPorticos_m: 6, alturaColumna_m: 6, paneles: 6,
+    peralteApoyo_m: 1.2, pendiente: 0.20, cuerdas: "dos_aguas", alma: "howe", panosArriostradosTecho: [5],
+    panosArriostradosFachada: [5], columnasHastiales: [5, 10, 15] });
+  const NL = { "columna": "W10X33", "brida superior": "2L3X3X1/4", "brida inferior": "2L3X3X1/4",
+    "diagonal": "L3X3X1/4", "montante": "L3X3X1/4", "correa": "C8X11.5", "viga de alero": "C8X11.5",
+    "columna hastial": "W8X18", "arriostre de techo": "L3X3X1/4", "arriostre de fachada": "VAR5/8",
+    "arriostre vertical": "VAR1/2", "puntal inferior": "L3X3X1/4" };
+  const secL = (nom) => (b) => (nom[b.clase] ? P.busca(nom[b.clase]) : null);
+  const CL = { D_kgfm2: 8.35, Lr_kgfm2: 20.1, viento: { V_kmh: 75, aberturas: "repartidas", tipo: 1 },
+    sismo: { zona: "Z4", suelo: "S2", categoria: "C", sistema: "OMF" } };
+  const SL = { base: "empotrada", union: "rigida" };
+  const ri = A.analiza({ m3: m3L, seccion: secL(NL), acero: "A36", sistema: SL, cargas: CL });
+  const rf = A.analiza({ m3: m3L, seccion: secL(NL), acero: "A36", sistema: SL, cargas: CL, eje: 0 });
+  const lg = LG.analiza({ m3: m3L, sistema: SL, viento: CL.viento, sismo: CL.sismo,
+    P_interior_kgf: ri.sismo.P_kgf, P_fachada_kgf: rf.sismo.P_kgf });
+  const DZL = { arriostreInferior_m: 3.33, separacionLargueros_m: 1.5, LbColumna_m: 3, arriostreComprobado: true,
+    cartela: "3/8", separadores_cm: 60, conexionSeparadores: "requintado", condicionesE5: true,
+    uniones: "soldadas", soldadura_cm: 10 };
+  const verL = (nom) => DI.verificaLongitudinal({ lg: lg, interior: ri, fachada: rf, m3: m3L, seccion: secL(nom),
+    acero: "A36", diseno: DZL, cerramiento_kgfm2: 8.35 });
+  const v = verL(NL);
+  const pz = (nombre) => v.piezas.filter((x) => x.pieza.indexOf(nombre) === 0)[0];
+  const A36 = AC.material("A36");
+
+  /* las varillas · fila T.varillas */
+  const cruz = pz("cruz de fachada"), Ab = P.busca("VAR5/8").A_cm2;
+  cerca("la cruz de fachada: Pu / mín(0,9·Fy·Ab, 0,75·0,75·Fu·Ab)", cruz.ratio,
+    lg.envolvente.cruzFachada.valor / Math.min(0.9 * A36.Fy * Ab, 0.75 * 0.75 * A36.Fu * Ab), 1e-12);
+  comp("con VAR5/8 no llega: el sismo a lo largo es de todo el galpón", cruz.cumple, false);
+  const conAngulo = verL(Object.assign({}, NL, { "arriostre de fachada": "L3X3X1/4" }));
+  cierto("un tirante solo a tracción que no es varilla se dice, y no cumple",
+    conAngulo.piezas[0].faltanEsenciales && /VARILLA/.test(conAngulo.piezas[0].omitidos[0].motivo));
+  comp("la diagonal del arriostre vertical, con la suya", pz("diagonal del arriostre vertical").demanda,
+    lg.envolvente.verticalDiagonal.valor);
+
+  /* las que van a los dos lados */
+  const at = pz("arriostre de techo");
+  const ellMax = Math.max.apply(null, lg.estados[0].armaduras[0].paneles.map((x) => x.ell_m)) * 100;
+  cerca("el arriostre de techo, con su diagonal más larga", at.L_cm, ellMax, 1e-9);
+  comp("y a tracción y a compresión", at.verificadas, 2);
+  {
+    const hss = verL(Object.assign({}, NL, { "arriostre de techo": "HSS4X4X1/4" })).piezas
+      .filter((x) => x.pieza === "arriostre de techo")[0];
+    const H4 = P.busca("HSS4X4X1/4");
+    const cx4 = AC.compresion({ acero: "A36", Ag_cm2: H4.A_cm2, Lc_cm: ellMax, r_cm: Math.min(H4.rx_cm, H4.ry_cm),
+      elementos: [{ nombre: "pared", razon: Math.max(H4.b_t, H4.h_t), caso: 6 }],
+      Pu_kgf: lg.envolvente.armaduraTecho.valor });
+    cerca("un tubo rectangular de arriostre de techo: su compresión con el r menor y la diagonal entera", hss.ratio,
+      Math.max(cx4.ratio, lg.envolvente.armaduraTecho.valor / (0.9 * A36.Fy * H4.A_cm2)), 1e-9);
+    cierto("y dice que el U de la tracción supone el tubo soldado en todo su contorno",
+      hss.omitidos.some((o) => /U = 1/.test(o.motivo) && !o.esencial));
+    const otra = verL(Object.assign({}, NL, { "arriostre de techo": "C8X11.5" })).piezas
+      .filter((x) => x.pieza === "arriostre de techo")[0];
+    cierto("una familia que no está conectada se dice SIN hablar del tijeral",
+      otra.faltanEsenciales && /a lo largo/.test(otra.omitidos[0].motivo) && !/tijeral/.test(otra.omitidos[0].motivo));
+  }
+  cerca("el puntal del arriostre vertical, con la separación de pórticos", pz("puntal del arriostre vertical").L_cm, 600, 1e-12);
+
+  /* la viga de alero de puntal y la columna hastial: con B1 · fila E.A8.Cm.transv */
+  const va = pz("viga de alero de puntal");
+  comp("la viga de alero de puntal se verifica con su axial", [va.demanda, typeof va.ratio], [lg.envolvente.aleroPuntal.valor, "number"]);
+  const ch = pz("columna hastial");
+  const W8 = P.busca("W8X18");
+  const peorCol = lg.columnas.filter((c) => c.tipo === "hastial").reduce((a, c) => (c.M_kgfm > a.M_kgfm ? c : a));
+  cerca("la columna hastial: la flecha de servicio 5·w·H⁴/(384·E·I), sin factorizar", ch.servicio.delta_cm,
+    5 * (peorCol.w_kgfm / 100) * Math.pow(600, 4) / (384 * AC.E_ACERO * W8.Ix_cm4), 1e-9);
+  comp("contra H/120", ch.servicio.limite_cm, 5);
+  cerca("con 1,2 veces su peso y el muro de su franja", ch.Pu_kgf, 1.2 * (W8.peso_kgfm * 6 + 8.35 * 5 * 6), 1e-9);
+  cierto("y con el 1,3 del viento sobre el momento", Math.abs(ch.demanda - 1.3 * peorCol.M_kgfm) < 1e-9);
+
+  /* un S4X7.7: resiste el momento (0,7) pero flecta 5,08 cm, más que H/120 = 5 cm */
+  const blanda = verL(Object.assign({}, NL, { "columna hastial": "S4X7.7" }))
+    .piezas.filter((x) => x.pieza === "columna hastial")[0];
+  cierto("una columna hastial que resiste pero flecta más de H/120 NO cumple, y dice por qué",
+    blanda.ratio < 1 && blanda.servicio.pasa === false && blanda.cumple === false && /L\/120/.test(blanda.falla));
+  /* lo pendiente se dice */
+  const co = pz("correa de puntal");
+  cierto("LA CORREA DE PUNTAL NO SE DA POR BUENA: falta diseñar las correas, y se dice",
+    co.cumple === false && co.faltanEsenciales && /correas todavía no se diseñan/.test(co.omitidos[0].motivo));
+  cerca("con su axial a la vista", co.demanda, lg.envolvente.correaPuntal.valor, 1e-12);
+
+  /* la esquina y la brida del paño arriostrado */
+  const es = pz("columna de esquina");
+  const nLong = rf.corridas.filter((c) => c.id.split(" · ").slice(1).join(" ").split(" ")
+    .some((t) => rf.casos.some((k) => k.id === t && k.direccion === "longitudinal"))).length;
+  comp("la columna de esquina se mira en TODAS las corridas con viento longitudinal, y solo en ellas",
+    [es.verificadas, nLong > 0], [nLong, true]);
+  const bs = pz("brida superior del paño arriostrado");
+  const peorB = Object.keys(ri.barras).map((k) => ri.barras[k]).filter((x) => x.clase === "brida superior")
+    .reduce((a, x) => (x.compresion.Pr_kgf < a.compresion.Pr_kgf ? x : a));
+  cerca("la brida del paño arriostrado: su mayor compresión más el cordón de la armadura", bs.demanda,
+    -peorB.compresion.Pr_kgf + lg.envolvente.cordonTecho.valor, 1e-9);
+  comp("el resumen cuenta lo que cumple y lo que falta", [v.resumen.total, v.resumen.conOmitidosEsenciales],
+    [v.piezas.length, v.piezas.filter((x) => x.faltanEsenciales).length]);
+  lanza("sin el análisis longitudinal no hay nada que verificar", () => DI.verificaLongitudinal({}), ["longitudinal.analiza"]);
+}
+
 fin();

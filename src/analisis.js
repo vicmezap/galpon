@@ -552,8 +552,8 @@
       };
     }
     const dx = Math.max(Math.abs(r.desplaza(g.alero.izq, "ux")), Math.abs(r.desplaza(g.alero.der, "ux")));
-    return { id: caso.id, tipo: caso.tipo, desc: caso.desc, reacciones: reac,
-      derivaAlero_cm: dx, resultado: r };
+    return { id: caso.id, tipo: caso.tipo, desc: caso.desc, direccion: caso.direccion, Ci: caso.Ci,
+      reacciones: reac, derivaAlero_cm: dx, resultado: r };
   }
 
   /* Una combinación con el Método Directo y el segundo orden del Apéndice 8 */
@@ -800,7 +800,7 @@
       sistema: g.sistema, eje: g.eje, trib_m: g.trib_m,
       hAlero_m: g.hAlero_m, nudoLadeo: g.ladeo, omitidas: g.omitidas,
       acero: d.acero,
-      casos: sinFactorizar.map((x) => ({ id: x.id, tipo: x.tipo, desc: x.desc,
+      casos: sinFactorizar.map((x) => ({ id: x.id, tipo: x.tipo, desc: x.desc, direccion: x.direccion, Ci: x.Ci,
         reacciones: x.reacciones, derivaAlero_cm: x.derivaAlero_cm })),
       viento: { Vh_kmh: vw.Vh_kmh, hCumbre_m: vw.hCumbre_m, estados: vw.casos.length },
       combinaciones: filas.map((f) => ({ id: f.id, base: f.base, texto: f.texto,
