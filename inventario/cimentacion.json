@@ -662,6 +662,42 @@
       "clave": true,
       "fuente": "decisión de alcance",
       "nota": "El sistema sismorresistente del galpón es el pórtico de acero, pero el pedestal le lleva las fuerzas sísmicas a la cimentación. Las exigencias del Capítulo 21 para elementos de concreto (confinamiento, diseño por capacidad) no están escritas aquí: se avisa en vez de callarlo."
+    },
+    {
+      "id": "Z.biaxial",
+      "grupo": "El suelo",
+      "magnitud": "La presión con momento en las dos direcciones",
+      "valor": "sin tracción: dentro del núcleo |ex|/L + |ey|/B ≤ 1/6, el plano entero · fuera, el plano truncado q = máx(0, a + b·x + c·y) que equilibra N, N·ex y N·ey",
+      "unidad": "kgf/cm²",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.060 §15.2.3 (sin tracciones) · estática",
+      "nota": "Con momento en las dos direcciones la presión ya no es un trapecio: es un plano, y donde ese plano saldría negativo el suelo no tira (§15.2.3), así que la zona de contacto se reduce. Mientras la resultante esté en el núcleo romboidal (|ex|/L + |ey|/B ≤ 1/6) el plano entero es la solución, cerrada. Fuera, el plano truncado se determina por equilibrio —su volumen es N y sus momentos N·ex y N·ey— y se resuelve por Newton sobre una malla de 80 × 80 celdas; las integrales del concreto se hacen luego con ese plano. Con un solo momento se usa la solución de siempre, la del trapecio o el triángulo. Si la resultante cae fuera de la base no hay solución: vuelca."
+    },
+    {
+      "id": "Z.longitudinal.articulada",
+      "grupo": "El suelo",
+      "magnitud": "Lo que llega a la zapata a lo largo",
+      "valor": "solo el cortante Hz: en la dirección longitudinal la base de la columna es articulada · el momento en la zapata es Hz·(pedestal + h)",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "decisión de modelo · filas LG.fachada.cruz y LG.hastial.reparto",
+      "nota": "La placa base empotra la columna en el plano del pórtico; a lo largo, con los pernos en las dos filas de ese plano y la columna flexionando por su eje débil, no se cuenta con empotramiento: la columna se modela articulada en esa dirección (como la columna hastial y la de esquina en LG.hastial.reparto). Así a la zapata llega Hz y no momento, y Hz da en el fondo un momento Hz·(altura del pedestal + h). Es lo seguro para la zapata respecto de suponer un empotramiento que no se detalló."
+    },
+    {
+      "id": "Z.punzon.biaxial",
+      "grupo": "La zapata como elemento de concreto",
+      "magnitud": "El punzonamiento con momento en las dos direcciones",
+      "valor": "vu = Vu/Ac + γv1·M1·c1/Jc1 + γv2·M2·c2/Jc2, cada uno con su γv y su Jc, cambiando c1 por c2",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.060 §11.12.6 aplicado en cada dirección · fila Z.punzon.momento",
+      "nota": "El §11.12.6 da la transferencia por excentricidad del cortante para el momento en una dirección. Con momento en las dos, cada uno se transfiere por su propia excentricidad sobre la misma sección crítica, y los esfuerzos se suman en la esquina, donde coinciden los dos máximos: γv y Jc se calculan para cada dirección intercambiando c1 y c2. Es la extensión directa y del lado seguro."
     }
   ]
 }

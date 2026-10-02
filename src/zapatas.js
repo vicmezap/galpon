@@ -41,7 +41,7 @@
     "Z.combos.E060", "Z.levantamiento", "Z.servicio", "Z.signo", "Z.peso", "Z.vuelco",
     "Z.deslizamiento", "Z.plano", "Z.As.min", "Z.s.max", "Z.Vc.viga", "Z.bloque", "Z.As.max",
     "Z.rec", "Z.punzon.momento", "Z.desarrollo", "D.concreto.gamma", "N.no.viento", "J.anclaje.concreto",
-    "PD.anclaje.zapata"
+    "PD.anclaje.zapata", "Z.biaxial", "Z.longitudinal.articulada", "Z.punzon.biaxial"
   ]);
 
   const MPA = UN.MPA_KGCM2;
@@ -85,6 +85,88 @@
       } };
   }
 
+  /* LA PRESIÓN CON MOMENTO EN LAS DOS DIRECCIONES · fila Z.biaxial
+     x a lo largo de L (el plano del pórtico), y a lo largo de B.  ex y ey son
+     la posición de la resultante.  Sin tracción (§15.2.3):
+       · con un solo momento, la solución de siempre (presion)
+       · dentro del núcleo, |ex|/L + |ey|/B ≤ 1/6: el plano entero, cerrado
+       · fuera, el plano TRUNCADO q = máx(0, a + b·x + c·y) cuyo volumen y
+         momentos son N, N·ex y N·ey: se resuelve por Newton sobre una malla */
+  function presion2(N, ex, ey, B, L) {
+    if (!(N > 0)) return { levanta: true, N: N };
+    if (Math.abs(ey) < 1e-9 * B) {
+      const p = presion(N, ex, B, L);
+      return Object.assign({}, p, { ey: 0, q2: p.q ? (x) => p.q(x) : null, ny: 2, nx: 400 });
+    }
+    if (Math.abs(ex) < 1e-9 * L) {
+      const p = presion(N, ey, L, B);                 /* el mismo problema, girado */
+      return Object.assign({}, p, { e: 0, ey: ey, q2: p.q ? (x, y) => p.q(y) : null, nx: 2, ny: 400,
+        forma: p.forma ? p.forma + " (en B)" : p.forma });
+    }
+    if (Math.abs(ex) >= L / 2 || Math.abs(ey) >= B / 2) return { vuelca: true, N: N, e: ex, ey: ey };
+    const A = B * L, q0 = N / A;
+    let a = q0, b = 12 * N * ex / (B * L * L * L), c = 12 * N * ey / (L * B * B * B);
+    const qmaxDe = (a1, b1, c1) => a1 + Math.abs(b1) * L / 2 + Math.abs(c1) * B / 2;
+    if (Math.abs(ex) / L + Math.abs(ey) / B <= 1 / 6 + 1e-12) {
+      return { N: N, e: ex, ey: ey, forma: "plano entero", qmax: qmaxDe(a, b, c),
+        qmin: a - Math.abs(b) * L / 2 - Math.abs(c) * B / 2, contacto: 1,
+        q2: (x, y) => a + b * x + c * y, nx: 60, ny: 60 };
+    }
+    /* Newton sobre una malla de n × n celdas */
+    const n = 80, hx = L / n, hy = B / n, dA = hx * hy;
+    const xs = [], ys = [];
+    for (let i = 0; i < n; i++) { xs.push(-L / 2 + (i + 0.5) * hx); ys.push(-B / 2 + (i + 0.5) * hy); }
+    const resid = (a1, b1, c1) => {
+      let F0 = 0, F1 = 0, F2 = 0, J = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], act = 0;
+      for (const x of xs) for (const y of ys) {
+        const q = a1 + b1 * x + c1 * y;
+        if (q <= 0) continue;
+        act++;
+        F0 += q * dA; F1 += q * x * dA; F2 += q * y * dA;
+        const v = [1, x, y];
+        for (let r = 0; r < 3; r++) for (let k = 0; k < 3; k++) J[r][k] += v[r] * v[k] * dA;
+      }
+      return { F: [F0 - N, F1 - N * ex, F2 - N * ey], J: J, act: act };
+    };
+    const norma = (F) => Math.abs(F[0]) / N + (Math.abs(F[1]) + Math.abs(F[2])) / (N * Math.max(B, L));
+    const resuelve3 = (J, F) => {
+      /* Cramer: es un 3×3 simétrico definido positivo mientras haya contacto */
+      const det = (M) => M[0][0] * (M[1][1] * M[2][2] - M[1][2] * M[2][1]) -
+        M[0][1] * (M[1][0] * M[2][2] - M[1][2] * M[2][0]) + M[0][2] * (M[1][0] * M[2][1] - M[1][1] * M[2][0]);
+      const D = det(J);
+      const col = (k) => J.map((fila, r) => fila.map((v, j) => (j === k ? -F[r] : v)));
+      return [det(col(0)) / D, det(col(1)) / D, det(col(2)) / D];
+    };
+    let R = resid(a, b, c), it = 0;
+    while (norma(R.F) > 1e-10 && it < 100) {
+      const dx = resuelve3(R.J, R.F);
+      let t = 1, Rn;
+      for (let k = 0; k < 30; k++) {
+        Rn = resid(a + t * dx[0], b + t * dx[1], c + t * dx[2]);
+        if (Rn.act > 0 && norma(Rn.F) < norma(R.F)) break;
+        t /= 2;
+      }
+      a += t * dx[0]; b += t * dx[1]; c += t * dx[2];
+      R = Rn; it++;
+    }
+    const conv = norma(R.F) <= 1e-6;
+    return { N: N, e: ex, ey: ey, forma: "plano truncado", qmax: qmaxDe(a, b, c), qmin: 0,
+      contacto: R.act / (n * n), iteraciones: it, convergio: conv,
+      q2: (x, y) => Math.max(0, a + b * x + c * y), nx: 80, ny: 80, malla: n };
+  }
+
+  /* ∫∫ f dx dy sobre un rectángulo, Simpson en las dos direcciones */
+  function integra2(f, x0, x1, y0, y1, nx, ny) {
+    if (!(x1 > x0) || !(y1 > y0)) return 0;
+    return integraN((y) => integraN((x) => f(x, y), x0, x1, nx), y0, y1, ny);
+  }
+  function integraN(f, a, b, n) {
+    const m = n % 2 ? n + 1 : n, h0 = (b - a) / m;
+    let s0 = f(a) + f(b);
+    for (let i = 1; i < m; i++) s0 += f(a + i * h0) * (i % 2 ? 4 : 2);
+    return s0 * h0 / 3;
+  }
+
   /* ∫ q(x)·f(x) dx entre a y b, por Simpson */
   function integra(f, a, b) {
     if (!(b > a)) return 0;
@@ -106,13 +188,15 @@
      reacciones son SOBRE la estructura, así que se cambian de signo */
   function deBase(caso, base) {
     const r = caso.reacciones[base];
-    return { P: r.Ry_kgf, H: -r.Rx_kgf, M: -r.Mz_kgfcm };
+    /* Hz: el cortante a lo largo.  En esa dirección la base de la columna es
+       articulada, así que no llega momento: solo Hz (fila Z.longitudinal.articulada) */
+    return { P: r.Ry_kgf, H: -r.Rx_kgf, M: -r.Mz_kgfcm, Hz: -(r.Rz_kgf || 0) };
   }
   function suma(partes, base) {
-    const s = { P: 0, H: 0, M: 0 };
+    const s = { P: 0, H: 0, M: 0, Hz: 0 };
     for (const [c, f] of partes) {
       const x = deBase(c, base);
-      s.P += f * x.P; s.H += f * x.H; s.M += f * x.M;
+      s.P += f * x.P; s.H += f * x.H; s.M += f * x.M; s.Hz += f * x.Hz;
     }
     return s;
   }
@@ -192,13 +276,15 @@
         const s = suma(c.partes, b);
         const N = s.P + Wp + Wf;
         const Mb = s.M - s.H * brazo;
-        const e = -Mb / N;
-        const pr = presion(N, e, B, L);
+        const e = -Mb / N, ey = s.Hz * brazo / N;
+        const pr = presion2(N, e, ey, B, L);
         const adm = sigmaN * (c.temporal ? INC_TEMPORAL : 1);
         const ratio = pr.levanta || pr.vuelca ? Infinity : pr.qmax / adm;
-        const fila = { combo: c.id, base: b, N: N, H: s.H, e: e, eL: e / L, forma: pr.forma || null,
+        const Ht = Math.hypot(s.H, s.Hz);
+        const fila = { combo: c.id, base: b, N: N, H: s.H, Hz: s.Hz, e: e, eL: e / L, ey: ey, eB: ey / B,
+          forma: pr.forma || null,
           qmax: pr.qmax || null, admisible: adm, ratio: ratio, levanta: !!pr.levanta, vuelca: !!pr.vuelca,
-          deslizamiento: (su.mu > 0 && Math.abs(s.H) > 1e-6) ? su.mu * (N + Wr) / Math.abs(s.H) : null };
+          deslizamiento: (su.mu > 0 && Ht > 1e-6) ? su.mu * (N + Wr) / Ht : null };
         servicio.push(fila);
         if (!peorS || ratio > peorS.ratio) peorS = fila;
       }
@@ -224,9 +310,9 @@
     const db = BARRAS[co.barra];
     const dL = h - co.rec_cm - db / 2, dB = h - co.rec_cm - 1.5 * db;
     const c1 = pe.l_cm, c2 = pe.b_cm;                         /* c1 en la dirección del momento */
-    const est2 = { flexL: null, flexB: null, cortL: null, cortB: null, punz: null, negL: null };
+    const est2 = { flexL: null, flexB: null, cortL: null, cortB: null, punz: null, negL: null, negB: null };
     const peor = (k, x) => {
-      const flex = k.indexOf("flex") === 0 || k === "negL";
+      const flex = k.indexOf("flex") === 0 || k === "negL" || k === "negB";
       if (!est2[k] || (flex ? x.Mu > est2[k].Mu : x.ratio > est2[k].ratio)) est2[k] = x;
     };
     const sinApoyo = [], vuelcoU = [];
@@ -240,45 +326,52 @@
         const N = s.P + c.factorCM * (Wp + Wf + Wr);
         const Mb = s.M - s.H * brazo;
         const Mtop = s.M - s.H * altPed;                       /* lo que el pedestal le da a la zapata */
-        const pr = presion(N, -Mb / N, B, L);
+        const MtopZ = s.Hz * altPed;                           /* a lo largo: la base es articulada */
+        const pr = presion2(N, -Mb / N, s.Hz * brazo / N, B, L);
         if (pr.levanta) { sinApoyo.push(c.id + " · " + b); continue; }
         /* con la carga amplificada la resultante cae fuera: no hay presión que la
            equilibre, y eso es una falla, no una combinación que se salta (fila Z.vuelco) */
-        if (pr.vuelca) { vuelcoU.push({ combo: c.id, base: b, eL: pr.e / L }); continue; }
-        const net = (x) => pr.q(x) - w;                         /* el suelo menos el peso de encima */
+        if (pr.vuelca) { vuelcoU.push({ combo: c.id, base: b, eL: pr.e / L, eB: (pr.ey || 0) / B }); continue; }
+        const net = (x, y) => pr.q2(x, y) - w;                  /* el suelo menos el peso de encima */
+        const I2 = (f, x0, x1, y0, y1) => integra2(f, x0, x1, y0, y1, pr.nx, pr.ny);
         /* flexión en la cara del pedestal, dirección L · el signo dice qué cara tracciona */
-        const mDer = integra((x) => net(x) * (x - c1 / 2) * B, c1 / 2, L / 2);
-        const mIzq = integra((x) => net(x) * (-c1 / 2 - x) * B, -L / 2, -c1 / 2);
+        const mDer = I2((x, y) => net(x, y) * (x - c1 / 2), c1 / 2, L / 2, -B / 2, B / 2);
+        const mIzq = I2((x, y) => net(x, y) * (-c1 / 2 - x), -L / 2, -c1 / 2, -B / 2, B / 2);
         peor("flexL", { Mu: Math.max(0, mDer, mIzq), ratio: 0, combo: c.id, base: b });
         /* donde la base no apoya, el peso del volado lo dobla al revés: la cara de
            ARRIBA queda en tracción y hace falta parrilla superior */
         peor("negL", { Mu: Math.max(0, -mDer, -mIzq), ratio: 0, combo: c.id, base: b });
-        /* dirección B: el suelo reparte N a lo largo de B por igual */
-        const cB = (B - c2) / 2;
-        const netoB = N - w * B * L;
-        peor("flexB", { Mu: Math.max(0, netoB * cB * cB / (2 * B)), ratio: 0, combo: c.id, base: b });
+        /* dirección B, igual: con un solo momento el suelo reparte por igual en B, y sale lo de siempre */
+        const mArr = I2((x, y) => net(x, y) * (y - c2 / 2), -L / 2, L / 2, c2 / 2, B / 2);
+        const mAba = I2((x, y) => net(x, y) * (-c2 / 2 - y), -L / 2, L / 2, -B / 2, -c2 / 2);
+        peor("flexB", { Mu: Math.max(0, mArr, mAba), ratio: 0, combo: c.id, base: b });
+        peor("negB", { Mu: Math.max(0, -mArr, -mAba), ratio: 0, combo: c.id, base: b });
         /* cortante como viga, a d de la cara · fila Z.Vc.viga */
-        const VuL = Math.max(Math.abs(integra((x) => net(x) * B, c1 / 2 + dL, L / 2)),
-          Math.abs(integra((x) => net(x) * B, -L / 2, -c1 / 2 - dL)));
+        const VuL = Math.max(Math.abs(I2(net, c1 / 2 + dL, L / 2, -B / 2, B / 2)),
+          Math.abs(I2(net, -L / 2, -c1 / 2 - dL, -B / 2, B / 2)));
         const phiVcL = PHI_V * 0.17 * raizFc(fc) * B * dL;
         peor("cortL", { Vu: VuL, phiVc: phiVcL, ratio: VuL / phiVcL, combo: c.id, base: b });
-        const VuB = Math.abs(netoB) * Math.max(0, cB - dB) / B;
+        const VuB = Math.max(Math.abs(I2(net, -L / 2, L / 2, c2 / 2 + dB, B / 2)),
+          Math.abs(I2(net, -L / 2, L / 2, -B / 2, -c2 / 2 - dB)));
         const phiVcB = PHI_V * 0.17 * raizFc(fc) * L * dB;
         peor("cortB", { Vu: VuB, phiVc: phiVcB, ratio: VuB / phiVcB, combo: c.id, base: b });
         /* punzonamiento con transferencia de momento · filas Z.punzon.* · fuera de la
            sección crítica: lo que empuja el suelo menos lo que pesa encima */
         const d = (dL + dB) / 2;
-        const dentro = integra((x) => pr.q(x) * (c2 + d), -(c1 + d) / 2, (c1 + d) / 2);
+        const dentro = I2(pr.q2, -(c1 + d) / 2, (c1 + d) / 2, -(c2 + d) / 2, (c2 + d) / 2);
         const Vu = Math.max(0, N - dentro - w * (B * L - (c1 + d) * (c2 + d)));
         const bo = 2 * (c1 + c2 + 2 * d);
         const beta = Math.max(c1, c2) / Math.min(c1, c2);
         const vc = Math.min(0.17 * (1 + 2 / beta), 0.083 * (ALFA_S * d / bo + 2), 0.33) * raizFc(fc);
-        const gf = 1 / (1 + (2 / 3) * Math.sqrt((c1 + d) / (c2 + d)));
         const Ac = 2 * d * (c1 + c2 + 2 * d);
-        const Jc = d * Math.pow(c1 + d, 3) / 6 + (c1 + d) * Math.pow(d, 3) / 6 + d * (c2 + d) * Math.pow(c1 + d, 2) / 2;
-        const vu = Vu / Ac + (1 - gf) * Math.abs(Mtop) * ((c1 + d) / 2) / Jc;
+        /* el momento en cada dirección, con su γv y su Jc · fila Z.punzon.biaxial */
+        const gvDe = (b1, b2) => 1 - 1 / (1 + (2 / 3) * Math.sqrt(b1 / b2));
+        const JcDe = (b1, b2) => d * Math.pow(b1, 3) / 6 + b1 * Math.pow(d, 3) / 6 + d * b2 * b1 * b1 / 2;
+        const gv = gvDe(c1 + d, c2 + d), gvZ = gvDe(c2 + d, c1 + d);
+        const Jc = JcDe(c1 + d, c2 + d), JcZ = JcDe(c2 + d, c1 + d);
+        const vu = Vu / Ac + gv * Math.abs(Mtop) * ((c1 + d) / 2) / Jc + gvZ * Math.abs(MtopZ) * ((c2 + d) / 2) / JcZ;
         peor("punz", { Vu: Vu, vu: vu, phivn: PHI_V * vc, ratio: vu / (PHI_V * vc), combo: c.id, base: b,
-          gv: 1 - gf, Mt: Math.abs(Mtop), bo: bo, d: d });
+          gv: gv, Mt: Math.abs(Mtop), gvZ: gvZ, MtZ: Math.abs(MtopZ), bo: bo, d: d });
       }
     }
 
@@ -311,6 +404,7 @@
     /* la parrilla de arriba, solo si hay momento negativo · con el mismo recubrimiento,
        que no baja de 70 mm: del lado seguro */
     const aSup = est2.negL && est2.negL.Mu > 0 ? acero(est2.negL.Mu, B, dL, true) : null;
+    const aSupB = est2.negB && est2.negB.Mu > 0 ? acero(est2.negB.Mu, L, dB, true) : null;
     const betaZ = Math.max(B, L) / Math.min(B, L);
     const franja = betaZ > 1 + 1e-9 ? { gs: 2 / (betaZ + 1), ancho: Math.min(B, L),
       nota: "en la dirección corta, γs·As en una franja central del ancho del lado corto (fila Z.franja)" } : null;
@@ -329,6 +423,7 @@
     if (aL && (aL.insuficiente || !aL.cumple)) fallas.push("flexión L");
     if (aB && (aB.insuficiente || !aB.cumple)) fallas.push("flexión B");
     if (aSup && (aSup.insuficiente || !aSup.cumple)) fallas.push("flexión negativa");
+    if (aSupB && (aSupB.insuficiente || !aSupB.cumple)) fallas.push("flexión negativa en B");
     if (h < hMin - 1e-9) fallas.push("peralte mínimo");
     if (co.rec_cm < REC_MIN - 1e-9) fallas.push("recubrimiento");
     /* el peralte que piden las barras del pedestal para anclarse · fila PD.anclaje.zapata */
@@ -340,7 +435,7 @@
         deslizamiento: su.mu > 0 ? servicio.filter((x) => x.deslizamiento !== null)
           .reduce((a, x) => (!a || x.deslizamiento < a.deslizamiento ? x : a), null) : null },
       levantamiento: peorL, vuelcoAmplificado: vuelcoU,
-      concreto: Object.assign({}, est2, { aceroL: aL, aceroB: aB, aceroSup: aSup, franja: franja, hMin: hMin,
+      concreto: Object.assign({}, est2, { aceroL: aL, aceroB: aB, aceroSup: aSup, aceroSupB: aSupB, franja: franja, hMin: hMin,
         dL: dL, dB: dB, beta1: beta1, rhoMin: rhoMin, sMax: sMax }),
       fallas: fallas, cumple: !fallas.length, avisos: avisos
     };
@@ -388,6 +483,7 @@
         (!x.concreto.aceroL || (!x.concreto.aceroL.insuficiente && x.concreto.aceroL.cumple)) &&
         (!x.concreto.aceroB || (!x.concreto.aceroB.insuficiente && x.concreto.aceroB.cumple)) &&
         (!x.concreto.aceroSup || (!x.concreto.aceroSup.insuficiente && x.concreto.aceroSup.cumple)) &&
+        (!x.concreto.aceroSupB || (!x.concreto.aceroSupB.insuficiente && x.concreto.aceroSupB.cumple)) &&
         x.fallas.indexOf("anclaje del pedestal") < 0;
       do {
         r = verifica(d, { B_cm: lado, L_cm: lado, h_cm: h });
@@ -411,5 +507,5 @@
   }
 
   return { ART, PHI_V, PHI_F, INC_TEMPORAL, SISMO_SUELO, REC_MIN, GRADOS, BARRAS,
-    presion, integra, combosServicio, combosE060, estados, deBase, suma, verifica, faltan, disena };
+    presion, presion2, integra, integra2, combosServicio, combosE060, estados, deBase, suma, verifica, faltan, disena };
 });

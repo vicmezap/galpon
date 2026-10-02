@@ -251,4 +251,70 @@ cierto("y con medidas dadas por debajo, falla por el anclaje del pedestal",
 const sinMu = Z.disena(Object.assign({}, D0, { suelo: Object.assign({}, D0.suelo, { mu: undefined }) }));
 cierto("sin μ se dice que el deslizamiento no se comprobó", sinMu.avisos.some((x) => /deslizamiento/.test(x)));
 
+
+/* ================================================================
+   EL MOMENTO EN LAS DOS DIRECCIONES · filas Z.biaxial, Z.longitudinal.articulada, Z.punzon.biaxial
+   ================================================================ */
+{
+  const Nb = 40000, Bb = 150, Lb = 200;
+  const vol = (pr, f) => Z.integra2((x, y) => pr.q2(x, y) * f(x, y), -Lb / 2, Lb / 2, -Bb / 2, Bb / 2, 200, 200);
+  /* dentro del núcleo: el plano entero, cerrado */
+  const pk = Z.presion2(Nb, 15, 10, Bb, Lb);
+  comp("con |ex|/L + |ey|/B ≤ 1/6, el plano entero", pk.forma, "plano entero");
+  cerca("qmax = N/A·(1 + 6·ex/L + 6·ey/B)", pk.qmax, Nb / (Bb * Lb) * (1 + 6 * 15 / Lb + 6 * 10 / Bb), 1e-12);
+  for (const [nom, pr, ex, ey] of [["núcleo", pk, 15, 10], ["fuera del núcleo", Z.presion2(Nb, 50, 35, Bb, Lb), 50, 35]]) {
+    cerca(nom + " · EQUILIBRIO: ∫∫q = N", vol(pr, () => 1), Nb, nom === "núcleo" ? 1e-9 : 2e-3);
+    cerca(nom + " · ∫∫q·x = N·ex", vol(pr, (x) => x), Nb * ex, nom === "núcleo" ? 1e-9 : 3e-3);
+    cerca(nom + " · ∫∫q·y = N·ey", vol(pr, (x, y) => y), Nb * ey, nom === "núcleo" ? 1e-9 : 3e-3);
+  }
+  const pt = Z.presion2(Nb, 50, 35, Bb, Lb);
+  cierto("fuera del núcleo: el plano truncado, sin tracción, y parte de la base sin contacto",
+    pt.forma === "plano truncado" && pt.qmin === 0 && pt.contacto < 1 && pt.convergio);
+  /* CERRADO: la resultante en la diagonal de un cuadrado, cerca de la esquina. El contacto es un
+     triángulo rectángulo de catetos a en la esquina; la cuña tiene volumen qmax·a²/6 y su centroide
+     a a/4 de la esquina en cada eje: a = 4·u y qmax = 6N/a² */
+  {
+    const S0 = 200, u = 20, pr = Z.presion2(Nb, S0 / 2 - u, S0 / 2 - u, S0, S0), a = 4 * u;
+    cerca("resultante en la diagonal, a 20 cm de cada borde: qmax = 6·N/(4u)² (la cuña de la esquina)",
+      pr.qmax, 6 * Nb / (a * a), 0.02);
+    cerca("y el contacto es el triángulo: a²/2 de la base", pr.contacto, a * a / 2 / (S0 * S0), 0.05);
+  }
+  {
+    /* justo fuera del núcleo (0,2 > 1/6): el plano entero ya daría tracción en una esquina */
+    const p2 = Z.presion2(Nb, 24, 15, Bb, Lb);
+    cierto("con |ex|/L + |ey|/B = 0,22, fuera del núcleo: truncado, sin tracción",
+      p2.forma === "plano truncado" && p2.qmin === 0 && p2.contacto < 1);
+    cierto("(el plano entero ahí tendría una esquina en tracción)",
+      Nb / (Bb * Lb) * (1 - 6 * 24 / Lb - 6 * 15 / Bb) < 0);
+  }
+  /* los casos límite vuelven a lo de siempre */
+  cerca("con ey = 0 es el trapecio de siempre", Z.presion2(Nb, 20, 0, Bb, Lb).qmax, Z.presion(Nb, 20, Bb, Lb).qmax, 1e-12);
+  cerca("con ex = 0 es el mismo problema girado", Z.presion2(Nb, 0, 30, Bb, Lb).qmax, Z.presion(Nb, 30, Lb, Bb).qmax, 1e-12);
+  comp("con la resultante fuera de la base en B, vuelca", Z.presion2(Nb, 10, Bb / 2, Bb, Lb).vuelca, true);
+
+  /* EN LA ZAPATA: el mismo cortante a lo largo debe hacer en B lo que hace en L · zapata y pedestal cuadrados */
+  const Dq = Object.assign({}, D0, { pedestal: { b_cm: 45, l_cm: 45, sobreTerreno_cm: 20 } });
+  const caso = (Rx, Rz) => [{ id: "D", tipo: "D", reacciones: { B0: { Rx_kgf: 0, Ry_kgf: 20000, Mz_kgfcm: 0 } } },
+    { id: "Lr", tipo: "Lr", reacciones: { B0: { Rx_kgf: 0, Ry_kgf: 0, Mz_kgfcm: 0 } } },
+    { id: "W1", tipo: "W", reacciones: { B0: { Rx_kgf: Rx, Ry_kgf: 0, Mz_kgfcm: 0, Rz_kgf: Rz } } }];
+  const dq = { B_cm: 200, L_cm: 200, h_cm: 50 };
+  const enL = Z.verifica(Object.assign({}, Dq, { casos: caso(-3000, 0) }), dq);
+  const enB = Z.verifica(Object.assign({}, Dq, { casos: caso(0, -3000) }), dq);
+  cerca("Hz a lo largo flexiona en B lo mismo que Hx en L (cuadrada)", enB.concreto.flexB.Mu, enL.concreto.flexL.Mu, 1e-9);
+  cerca("y la presión de servicio es la misma", enB.servicio.peor.qmax, enL.servicio.peor.qmax, 1e-9);
+  cerca("en el punzonamiento, el momento a lo largo es Hz·(altura del pedestal), con la base articulada",
+    enB.concreto.punz.MtZ, 1.25 * 3000 * enB.altPedestal_cm, 1e-9);
+  cerca("y transfiere con SU γv, igual al del otro eje en un pedestal cuadrado", enB.concreto.punz.gvZ, enL.concreto.punz.gv, 1e-12);
+  {
+    const vd = Z.verifica(Object.assign({}, Dq, { casos: caso(-3000, -4000) }), dq);
+    const fw = vd.servicio.filas.filter((x) => x.combo === "D + W1")[0];
+    cerca("el deslizamiento usa la resultante de los dos cortantes: μ·(N + relleno)/√(3000² + 4000²)",
+      fw.deslizamiento, 0.45 * (fw.N + vd.pesos.relleno) / 5000, 1e-12);
+  }
+  const ambos = Z.verifica(Object.assign({}, Dq, { casos: caso(-3000, -3000) }), dq);
+  cierto("con los dos a la vez, la presión es mayor que con cualquiera de los dos solos",
+    ambos.servicio.peor.qmax > enL.servicio.peor.qmax);
+  cierto("y el punzonamiento suma los dos momentos", ambos.concreto.punz.vu > enL.concreto.punz.vu);
+}
+
 fin();
