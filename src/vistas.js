@@ -710,7 +710,7 @@
 
     { id: "analisis", grupo: "Paso 3", nombre: "Análisis", listo: true,
       vistas: false, lados: ["analisis"], derecha: true,
-      sub: "el pórtico interior, resuelto con el Método Directo" },
+      sub: "el pórtico interior y el de fachada, con el Método Directo" },
 
     { id: "diseno", grupo: "Paso 4", nombre: "Diseño", listo: true,
       vistas: false, lados: ["diseno"], derecha: true,

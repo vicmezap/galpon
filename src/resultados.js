@@ -261,7 +261,18 @@
     };
   }
 
-  function analisis(m3, modelo, perfiles) {
+  /* Los dos pórticos que se analizan · fila A.portico.tipico.  El de fachada es
+     el eje 0: el último es simétrico (fila A.fachada.trib). */
+  function exige(c, msg) { if (!c) throw new Error("resultados: " + msg); }
+  const PORTICOS = ["interior", "fachada"];
+  function ejeDe(portico) {
+    exige(!portico || PORTICOS.indexOf(portico) >= 0,
+      "el pórtico es " + PORTICOS.join(" ó ") + ", no «" + portico + "»");
+    return portico === "fachada" ? 0 : undefined;
+  }
+
+  function analisis(m3, modelo, perfiles, portico) {
+    const eje = ejeDe(portico);
     const faltas = [];
     const sitio = modelo.sitio || {};
     const c = cargas(m3, sitio);
@@ -279,7 +290,7 @@
     const seccion = seccionDesde(modelo, perfiles);
     if (modelo.sistema) {
       try {
-        g = AN.geometria(m3, modelo.sistema);
+        g = AN.geometria(m3, modelo.sistema, eje);
         const sin = AN.faltanSecciones(g, seccion, m3);
         if (sin.length) {
           faltas.push({ paso: "geom", que: "faltan perfiles para: " + sin.join(" · ") +
@@ -294,7 +305,7 @@
     let r;
     try {
       r = AN.analiza({ m3: m3, sistema: modelo.sistema, seccion: seccion, acero: sitio.acero,
-        cargas: c.cargas });
+        cargas: c.cargas, eje: eje });
     } catch (e) {
       return { ok: false, cargas: c,
         faltas: [{ paso: "analisis", que: e.message.split("\n").join(" ").replace(/^\w+: /, "") }] };
@@ -305,7 +316,9 @@
   function fichasAnalisis(r) {
     const F = [];
     F.push(ficha("El modelo", r.sistema.nombre, [
-      ln("Pórtico analizado", "interior, eje " + r.eje, "geometria"),
+      ln("Pórtico analizado", (r.fachada ? "de fachada" : "interior") + ", eje " + r.eje, "geometria",
+        r.fachada ? { nota: "el otro extremo es simétrico · las " + r.hastiales.length + " columnas hastiales " +
+          "no están en el plano (unión deslizante)" } : undefined),
       ln("Ancho tributario", n2(r.trib_m, 2) + " m", "geometria"),
       ln("Estados de carga", r.casos.length + " (" + r.viento.estados + " de viento)", "conteo"),
       ln("Corridas", String(r.combinaciones.length), "conteo",
@@ -415,7 +428,8 @@
     }
     L.push(ln("Ratio", "falta el diseño", "medido",
       { nota: "las fuerzas ya están; el ratio es demanda entre capacidad, y la capacidad es el paso 4, Diseño" }));
-    return { lineas: L, nota: "del pórtico interior típico (eje " + r.eje + "), " + r.sistema.nombre };
+    return { lineas: L, nota: (r.fachada ? "del pórtico de fachada (eje " : "del pórtico interior típico (eje ") +
+      r.eje + "), " + r.sistema.nombre };
   }
 
   /* =====================================================================
@@ -594,8 +608,8 @@
 
   /* El diseño entero: corre el análisis si hace falta y verifica.  Lo que
      falte se dice con el paso al que hay que ir, como en el análisis. */
-  function diseno(m3, modelo, perfiles, an) {
-    const a = an || analisis(m3, modelo, perfiles);
+  function diseno(m3, modelo, perfiles, an, portico) {
+    const a = an || analisis(m3, modelo, perfiles, portico);
     if (!a.ok) {
       return { ok: false, faltas: [{ paso: "analisis",
         que: "el diseño necesita el análisis, y el análisis todavía no corre" }].concat(a.faltas) };
@@ -676,6 +690,8 @@
      lo que ya está calculado: Comprobación no corre nada por su cuenta. */
   function avisosResultados(a, d, cz) {
     const L = [];
+    const rr = (a && a.ok && a.r) || (d && d.ok && d.r) || (cz && cz.ok && cz.r) || null;
+    const quien = rr && rr.fachada ? "Pórtico de fachada · " : "";
     if (a && a.ok) {
       const r = a.r;
       if (!r.deriva.cumple) {
@@ -724,6 +740,8 @@
       L.push({ nivel: "error", que: "La placa base no cumple: " + cz.placa.fallas.join(", "),
         porque: "se arregla con la placa, los pernos o la llave, en Cimentación", paso: "cimen" });
     }
+    /* de qué pórtico es cada aviso, cuando no es el interior */
+    for (const x of L) x.que = quien + x.que;
     return L;
   }
 
@@ -845,8 +863,8 @@
   }
 
   /* La zapata: necesita el análisis, porque lo que le llega son sus casos */
-  function cimentacion(m3, modelo, perfiles, an) {
-    const a = an || analisis(m3, modelo, perfiles);
+  function cimentacion(m3, modelo, perfiles, an, portico) {
+    const a = an || analisis(m3, modelo, perfiles, portico);
     if (!a.ok) {
       return { ok: false, faltas: [{ paso: "analisis",
         que: "la cimentación necesita las reacciones del análisis, y el análisis todavía no corre" }].concat(a.faltas) };
@@ -1125,7 +1143,7 @@
   }
 
   return {
-    ART, DIRECCIONES, ACEROS, MODOS, CAMPOS_CARGAS, CAMPOS_ANALISIS, CAMPOS_DISENO, avisosResultados,
+    ART, DIRECCIONES, ACEROS, MODOS, PORTICOS, CAMPOS_CARGAS, CAMPOS_ANALISIS, CAMPOS_DISENO, avisosResultados,
     CAMPOS_CIMENTACION, leeCimentacion, valoresDeCimentacion, cimentacion, fichasCimentacion, dibujoCimentacion,
     leeSitio, valoresDeSitio, leeSistema, leeDiseno, valoresDeDiseno,
     diseno, fichasDiseno, dibujoDiseno, tablaDiseno, lineasDiseno, nivelRatio,

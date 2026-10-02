@@ -31,13 +31,13 @@
       "id": "A.portico.tipico",
       "grupo": "El modelo",
       "magnitud": "Qué pórtico se analiza",
-      "valor": "el pórtico interior central · ancho tributario = media de las dos separaciones vecinas",
+      "valor": "el pórtico interior central (ancho tributario = media de las dos separaciones vecinas) y el de fachada (medio paño)",
       "unidad": "m",
       "estado": "adoptado",
       "editable": false,
       "clave": true,
       "fuente": "decisión de alcance · montaje.js, fila MT.plano.solver",
-      "nota": "Los pórticos interiores son iguales entre sí y son los más cargados: llevan el ancho tributario entero. Los de fachada llevan la mitad, pero además las columnas hastiales y el arriostre de fachada (fila MT.hastial), y su análisis es otro modelo. NO SE ANALIZAN TODAVÍA, y el módulo lo dice en vez de dejar suponer que el pórtico de fachada está cubierto por el interior: tiene menos carga, pero un sistema distinto."
+      "nota": "Los pórticos interiores son iguales entre sí y son los más cargados: llevan el ancho tributario entero. El de fachada lleva medio paño (fila A.fachada.trib) y tiene además las columnas hastiales, que con la unión deslizante (fila A.hastial.deslizante) no entran en su plano. Se analizan los dos por separado: el de fachada tiene MENOS carga pero no es «el interior por 0,5», porque el peso propio del pórtico no se reparte a la mitad, y sus reacciones van a otra zapata."
     },
     {
       "id": "A.reparto.techo",
@@ -266,6 +266,30 @@
       "clave": true,
       "fuente": "E.030-2026 Art. 20 y 50 · filas S.R y S.despl",
       "nota": "Las irregularidades de las Tablas 8 y 9 cambian R (Ia, Ip) y el factor de desplazamientos (0,85·R). Un galpón de un nivel y planta rectangular suele ser regular, pero eso hay que comprobarlo, y las tablas de irregularidad no están todavía en el módulo. Por eso solo se acepta «regular»: elegir irregular se niega con este motivo en vez de calcular con Ia = Ip = 1 como si lo fuera."
+    },
+    {
+      "id": "A.fachada.trib",
+      "grupo": "El modelo",
+      "magnitud": "El ancho tributario del pórtico de fachada",
+      "valor": "medio paño: (z1 − z0)/2 · los dos ejes extremos son iguales y se analiza el 0",
+      "unidad": "m",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "geometría · montaje.js reparte el largo en paños iguales (fila MT.ejes)",
+      "nota": "El pórtico extremo solo tiene un paño a un lado, así que de la cubierta, la nieve, el viento sobre los muros laterales y el peso de correas y vigas de alero le llega la mitad. El peso de sus propias barras, no: es el mismo tijeral y las mismas columnas. Como montaje.js reparte el largo en paños iguales, el eje 0 y el último son simétricos y basta con uno."
+    },
+    {
+      "id": "A.hastial.deslizante",
+      "grupo": "El modelo",
+      "magnitud": "La unión de la columna hastial con el tijeral extremo",
+      "valor": "deslizante en vertical: agujero ovalado · transmite la fuerza horizontal, no la vertical",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "decisión del proyectista (2026-10-01) · columnas.js: «la columna hastial NO lleva la carga del techo»",
+      "nota": "Con la cabeza de la columna hastial unida con agujero ovalado vertical, el tijeral extremo flecha sin apoyarse en ella: la columna hastial no lleva techo, solo su peso, el del cerramiento del hastial y el viento, y trabaja como viga vertical entre la cimentación y el plano del techo (fila MT.hastial). EN SU PLANO NO APORTA NADA: articulada abajo y sin transmitir vertical arriba, no da rigidez lateral ni apoyo al tijeral, así que el pórtico de fachada se analiza sin ella. EL DETALLE TIENE QUE CUMPLIRLO: el ovalado tiene que admitir la flecha del tijeral extremo con la carga viva y la nieve; si se suelda o se aprieta, la columna hastial pasa a ser un apoyo del tijeral, los esfuerzos del tijeral extremo cambian (la brida inferior puede comprimirse sobre el apoyo) y este modelo deja de valer."
     }
   ]
 }

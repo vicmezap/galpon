@@ -56,7 +56,8 @@
     "A.sismo.periodo", "A.sismo.reparto", "S.vertical", "S.vertical.granluz",
     "A.sismo.sistema", "A.sismo.regular", "S.P", "S.despl", "S.deriva", "S.deriva.industrial",
     "S.pendulo", "E.C2.Ni", "E.C2.k080", "E.C2.taub", "E.C3.K", "E.A8.B2", "E.A8.B1",
-    "E.A8.Pestory", "E.A8.RM", "E.A8.Cm.transv", "SV.viento.H", "J.costura", "MT.hastial"
+    "E.A8.Pestory", "E.A8.RM", "E.A8.Cm.transv", "SV.viento.H", "J.costura", "MT.hastial",
+    "A.fachada.trib", "A.hastial.deslizante"
   ]);
 
   const BASES = ["empotrada", "articulada"];
@@ -105,10 +106,14 @@
     return Math.floor(n / 2);
   }
 
+  function esFachada(m3, eje) { return eje === 0 || eje === m3.ejes.porticos - 1; }
+
+  /* Medio paño en los extremos · fila A.fachada.trib */
   function anchoTributario(m3, eje) {
     const z = m3.ejes.z_m;
-    exige(eje > 0 && eje < z.length - 1,
-      "el eje " + eje + " es de fachada: este módulo analiza el pórtico INTERIOR (fila A.portico.tipico)");
+    exige(eje >= 0 && eje < z.length, "el eje " + eje + " no existe; hay " + z.length + " pórticos");
+    if (eje === 0) return (z[1] - z[0]) / 2;
+    if (eje === z.length - 1) return (z[eje] - z[eje - 1]) / 2;
     return (z[eje + 1] - z[eje - 1]) / 2;
   }
 
@@ -128,9 +133,18 @@
     const columnas = [];
     const truss = [];
     const omitidas = [];
+    const hastiales = [];
     const par = (b, a, c) => (b.i === a && b.j === c) || (b.i === c && b.j === a);
     for (const b of pl.barras) {
       if (b.clase === "columna") { columnas.push(b); continue; }
+      /* LA COLUMNA HASTIAL NO ENTRA EN EL PLANO · fila A.hastial.deslizante: con la
+         unión deslizante no transmite vertical arriba y es articulada abajo, así que
+         no da apoyo al tijeral ni rigidez lateral al pórtico */
+      if (b.clase === "columna hastial") {
+        hastiales.push({ id: b.id, base: b.i, cabeza: b.j,
+          x_m: pl.nudos.filter((n) => n.id === b.i)[0].x_m });
+        continue;
+      }
       if (sis.union === "rigida" && (par(b, I0, S0) || par(b, In, Sn))) {
         omitidas.push(b.id);          /* la columna ocupa su lugar */
         continue;
@@ -148,21 +162,26 @@
       columnas.push({ id: id("C1s"), i: In, j: Sn, clase: "columna", tramo: "superior", de: c1.id });
     }
     const ladeo = sis.union === "rigida" ? S0 : I0;
+    const fachada = esFachada(m3, e);
+    const fuera = new Set(hastiales.map((h) => h.base));
     return {
       sistema: sis, eje: e, trib_m: anchoTributario(m3, e), plano: pl,
-      nudos: pl.nudos, columnas: columnas, truss: truss, omitidas: omitidas,
-      apoyos: pl.apoyos, ladeo: ladeo, hLadeo_m: yDe[ladeo],
+      fachada: fachada, hastiales: hastiales,
+      nudos: pl.nudos.filter((n) => !fuera.has(n.id)), columnas: columnas, truss: truss, omitidas: omitidas,
+      apoyos: pl.apoyos.filter((a) => !fuera.has(a.nudo)), ladeo: ladeo, hLadeo_m: yDe[ladeo],
       alero: { izq: S0, der: Sn }, cabeza: { izq: I0, der: In },
       hAlero_m: Math.max(yDe[S0], yDe[Sn]),
       yDe: yDe,
-      art: ART["A.portico.tipico"]
+      art: ART["A.portico.tipico"],
+      artFachada: fachada ? ART["A.fachada.trib"] : null,
+      artHastial: hastiales.length ? ART["A.hastial.deslizante"] : null
     };
   }
 
   /* El modelo para el solucionador, con secciones.  `seccion(barra)` es la
      del proyecto (libro.perfilDe + perfiles.busca); devuelve null si falta. */
   function modelo(g, seccion, extra) {
-    const m = M.nuevo({ nivel: "LRFD", nombre: "pórtico interior, eje " + g.eje,
+    const m = M.nuevo({ nivel: "LRFD", nombre: (g.fachada ? "pórtico de fachada" : "pórtico interior") + ", eje " + g.eje,
       combinacion: extra && extra.combinacion });
     for (const n of g.nudos) M.nudo(m, { id: n.id, x_m: n.x_m, y_m: n.y_m });
     for (const a of g.apoyos) {
@@ -796,10 +815,18 @@
       segundoOrden: { maxB2: maxB2, tauBalt: tauBalt,
         nota: tauBalt ? "alguna columna pasa de α·Pr/Pns = 0,5: se repitió con la nocional " +
           "adicional de 0,001·Yi en todas las combinaciones (C2.3(c))" : "τb = 1 en todas las columnas" },
-      avisos: [
-        "se analiza el pórtico INTERIOR del eje " + g.eje + "; los de fachada, con columnas " +
-          "hastiales, son otro modelo y todavía no están (fila A.portico.tipico)",
-      ].concat(sismo ? sismo.avisos : ["el sismo no entra en este análisis: faltan sus datos " +
+      fachada: g.fachada, hastiales: g.hastiales,
+      avisos: (g.fachada ? [
+        "se analiza el pórtico DE FACHADA del eje " + g.eje + " con medio paño (fila A.fachada.trib); el " +
+          "otro extremo es simétrico",
+        "las columnas hastiales no están en el plano: con la unión deslizante no llevan techo ni dan " +
+          "rigidez (fila A.hastial.deslizante). El ovalado tiene que admitir la flecha del tijeral extremo",
+        "el viento sobre el hastial y el sismo longitudinal van por el sistema longitudinal —columnas " +
+          "hastiales, arriostre de techo y de fachada—, todavía sin analizar (fila MT.hastial)"
+      ] : [
+        "se analiza el pórtico INTERIOR del eje " + g.eje + "; el de fachada es otro análisis (fila " +
+          "A.portico.tipico)"
+      ]).concat(sismo ? sismo.avisos : ["el sismo no entra en este análisis: faltan sus datos " +
           "(zona, suelo, categoría y sistema sísmico)"])
         .concat(g.sistema.notaPendulo && !(sismo && sismo.sistema === "pendulo") ? [g.sistema.notaPendulo] : []),
       art: ART["A.segundo.orden"], artReacciones: ART["A.reacciones.casos"],
@@ -809,7 +836,7 @@
 
   return {
     ART, BASES, UNIONES, LIMITE_B2_NOCIONAL, COEF_TAUB_ALT, UMBRAL_TAUB,
-    sistema, ejeTipico, anchoTributario, geometria, modelo, faltanSecciones,
+    sistema, ejeTipico, esFachada, anchoTributario, geometria, modelo, faltanSecciones,
     SISMICOS, FRACCION_VERTICAL, FACTOR_T_NO_ESTRUCTURAL,
     tramosTecho, casoMuerta, casoViva, casosNieve, casosViento, casosSismo,
     resuelveCaso, resuelveCombinacion, fuerzasDeDiseno, momentoMaximo, analiza

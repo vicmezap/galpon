@@ -286,6 +286,27 @@ cerca("y el pedestal mide Df − h + lo que sobresale", cz.ped.peso_kgf,
   cierto("el dibujo lleva el pedestal armado y la placa con sus pernos",
     dz.pedestal.nb === cz.ped.seccion.nb && dz.placa.N === 40 && dz.placa.n === 1);
 }
+/* ---- EL PÓRTICO DE FACHADA ---- */
+{
+  const aF = R.analisis(m3, mok, P, "fachada");
+  comp("el pórtico de fachada corre, en el eje 0 y con medio paño", [aF.ok, aF.r.eje, aF.r.trib_m, aF.r.fachada],
+    [true, 0, ok.r.trib_m / 2, true]);
+  cierto("y su ficha dice que es el de fachada", aF.fichas[0].lineas.some((l) => /de fachada, eje 0/.test(l.v)));
+  lanza("un pórtico que no existe se rechaza", () => R.analisis(m3, mok, P, "lateral"), ["no «lateral»"]);
+  const dF = R.diseno(m3, mdz, P, aF);
+  cierto("se diseña con sus fuerzas, y como lleva menos carga, su peor ratio es menor",
+    dF.ok && dF.v.resumen.peor.ratio < dd.v.resumen.peor.ratio);
+  const cF = R.cimentacion(m3, mcz, P, aF);
+  cierto("su zapata buscada sale MÁS CHICA que la interior", cF.ok && cF.z.zapata.B_cm < cz.z.zapata.B_cm);
+  const cF2 = R.cimentacion(m3, mcz, P, undefined, "fachada");
+  comp("y sin pasarle el análisis, lo corre del pórtico que se le pide", cF2.z.zapata, cF.z.zapata);
+  const malF = R.cimentacion(m3, Object.assign({}, mok, { cimentacion: Object.assign({}, CZ, { B_cm: 80, L_cm: 80, h_cm: 50 }) }), P, aF);
+  cierto("en Comprobación, el aviso dice de qué pórtico es",
+    R.avisosResultados(null, null, malF).some((x) => /^Pórtico de fachada · La zapata no cumple/.test(x.que)) &&
+    R.avisosResultados(null, null, czMal).every((x) => !/fachada/.test(x.que)));
+  cierto("las fuerzas de una barra dicen de qué pórtico salen",
+    /pórtico de fachada \(eje 0\)/.test(R.lineasFuerzas(aF.r, "C0@0").nota));
+}
 comp("NI UNA línea de Cimentación sin procedencia válida",
   cz.fichas.reduce((a, f) => a.concat(f.lineas), []).concat(czm.fichas.reduce((a, f) => a.concat(f.lineas), []))
     .filter((l) => V.ORIGENES.indexOf(l.origen) < 0).map((l) => l.q), []);

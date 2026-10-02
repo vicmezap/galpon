@@ -65,7 +65,9 @@ comp("con el tijeral apoyado, 2 columnas y ningún montante fuera", [gP.columnas
 comp("el ladeo se impide en la cabeza de columna: brida inferior si apoyado",
   gP.ladeo.split("@")[0], "I0");
 comp("y en el alero si la unión es rígida", gR.ladeo.split("@")[0], "S0");
-lanza("el eje de fachada no se analiza aquí", () => A.anchoTributario(m3, 0), "fachada");
+comp("el eje de fachada lleva medio paño; el interior, uno entero (fila A.fachada.trib)",
+  [A.anchoTributario(m3, 0), A.anchoTributario(m3, m3.ejes.porticos - 1), A.anchoTributario(m3, 4)], [3, 3, 6]);
+lanza("un eje que no existe se rechaza", () => A.anchoTributario(m3, 99), "no existe");
 /* Sin peralte en el apoyo no habría unión rígida posible, y analisis.js se
    negaría; pero el generador ya no deja llegar ahí: el peralte es obligatorio. */
 lanza("el generador ya impide un tijeral sin peralte en el apoyo",
@@ -377,5 +379,37 @@ const rI = A.analiza({ m3: m3, seccion: seccion, acero: "A36", sistema: PENDULO,
   cargas: Object.assign({}, CARGAS, { sismo: Object.assign({}, SISMO, { industrial: true }) }) });
 comp("con uso industrial el tope es el doble: 0,020", rI.sismo.deriva.limite, 0.020);
 comp("sin datos de sismo, se dice que no entra", r.avisos.some((a) => /sismo no entra/.test(a)), true);
+
+
+/* ================================================================
+   EL PÓRTICO DE FACHADA · filas A.fachada.trib y A.hastial.deslizante
+   ================================================================ */
+{
+  const m3H = MON.monta(Object.assign({}, D, { columnasHastiales: [5, 10, 15] }));
+  const gF = A.geometria(m3H, RIGIDO, 0);
+  comp("el eje 0 es de fachada, con medio paño", [gF.fachada, gF.trib_m], [true, 3]);
+  comp("las tres columnas hastiales se reconocen", gF.hastiales.map((h) => h.x_m), [5, 10, 15]);
+  cierto("y NO entran en el plano: ni sus barras, ni sus bases, ni sus apoyos",
+    gF.truss.every((b) => b.clase !== "columna hastial") && gF.nudos.every((n) => n.id.indexOf("BH") !== 0) &&
+    gF.apoyos.length === 2);
+  comp("el resto del pórtico es el mismo que el interior", [gF.columnas.length, gF.truss.length],
+    [gR.columnas.length, gR.truss.length]);
+  const rF = A.analiza({ m3: m3H, seccion: seccion, acero: "A36", sistema: RIGIDO, cargas: CARGAS, eje: 0 });
+  const rF0 = A.analiza({ m3: m3, seccion: seccion, acero: "A36", sistema: RIGIDO, cargas: CARGAS, eje: 0 });
+  const rI = r;
+  const caso = (rr, id) => rr.casos.filter((c) => c.id === id)[0].reacciones.B0;
+  cerca("DESLIZANTE: con o sin columnas hastiales, el pórtico de fachada da lo mismo",
+    caso(rF, "D").Ry_kgf, caso(rF0, "D").Ry_kgf, 1e-12);
+  cerca("la viva de techo llega a la mitad", caso(rF, "Lr").Ry_kgf, caso(rI, "Lr").Ry_kgf / 2, 1e-9);
+  cerca("el viento también: todo es por ancho tributario", caso(rF, "W1").Mz_kgfcm, caso(rI, "W1").Mz_kgfcm / 2, 1e-9);
+  /* la muerta NO: el peso propio del pórtico es el mismo · Ry = S + C (interior), S + C/2 (fachada) */
+  const pp = A.casoMuerta(gF, m3H, seccion, CARGAS.D_kgfm2).pesoPropio_kgf;
+  cerca("la muerta no es la mitad: 2·fachada − interior = el peso propio del pórtico / 2 por base",
+    2 * caso(rF, "D").Ry_kgf - caso(rI, "D").Ry_kgf, pp / 2, 1e-9);
+  cierto("y lo dice: pórtico de fachada, hastiales fuera, longitudinal pendiente",
+    rF.fachada && rF.avisos.some((x) => /DE FACHADA/.test(x)) &&
+    rF.avisos.some((x) => /A\.hastial\.deslizante/.test(x)) && rF.avisos.some((x) => /longitudinal/.test(x)));
+  comp("el interior sigue diciendo que es el interior", r.avisos.some((x) => /INTERIOR/.test(x)), true);
+}
 
 fin();

@@ -423,7 +423,24 @@ cierto("sin análisis no diseña, y manda al análisis",
   /data-ir="analisis"/.test(pinto(M.dom, "centro").innerHTML));
 cierto("guardar y abrir llevan la cimentación",
   /m\.cimentacion = modelo\.cimentacion/.test(modeHtml) && /modelo\.cimentacion = m\.cimentacion/.test(modeHtml));
-cierto("y Comprobación oye a la zapata", /avisosResultados\(analisisVigente\(\), disenoVigente\(\), cimenVigente\(\)\)/.test(modeHtml));
+cierto("y Comprobación oye a la zapata de LOS DOS pórticos",
+  /avisosResultados\(analisisVigente\(p\), disenoVigente\(p\), cimenVigente\(p\)\)/.test(modeHtml) &&
+  /RESULTADOS\.PORTICOS\.forEach/.test(modeHtml));
+{
+  /* EL SELECTOR DE PÓRTICO, en Análisis, Diseño y Cimentación */
+  const sel = () => pinto(M.dom, "centro").innerHTML;
+  for (const paso of ["analisis", "diseno", "cimen"]) {
+    pulsa(M.dom, "pasos", "data-paso", paso);
+    cierto(paso + ": el selector de pórtico está, con el interior marcado",
+      /data-portico="interior" aria-pressed="true"/.test(sel()) && /data-portico="fachada" aria-pressed="false"/.test(sel()));
+  }
+  pulsa(M.dom, "centro", "data-portico", "fachada");
+  cierto("al pulsar fachada, queda marcada y se mantiene al cambiar de paso",
+    /data-portico="fachada" aria-pressed="true"/.test(sel()));
+  pulsa(M.dom, "pasos", "data-paso", "analisis");
+  cierto("(en Análisis también)", /data-portico="fachada" aria-pressed="true"/.test(sel()));
+  pulsa(M.dom, "centro", "data-portico", "interior");
+}
 
 /* INICIO · un tablero de verdad, no una pestana vacia */
 pulsa(M.dom, "pasos", "data-paso", "inicio");

@@ -499,9 +499,18 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
      Las guardas de los modulos LANZAN cuando algo es imposible, y eso se
      ve enseguida. Lo que no se ve es lo que es legal pero cuesta: el alero
      a axial, los metros que no dilatan, las clases sin perfil. */
-  /* lo que el análisis y el diseño VIGENTES tienen que decir, sumado a la lista */
+  /* LO QUE EL ANÁLISIS, EL DISEÑO Y LA CIMENTACIÓN DE LOS DOS PÓRTICOS TIENEN QUE
+     DECIR.  Antes Comprobación solo leía lo ya calculado; con dos pórticos eso
+     dejaba fuera el que no se hubiera abierto, así que pide los dos a la caché
+     (que calcula si hace falta: unos cientos de ms) */
   function conResultados(c) {
-    var extra = RESULTADOS.avisosResultados(analisisVigente(), disenoVigente(), cimenVigente());
+    var extra = [];
+    if (m3) {
+      RESULTADOS.PORTICOS.forEach(function (p) {
+        analisisActual(p); disenoActual(p); cimenActual(p);
+        extra = extra.concat(RESULTADOS.avisosResultados(analisisVigente(p), disenoVigente(p), cimenVigente(p)));
+      });
+    }
     if (!extra.length) return c;
     var lista = extra.concat(c.lista);
     var cuenta = { error: 0, aviso: 0, nota: 0 };
@@ -687,22 +696,34 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
      Corre cuando se entra en el paso o cambia algo de lo que depende. La
      cámara de Geometría no cuenta: el resultado se guarda con una clave de
      todo lo que lo determina y se reutiliza mientras no cambie. */
-  var analisisCache = { clave: null, res: null };
+  /* EL PÓRTICO QUE SE ENSEÑA · fila A.portico.tipico.  Análisis, Diseño y
+     Cimentación enseñan uno, y cada uno tiene su caché; Comprobación pide
+     los dos. */
+  var porticoSel = "interior";
+  function selPortico() {
+    return '<div class="modos" role="group" aria-label="pórtico">' +
+      RESULTADOS.PORTICOS.map(function (p) {
+        return '<button type="button" data-portico="' + p + '" aria-pressed="' + (p === porticoSel) + '">' +
+          (p === "interior" ? "pórtico interior" : "pórtico de fachada") + "</button>";
+      }).join("") + "</div>";
+  }
+  var analisisCache = {};
   var modoAnalisis = "compresion";
   function claveAnalisis() {
     return JSON.stringify([paraElMotor(VISTAS.datosModelo(datos())), modelo.secciones,
       modelo.sitio, modelo.sistema]);
   }
-  function analisisActual() {
-    var k = claveAnalisis();
-    if (analisisCache.clave !== k) {
-      analisisCache = { clave: k, res: RESULTADOS.analisis(m3, modelo, PERFILES) };
+  function analisisActual(p) {
+    p = p || porticoSel;
+    var k = claveAnalisis(), c = analisisCache[p];
+    if (!c || c.clave !== k) {
+      c = analisisCache[p] = { clave: k, res: RESULTADOS.analisis(m3, modelo, PERFILES, p) };
     }
-    return analisisCache.res;
+    return c.res;
   }
-  function analisisVigente() {
-    return analisisCache.clave === claveAnalisis() && analisisCache.res &&
-      analisisCache.res.ok ? analisisCache.res : null;
+  function analisisVigente(p) {
+    var c = analisisCache[p || porticoSel];
+    return c && c.clave === claveAnalisis() && c.res && c.res.ok ? c.res : null;
   }
 
   function dibujaFuerzas(dj, r) {
@@ -746,17 +767,17 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
 
   function pintaAnalisis(fallo) {
     if (!m3) {
-      $("centro").innerHTML = '<div class="hoja"><h2>Análisis</h2><p class="lead">el galpón no ' +
+      $("centro").innerHTML = '<div class="hoja"><h2>Análisis</h2>' + selPortico() + '<p class="lead">el galpón no ' +
         "se puede montar: " + esc(fallo ? fallo.titulo : "—") + ". Se corrige en Geometría.</p></div>";
       $("derecha").innerHTML = "";
       return;
     }
     var a = analisisActual();
     if (!a.ok) {
-      $("centro").innerHTML = '<div class="hoja"><h2>Análisis</h2><p class="lead">todavía no ' +
+      $("centro").innerHTML = '<div class="hoja"><h2>Análisis</h2>' + selPortico() + '<p class="lead">todavía no ' +
         "se puede correr: falta lo que sigue, y cada cosa dice dónde se pone</p>" +
         listaFaltas(a.faltas, true) + "</div>";
-      $("derecha").innerHTML = '<p class="nohay">El análisis resuelve el pórtico interior ' +
+      $("derecha").innerHTML = '<p class="nohay">El análisis resuelve el pórtico que se elija arriba —interior o de fachada— ' +
         "con el Método Directo: todas las combinaciones de la E.090, el viento como estados " +
         "físicos y el segundo orden del Apéndice 8.</p>";
       return;
@@ -774,8 +795,8 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
         "<span>" + esc(dj.leyenda) + "</span>") +
       "<span>máx. " + n2(dj.modo === "momento" ? dj.max / 1e5 : dj.max / 1000, 2) + " " + dj.unidad +
       "</span></div>";
-    $("centro").innerHTML = '<div class="hoja"><h2>Análisis</h2><p class="lead">' +
-      esc(r.sistema.nombre) + " · pórtico interior, eje " + r.eje + " · " +
+    $("centro").innerHTML = '<div class="hoja"><h2>Análisis</h2>' + selPortico() + '<p class="lead">' +
+      esc(r.sistema.nombre) + " · " + (r.fachada ? "pórtico de fachada" : "pórtico interior") + ", eje " + r.eje + " · " +
       r.combinaciones.length + " corridas</p>" + modos + dibujaFuerzas(dj, r) + ley + "</div>";
 
     var sel;
@@ -807,35 +828,37 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
   $("centro").addEventListener("click", function (ev) {
     var b = ev.target.closest ? ev.target.closest("button[data-modo]") : null;
     if (b) { modoAnalisis = b.getAttribute("data-modo"); recalcula(); }
+    var q = ev.target.closest ? ev.target.closest("button[data-portico]") : null;
+    if (q) { porticoSel = q.getAttribute("data-portico"); barraSel = null; recalcula(); }
   });
 
   /* ---------- DISEÑO ----------
      Usa el análisis vigente —el de la caché— y verifica cada barra. Lo que
      no se pudo comprobar sale en naranja discontinuo y la barra NO cumple. */
-  var disenoCache = { clave: null, res: null };
-  function disenoActual() {
-    var k = claveAnalisis() + JSON.stringify(modelo.diseno || {});
-    if (disenoCache.clave !== k) {
-      var a = analisisActual();
-      disenoCache = { clave: k, res: RESULTADOS.diseno(m3, modelo, PERFILES, a) };
+  var disenoCache = {};
+  function disenoActual(p) {
+    p = p || porticoSel;
+    var k = claveAnalisis() + JSON.stringify(modelo.diseno || {}), c = disenoCache[p];
+    if (!c || c.clave !== k) {
+      c = disenoCache[p] = { clave: k, res: RESULTADOS.diseno(m3, modelo, PERFILES, analisisActual(p)) };
     }
-    return disenoCache.res;
+    return c.res;
   }
-  function disenoVigente() {
-    var k = claveAnalisis() + JSON.stringify(modelo.diseno || {});
-    return disenoCache.clave === k && disenoCache.res && disenoCache.res.ok ? disenoCache.res : null;
+  function disenoVigente(p) {
+    var k = claveAnalisis() + JSON.stringify(modelo.diseno || {}), c = disenoCache[p || porticoSel];
+    return c && c.clave === k && c.res && c.res.ok ? c.res : null;
   }
 
   function pintaDiseno(fallo) {
     if (!m3) {
-      $("centro").innerHTML = '<div class="hoja"><h2>Diseño</h2><p class="lead">el galpón no ' +
+      $("centro").innerHTML = '<div class="hoja"><h2>Diseño</h2>' + selPortico() + '<p class="lead">el galpón no ' +
         "se puede montar: " + esc(fallo ? fallo.titulo : "—") + ". Se corrige en Geometría.</p></div>";
       $("derecha").innerHTML = "";
       return;
     }
     var d = disenoActual();
     if (!d.ok) {
-      $("centro").innerHTML = '<div class="hoja"><h2>Diseño</h2><p class="lead">todavía no se ' +
+      $("centro").innerHTML = '<div class="hoja"><h2>Diseño</h2>' + selPortico() + '<p class="lead">todavía no se ' +
         "puede verificar: falta lo que sigue</p>" + listaFaltas(d.faltas, true) + "</div>";
       $("derecha").innerHTML = '<p class="nohay">El diseño compara las fuerzas de segundo orden del ' +
         "análisis con la capacidad de cada barra, por su capítulo del AISC 360-22. Lo que no se " +
@@ -855,8 +878,8 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
         esc(c.barra) + "</td><td>" + (c.noCumplen ? c.noCumplen + " de " + c.cuantas : "todas") +
         "</td><td>" + esc(c.combo || "") + "</td></tr>";
     }).join("");
-    $("centro").innerHTML = '<div class="hoja"><h2>Diseño</h2><p class="lead">' +
-      R.cumplen + " de " + R.total + " barras cumplen · " + esc(d.r.sistema.nombre) + "</p>" +
+    $("centro").innerHTML = '<div class="hoja"><h2>Diseño</h2>' + selPortico() + '<p class="lead">' +
+      R.cumplen + " de " + R.total + " barras cumplen · " + (d.r.fachada ? "pórtico de fachada" : "pórtico interior") + " · " + esc(d.r.sistema.nombre) + "</p>" +
       dibujaFuerzas(dj, d.r) + ley +
       '<h3>Por clase de barra</h3><div class="tarj"><div class="rueda-x"><table class="rx"><thead><tr>' +
       "<th>clase</th><th>perfil</th><th>ratio máx.</th><th>barra</th><th>no cumplen</th><th>combinación</th>" +
@@ -880,17 +903,19 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
      Usa los casos del análisis vigente. La zapata se dibuja en sección, en el
      plano del pórtico, con la presión de servicio que manda, y en planta con
      las barras. */
-  var cimenCache = { clave: null, res: null };
+  var cimenCache = {};
   function claveCimen() { return claveAnalisis() + JSON.stringify(modelo.cimentacion || {}); }
-  function cimenActual() {
-    var k = claveCimen();
-    if (cimenCache.clave !== k) {
-      cimenCache = { clave: k, res: RESULTADOS.cimentacion(m3, modelo, PERFILES, analisisActual()) };
+  function cimenActual(p) {
+    p = p || porticoSel;
+    var k = claveCimen(), c = cimenCache[p];
+    if (!c || c.clave !== k) {
+      c = cimenCache[p] = { clave: k, res: RESULTADOS.cimentacion(m3, modelo, PERFILES, analisisActual(p)) };
     }
-    return cimenCache.res;
+    return c.res;
   }
-  function cimenVigente() {
-    return cimenCache.clave === claveCimen() && cimenCache.res && cimenCache.res.ok ? cimenCache.res : null;
+  function cimenVigente(p) {
+    var c = cimenCache[p || porticoSel];
+    return c && c.clave === claveCimen() && c.res && c.res.ok ? c.res : null;
   }
 
   function svgCimen(dc) {
@@ -1013,14 +1038,14 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
 
   function pintaCimentacion(fallo) {
     if (!m3) {
-      $("centro").innerHTML = '<div class="hoja"><h2>Cimentación</h2><p class="lead">el galpón no ' +
+      $("centro").innerHTML = '<div class="hoja"><h2>Cimentación</h2>' + selPortico() + '<p class="lead">el galpón no ' +
         "se puede montar: " + esc(fallo ? fallo.titulo : "—") + ". Se corrige en Geometría.</p></div>";
       $("derecha").innerHTML = "";
       return;
     }
     var c = cimenActual();
     if (!c.ok) {
-      $("centro").innerHTML = '<div class="hoja"><h2>Cimentación</h2><p class="lead">todavía no se ' +
+      $("centro").innerHTML = '<div class="hoja"><h2>Cimentación</h2>' + selPortico() + '<p class="lead">todavía no se ' +
         "puede diseñar: falta lo que sigue</p>" + listaFaltas(c.faltas, true) + "</div>";
       $("derecha").innerHTML = '<p class="nohay">La zapata se dimensiona dos veces con la misma ' +
         "pieza: el área con las cargas de servicio contra el suelo, y el concreto con las " +
@@ -1032,7 +1057,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
       esc(dc.presion.combo) + " · base " + esc(dc.presion.base) + " · " + esc(dc.presion.forma || "—") + "</span>" +
       '<span><i style="border-top-color:var(--acero)"></i>acero de refuerzo</span>' +
       '<span><i style="border-top-color:var(--tinta)"></i>pernos de anclaje</span></div>';
-    $("centro").innerHTML = '<div class="hoja"><h2>Cimentación</h2><p class="lead">zapata ' +
+    $("centro").innerHTML = '<div class="hoja"><h2>Cimentación</h2>' + selPortico() + '<p class="lead">' + (c.r.fachada ? "pórtico de fachada" : "pórtico interior") + " · zapata " +
       n2(z.zapata.B_cm, 0) + " × " + n2(z.zapata.L_cm, 0) + " × " + n2(z.zapata.h_cm, 0) + " cm · " +
       (z.auto ? "las medidas mínimas que cumplen" : "las medidas dadas") + " · " +
       (z.cumple ? "cumple" : "NO cumple: " + esc(z.fallas.join(", "))) + "</p>" + svgCimen(dc) + ley +
@@ -1411,12 +1436,16 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     /* si hay un análisis VIGENTE —del mismo galpón, perfiles y cargas— la
        ficha dice las fuerzas en vez de «falta el análisis» */
     var lineas = s.lineas;
-    var av = analisisVigente();
+    /* las fuerzas de SU pórtico: una barra de un eje extremo es del de fachada.
+       Antes enseñaba las del interior para cualquier eje */
+    var ejeSel = Number(String(barraSel).split("@")[1]);
+    var pSel = (ejeSel === 0 || ejeSel === m3.ejes.porticos - 1) ? "fachada" : "interior";
+    var av = analisisVigente(pSel);
     var lf = av ? RESULTADOS.lineasFuerzas(av.r, barraSel) : null;
     if (lf) {
       lineas = lineas.filter(function (l) { return l.q !== "Ratio"; }).concat(lf.lineas);
       /* y si además hay un diseño vigente, el ratio de verdad en vez de «falta el diseño» */
-      var dv = disenoVigente();
+      var dv = disenoVigente(pSel);
       var ld = dv ? RESULTADOS.lineasDiseno(dv.v, barraSel) : null;
       if (ld) {
         lineas = lineas.filter(function (l) { return l.q !== "Ratio"; })
