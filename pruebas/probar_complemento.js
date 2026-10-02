@@ -234,13 +234,30 @@ const der = pinto(M.dom, "derecha").innerHTML;
 cierto("el panel derecho trae fichas", /class="tarj/.test(der));
 
 /* ───── LAS TABLAS · sin la de perfiles no se puede trabajar ───── */
-comp("hay dos tablas", (der.match(/<table class="t"/g) || []).length, 2);
+comp("hay dos tablas", (der.match(/<table class="t[ "]/g) || []).length, 2);
 comp("una fila de perfil por clase de barra",
   (der.match(/data-perfil=/g) || []).length, 12);
-cierto("con el catálogo detrás para escribir el nombre",
-  /list="catalogo"/.test(der));
-cierto("y las que no tienen perfil se marcan",
-  /class="vacio"/.test(der) && /sin asignar/.test(der));
+comp("EL PERFIL SE ELIGE CON DOS DESPLEGABLES, familia y perfil: el cuadro con sugerencias no desplegaba en Excel",
+  [(der.match(/<select data-fam=/g) || []).length, /list="catalogo"/.test(der)], [12, false]);
+cierto("las once familias del catálogo, con su nombre", ["W · I laminado", "2L · ángulos dobles", "Varilla lisa",
+  "HSS rectangular", "CS · columna soldada"].every((t) => der.indexOf(t) >= 0));
+cierto("y las que no tienen perfil se marcan, y piden la familia primero",
+  /class="vacio" disabled/.test(der) && /— elige la familia —/.test(der));
+{
+  /* elegir como el usuario: la familia, y luego el perfil */
+  const elige = (attr, clase, valor) => {
+    const t = { value: valor, getAttribute: (k) => (k === attr ? clase : null) };
+    for (const fn of M.dom.nodos.derecha._ev.change) fn({ target: t });
+  };
+  elige("data-fam", "diagonal", "laminado:L");
+  const d1 = pinto(M.dom, "derecha").innerHTML;
+  cierto("al elegir la familia L, el perfil ofrece los ángulos del más liviano al más pesado, con su peso",
+    /<select data-perfil="diagonal" class="vacio">/.test(d1) && /L2X2X1\/8 · [\d,]+ kg\/m/.test(d1) &&
+    d1.indexOf("L2X2X1/8") < d1.indexOf("L8X8X1-1/8"));
+  elige("data-perfil", "diagonal", "L2X2X3/16");
+  cierto("y al elegir el perfil, queda asignado", /<option value="L2X2X3\/16" selected>/.test(pinto(M.dom, "derecha").innerHTML));
+  elige("data-perfil", "diagonal", "");
+}
 comp("y una casilla de arriostre por paño y plano",
   (der.match(/data-at=/g) || []).length, 10);
 comp("en los dos planos", (der.match(/data-af=/g) || []).length, 10);

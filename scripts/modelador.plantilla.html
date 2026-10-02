@@ -91,7 +91,39 @@ nav.vistas button[aria-selected="true"] { color:var(--tinta); border-bottom-colo
 @media (max-width:1100px) { .obra { grid-template-columns:180px minmax(0,1fr); }
   .obra > aside.der { display:none; }
   .obra.sin-izq { grid-template-columns:minmax(0,1fr); } }
+/* LA FRANJA DE DATOS. Los formularios de Datos, Cargas, Análisis, Diseño,
+   Conexiones y Cimentación iban en la columna de 210 px de la izquierda,
+   apretados y con scroll largo, y el usuario lo dijo: «no me gusta que todo
+   esté en un extremo». Van arriba del centro, a lo ancho, con los grupos en
+   columnas; los resultados, debajo. Se pliega. Geometría sigue con su
+   columna: allí las capas acompañan al dibujo. */
+.obra.banda { grid-template-columns:minmax(0,1fr) 300px; grid-template-rows:auto minmax(0,1fr);
+  grid-template-areas:"izq der" "centro der"; }
+.obra.banda.sin-der { grid-template-columns:minmax(0,1fr); grid-template-areas:"izq" "centro"; }
+.obra.banda > aside.izq { grid-area:izq; border-right:none; border-bottom:1px solid var(--linea);
+  max-height:46vh; padding:8px 18px 10px; }
+.obra.banda > main { grid-area:centro; }
+.obra.banda > aside.der { grid-area:der; }
+.obra.banda > aside.izq form { display:grid; gap:4px 14px; align-items:start;
+  grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); }
+.obra.banda > aside.izq h3.sec { display:none; }
+.obra.banda.plegada > aside.izq { max-height:none; overflow:hidden; }
+.obra.banda.plegada > aside.izq > div:not(.banda-cab) { display:none; }
+.banda-cab { display:none; }
+.obra.banda .banda-cab { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+.banda-cab b { font-family:var(--cifra); font-size:9.5px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--suave); font-weight:500; }
+.banda-cab button { font-family:var(--cifra); font-size:10px; background:none; border:1px solid var(--linea);
+  border-radius:2px; color:var(--acero); padding:1px 7px; cursor:pointer; }
+@media (max-width:1100px) { .obra.banda { grid-template-columns:minmax(0,1fr); grid-template-areas:"izq" "centro"; } }
 .obra > * { overflow:auto; min-width:0; }
+table.perf td.pp { padding:5px 0 6px; }
+table.perf .pc { font-size:12px; display:flex; justify-content:space-between; align-items:baseline; }
+table.perf .pc .n { font-family:var(--cifra); font-size:9.5px; color:var(--suave); }
+table.perf td.pp select { display:block; width:100%; margin:2px 0; font-family:var(--cifra); font-size:11px;
+  padding:2px 3px; border:1px solid var(--linea); border-radius:2px; background:var(--papel); color:var(--tinta); }
+table.perf td.pp select.vacio { color:var(--suave); border-style:dashed; }
+table.perf td.pp span.malo { font-size:10px; color:var(--alerta); }
 aside.izq { border-right:1px solid var(--linea); padding:10px 11px 24px; }
 aside.der { border-left:1px solid var(--linea); padding:10px 12px 24px;
   background:var(--ficha); }
@@ -390,6 +422,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
 
 <div class="obra" id="obra">
   <aside class="izq" id="izquierda">
+    <div class="banda-cab"><b id="banda-tit">Datos</b><button type="button" id="plegar">ocultar los datos</button></div>
     <div id="lado-ver">
       <h3 class="sec">Ver</h3>
       <div class="capas" id="capas"></div>
@@ -498,6 +531,8 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     recalcula();
   }
 
+  $("plegar").onclick = function () { plegada = !plegada; armaChrome(); };
+
   $("pasos").addEventListener("click", function (ev) {
     var b = ev.target.closest ? ev.target.closest("button[data-paso]") : null;
     if (b) vePaso(b.getAttribute("data-paso"));
@@ -507,6 +542,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
      «vistas» no ensena la barra de vistas, y uno que no declara ningun lado
      no ensena el panel de la izquierda: se queda el ancho entero, que es lo
      que una pagina de avisos o un tablero necesitan. */
+  var plegada = false;
   function armaChrome() {
     var a = VISTAS.armazon(pasoActivo);
     $("vistas").hidden = !a.vistas;
@@ -522,8 +558,14 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     $("lado-cimen").hidden = a.lados.indexOf("cimen") < 0;
     $("izquierda").hidden = !a.lados.length;
     $("derecha").hidden = !a.derecha;
+    /* los formularios, en franja arriba; Geometría (ver y parámetros), en columna */
+    var banda = a.lados.length && !ver && !par;
     $("obra").className = "obra" + (a.lados.length ? "" : " sin-izq") +
-      (a.derecha ? "" : " sin-der");
+      (a.derecha ? "" : " sin-der") + (banda ? " banda" + (plegada ? " plegada" : "") : "");
+    if (banda) {
+      $("banda-tit").textContent = "Datos de " + VISTAS.paso(pasoActivo).nombre.toLowerCase();
+      $("plegar").textContent = plegada ? "mostrar los datos" : "ocultar los datos";
+    }
     return a;
   }
 
@@ -1871,17 +1913,29 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     var f = t.filas.map(function (r) {
       var v = r.perfil === null ? "" : r.perfil;
       var malo = v && !existePerfil(v);
+      /* DOS DESPLEGABLES: la familia y, dentro, el perfil, del más liviano al más pesado.
+         Antes era un cuadro de texto con sugerencias que en la ventana de Excel no
+         desplegaba nada hasta escribir. */
+      var fam = famSel[r.clase] || (v && !malo ? grupoDe(v) : "");
+      var opF = '<option value="">— familia —</option>' + (porGrupo() && GRUPOS).map(function (g) {
+        return '<option value="' + esc(g) + '"' + (g === fam ? " selected" : "") + ">" + esc(nombreGrupo(g)) + "</option>";
+      }).join("");
+      var opP = '<option value="">' + (fam ? "— perfil —" : "— elige la familia —") + "</option>" +
+        (fam ? porGrupo()[fam].map(function (x) {
+          return '<option value="' + esc(x.id) + '"' + (x.id === v ? " selected" : "") + ">" + esc(x.id) + " · " +
+            n2(x.peso_kgfm, 1) + " kg/m</option>";
+        }).join("") : "");
       return '<tr' + (r.clase === claseSel ? ' class="sel"' : "") +
-        ' data-clase="' + esc(r.clase) + '"><td>' + esc(r.clase) +
-        '</td><td class="n">' + r.barras + '</td><td>' +
-        '<input type="text" list="catalogo" data-perfil="' + esc(r.clase) +
-        '" value="' + esc(v) + '" placeholder="— sin asignar —" class="' +
-        (malo ? "malo" : (v ? "" : "vacio")) + '"></td></tr>';
+        ' data-clase="' + esc(r.clase) + '"><td class="pp"><div class="pc">' + esc(r.clase) + ' <span class="n">' +
+        r.barras + " barras</span></div>" +
+        '<select data-fam="' + esc(r.clase) + '">' + opF + "</select>" +
+        '<select data-perfil="' + esc(r.clase) + '" class="' + (malo ? "malo" : (v ? "" : "vacio")) + '"' +
+        (fam ? "" : " disabled") + ">" + opP + "</select>" +
+        (malo ? '<span class="malo">' + esc(v) + " no está en el catálogo</span>" : "") + "</td></tr>";
     }).join("");
     return '<div class="tarj"><h4>Perfiles</h4><p class="sub">por clase de barra · ' +
       t.clases + " clases</p>" +
-      '<table class="t"><thead><tr><th>Clase</th><th style="text-align:right">n</th>' +
-      "<th>Perfil</th></tr></thead><tbody>" + f + "</tbody></table>" +
+      '<table class="t perf"><thead><tr><th>Clase · familia y perfil</th></tr></thead><tbody>' + f + "</tbody></table>" +
       '<p class="pie' + (t.sinPerfil ? " mal" : "") + '">' + esc(t.nota) + "</p></div>";
   }
 
@@ -1962,6 +2016,27 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     }
     return !!CATALOGO[id];
   }
+  /* el catálogo por familia, una vez · fila L.secciones */
+  var GRUPOS = null, POR_GRUPO = null, famSel = {};
+  var NOMBRE_GRUPO = { "laminado:I": "W · I laminado", "laminado:L": "L · ángulo", "laminado:2L": "2L · ángulos dobles",
+    "laminado:C": "C · canal", "laminado:HSS_rect": "HSS rectangular", "laminado:HSS_red": "HSS redondo",
+    "laminado:T": "WT · T laminado", "laminado:VAR": "Varilla lisa", "soldado:CS": "CS · columna soldada",
+    "soldado:CVS": "CVS · viga-columna soldada", "soldado:VS": "VS · viga soldada" };
+  function nombreGrupo(g) { return NOMBRE_GRUPO[g] || g; }
+  function porGrupo() {
+    if (!POR_GRUPO) {
+      POR_GRUPO = {};
+      PERFILES.activos().forEach(function (x) { (POR_GRUPO[x.grupo] = POR_GRUPO[x.grupo] || []).push(x); });
+      Object.keys(POR_GRUPO).forEach(function (g) {
+        POR_GRUPO[g].sort(function (a, b) { return a.peso_kgfm - b.peso_kgfm || (a.id < b.id ? -1 : 1); });
+      });
+      GRUPOS = Object.keys(POR_GRUPO).sort(function (a, b) { return nombreGrupo(a) < nombreGrupo(b) ? -1 : 1; });
+    }
+    return POR_GRUPO;
+  }
+  porGrupo();
+  function grupoDe(id) { try { return PERFILES.busca(id).grupo; } catch (e) { return ""; } }
+
   function pintaCatalogo() {
     if (document.getElementById("catalogo")) return;
     var a = PERFILES.activos(), por = {}, i;
@@ -2277,6 +2352,12 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
   /* LAS TABLAS EDITAN · asignar perfil y arriostrar paños */
   $("derecha").addEventListener("change", function (ev) {
     var t = ev.target;
+    if (t.getAttribute && t.getAttribute("data-fam")) {
+      /* cambiar la familia no asigna nada todavía: deja elegir el perfil dentro */
+      famSel[t.getAttribute("data-fam")] = t.value;
+      recalcula();
+      return;
+    }
     if (t.getAttribute && t.getAttribute("data-perfil")) {
       var clase = t.getAttribute("data-perfil"), v = t.value.trim();
       if (v === "") {
