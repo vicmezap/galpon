@@ -400,6 +400,18 @@
       "clave": true,
       "fuente": "E.030-2026 Art. 25.1 y Tabla N° 13",
       "nota": "Leída en las páginas 15 y 16 renderizadas. Un galpón es de un piso, así que en C zona 2 cae en la excepción. Galpón solo acepta estructura regular (fila A.sismo.regular), que cumple cualquier fila de la tabla: se enseña lo que la norma permitiría, no se usa para nada más."
+    },
+    {
+      "id": "S.zona.distrito",
+      "grupo": "La edificación",
+      "magnitud": "La zona sísmica, por el distrito",
+      "valor": "1892 distritos de 196 provincias y 25 departamentos (con el Callao): 32 en zona 1, 696 en zona 2, 799 en zona 3, 365 en zona 4",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.030-2026 Art. 10.3 y Anexo II (páginas 36 a 79 de la norma)",
+      "nota": "La zona no se elige: el Art. 10.3 remite al Anexo II, «el listado de las provincias y distritos que corresponden a cada zona». Se leyó la TABLA del PDF con sus posiciones (el texto plano la desordena: las celdas de zona están combinadas) con scripts/genera_distritos.py, que genera src/distritos.js. Cada grupo de zona se contó contra su columna ÁMBITO («ONCE DISTRITOS»): cuadran todos menos uno, y el fallo es de la norma: en Yauyos el bloque de zona 3 lista 30 distritos y dice «VEINTINUEVE» (página 66); la zona de los 30 es la misma. COTEJADO con la lista de Retícula (hoja «Cuadros E030» de V1.xlsm, 1832 distritos): 1758 coinciden por nombre y en 5 la zona NO coincide —Aija: Huacllán, La Merced, Succha; Ocros: Ocros, Santiago de Chilcas—, que V1 pone en zona 4 y la E.030-2026 en zona 3 (página 40, comprobado en la página renderizada). Manda la norma. Hay cuatro distritos llamados Miraflores (Lima zona 4; Arequipa, Huamalíes y Yauyos zona 3): por eso la clave lleva departamento y provincia."
     }
   ]
 }

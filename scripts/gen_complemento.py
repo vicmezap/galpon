@@ -69,6 +69,8 @@ MODULOS = [
     "e020.js",
     "viento.js",
     "e030.js",
+    "distritos.js",      # GENERADO del Anexo II de la E.030-2026
+    "ubicacion.js",      # el distrito y su zona · lee DISTRITOS
     "combinaciones.js",  # lee E020
     "modelo.js",
     "solver.js",         # lee MODELO

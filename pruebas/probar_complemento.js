@@ -527,6 +527,11 @@ cierto("y Comprobación oye a la zapata de LOS DOS pórticos",
   cierto("y la edificación: el uso, el riesgo de la nave, el otro uso y el uso industrial, sin valor",
     ["ed_uso", "ed_riesgo", "ed_sec", "ed_secpct", "ed_indus"].every((id) => pinto(M.dom, "fe").innerHTML.indexOf(id) >= 0) &&
     !/selected/.test(pinto(M.dom, "fe").innerHTML));
+  cierto("el sitio: el distrito se BUSCA y se elige, y el suelo y el V̄s30 van con él",
+    ["ed_distbus", "ed_dist", "ed_suelo", "ed_vs30"].every((id) => pinto(M.dom, "fe").innerHTML.indexOf('id="' + id + '"') >= 0));
+  cierto("la zona ya no se elige a mano en Cargas: sale del distrito", pinto(M.dom, "fc").innerHTML.indexOf("ca_zona") < 0 &&
+    /UBICACION\.buscar\(texto, 60\)/.test(modeHtml));
+  cierto("y en el centro, la ficha del sitio", /El sitio/.test(sel()));
   cierto("la categoría ya no se elige a mano en Cargas: sale del uso",
     pinto(M.dom, "fc").innerHTML.indexOf("ca_categoria") < 0 && pinto(M.dom, "fc").innerHTML.indexOf("ca_indus") < 0);
   cierto("el sitio se lee de los dos formularios, para que uno no borre al otro", /function sitioDeFormularios\(\)/.test(modeHtml) &&

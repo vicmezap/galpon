@@ -39,7 +39,7 @@
     "D.cobertura.peso", "Lr.liviana", "Lr.red.formula", "Lr.red.min40", "Lr.red.piso", "Lr.red.k",
     "N.Qs.min", "N.Qt.a", "N.Qt.b", "N.Qt.c", "N.desbal.corto", "N.desbal.largo",
     "W.Vh", "W.V.min", "W.Ph", "W.tipo", "W.T4", "W.T4.paralelas", "W.T5.repartidas", "W.C", "W.simultaneo",
-    "S.Z", "S.U", "S.categoria.uso", "S.perfil", "S.sinVs30", "S.interp", "S.R0", "S.pendulo", "S.C.estatico", "S.CR", "S.V",
+    "S.Z", "S.U", "S.categoria.uso", "S.zona.distrito", "S.perfil", "S.sinVs30", "S.interp", "S.R0", "S.pendulo", "S.C.estatico", "S.CR", "S.V",
     "S.vertical", "A.sismo.periodo", "S.T.rayleigh", "S.P", "A.sismo.regular", "J.costura", "A.portico.tipico"
   ]);
 
@@ -324,9 +324,10 @@
     h.seccion("4 · SISMO", "E.030-2026 · Art. 28, 31, 34, 36 y 38");
     h.cabecera(CAB);
     const pend = s.sistemaSismico === "pendulo";
-    const st = E030.sitio({ zona: s.zona, suelo: s.suelo, vs30_ms: s.vs30_ms });
+    const st = E030.sitio({ zona: c.sismo.zona, suelo: s.suelo, vs30_ms: s.vs30_ms });
     const rr = E030.coefR({ pendulo: pend, sistema: pend ? undefined : s.sistemaSismico });
-    h.linea({ n: "zona", que: "Zona sísmica", v: s.zona, fuente: "dato del proyecto" });
+    h.linea({ que: "Distrito", v: c.sismo.distrito, fuente: "dato del proyecto" });
+    h.linea({ n: "zona", que: "Zona sísmica, por el distrito", v: c.sismo.zona, estilo: "norma", fuente: fte("S.zona.distrito") });
     h.linea({ n: "suelo", que: "Perfil de suelo", v: s.suelo, fuente: "dato del proyecto" });
     h.linea({ n: "vsMed", que: "V̄s30 medido (vacío si no hay)", v: typeof s.vs30_ms === "number" ? s.vs30_ms : "",
       u: "m/s", fmt: "0", fuente: fte("S.sinVs30") });

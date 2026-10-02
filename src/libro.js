@@ -136,10 +136,11 @@
      clave que no está aquí PARA al guardar, en vez de perderse en silencio. */
   const SITIO = ["espesorCobertura_mm", "Dotras_kgfm2", "hayNieve", "Qs_kgfm2",
     "V_kmh", "tipoEdificacion", "aberturas", "acero",
-    "zona", "suelo", "vs30_ms", "sistemaSismico", "industrial",
+    "distrito", "suelo", "vs30_ms", "sistemaSismico", "industrial",
     "uso", "riesgoAdicional", "usoSecCat", "usoSecPct",
-    /* heredado: la categoría se elegía a mano; ahora sale del uso (fila S.categoria.uso) y esta no se usa */
-    "categoria"];
+    /* heredados: la categoría y la zona se elegían a mano; ahora salen del uso y del distrito
+       (filas S.categoria.uso y S.zona.distrito) y estas no se usan */
+    "categoria", "zona"];
 
   /* El sistema estructural · fila A.sistema.  Sin valor por omisión: lo decide
      el proyectista, y un modelo nuevo no lo trae. */

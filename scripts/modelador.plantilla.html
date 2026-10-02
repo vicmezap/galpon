@@ -107,6 +107,10 @@ nav.vistas button[aria-selected="true"] { color:var(--tinta); border-bottom-colo
 .obra.banda > aside.izq form { display:grid; gap:4px 14px; align-items:start;
   grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); }
 .obra.banda > aside.izq h3.sec { display:none; }
+/* en Datos hay dos formularios (proyecto, y sitio + edificación): una sola rejilla */
+.obra.banda #lado-datos:not([hidden]) { display:grid; gap:4px 14px; align-items:start;
+  grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); }
+.obra.banda #lado-datos form { display:contents; }
 .obra.banda.plegada > aside.izq { max-height:none; overflow:hidden; }
 .obra.banda.plegada > aside.izq > div:not(.banda-cab) { display:none; }
 .banda-cab { display:none; }
@@ -162,6 +166,7 @@ legend { font-family:var(--disp); font-weight:600; font-size:11px; letter-spacin
 .par { display:grid; grid-template-columns:1fr 70px; gap:4px 6px; align-items:center;
   margin-bottom:5px; }
 .par.ancho { grid-template-columns:1fr; }
+.par.ancho input[type="text"] + select { margin-top:3px; }
 .par label { font-size:11.5px; color:var(--tinta-2); }
 .par input, .par select { font-family:var(--cifra); font-size:11.5px; width:100%;
   padding:2px 4px; border:1px solid var(--linea); border-radius:2px;
@@ -680,6 +685,12 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
           return '<option value="' + o[0] + '">' + esc(o[1]) + "</option>";
         }).join("") + "</select></div>";
     }
+    /* EL DISTRITO: se busca por palabras y se elige; la zona sale de él · fila S.zona.distrito */
+    if (c.tipo === "distrito") {
+      return envol + '<label for="' + cid + '">' + et + '</label>' +
+        '<input type="text" id="' + cid + 'bus" placeholder="busca: departamento, provincia, distrito o ciudad" value="">' +
+        '<select id="' + cid + '"><option value="">— escribe arriba para buscar —</option></select></div>';
+    }
     if (c.tipo === "texto") {
       return envol + '<label for="' + cid + '">' + et + '</label><input type="text" id="' + cid + '" value=""></div>';
     }
@@ -746,6 +757,23 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     return Object.assign(RESULTADOS.leeSitio(valoresForm(RESULTADOS.CAMPOS_CARGAS, "ca_")),
       RESULTADOS.leeEdificacion(valoresForm(RESULTADOS.CAMPOS_EDIFICACION, "ed_")));
   }
+  /* el buscador de distritos rehace solo las opciones, sin repintar el panel */
+  function opcionesDistrito(texto) {
+    var sel = $("ed_dist");
+    if (!sel) return;
+    var actual = (modelo.sitio || {}).distrito || "";
+    var lista = UBICACION.buscar(texto, 60);
+    if (actual && lista.indexOf(actual) < 0) lista.unshift(actual);
+    sel.innerHTML = (lista.length ? "" : '<option value="">' + (texto ? "— no hay ningún distrito así —" :
+      "— escribe arriba para buscar —") + "</option>") +
+      (actual ? "" : (lista.length ? '<option value="">— elige el distrito —</option>' : "")) +
+      lista.map(function (k) {
+        return '<option value="' + esc(k) + '"' + (k === actual ? " selected" : "") + ">" + esc(UBICACION.etiqueta(k)) + "</option>";
+      }).join("");
+  }
+  if ($("ed_distbus") && $("ed_distbus").addEventListener) {
+    $("ed_distbus").addEventListener("input", function () { opcionesDistrito(this.value); });
+  }
   $("fe").addEventListener("change", function () {
     modelo.sitio = sitioDeFormularios();
     actualizaSolos();
@@ -763,6 +791,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
   function ponSitioEnFormularios() {
     ponValores(RESULTADOS.CAMPOS_PROYECTO, "pr_", RESULTADOS.valoresDeProyecto(modelo.proyecto));
     ponValores(RESULTADOS.CAMPOS_CARGAS, "ca_", RESULTADOS.valoresDeSitio(modelo.sitio));
+    opcionesDistrito("");
     ponValores(RESULTADOS.CAMPOS_EDIFICACION, "ed_", RESULTADOS.valoresDeEdificacion(modelo.sitio));
     ponValores(RESULTADOS.CAMPOS_ANALISIS, "an_", modelo.sistema || {});
     ponValores(RESULTADOS.CAMPOS_DISENO, "di_", RESULTADOS.valoresDeDiseno(modelo.diseno));
@@ -1489,8 +1518,8 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     }).join("");
     $("centro").innerHTML = '<div class="hoja"><h2>Datos</h2><p class="lead">' +
       esc((modelo.proyecto && modelo.proyecto.nombre) || "proyecto sin nombre") + " · " + hechos + " de " + est.length +
-      " pasos completos</p><h3>La edificación</h3><div class=\"rejilla\">" +
-      RESULTADOS.fichaEdificacion(modelo.sitio).map(pintaFicha).join("") + "</div>" +
+      " pasos completos</p><h3>El sitio y la edificación</h3><div class=\"rejilla\">" +
+      RESULTADOS.fichaSitio(modelo.sitio).concat(RESULTADOS.fichaEdificacion(modelo.sitio)).map(pintaFicha).join("") + "</div>" +
       "<h3>Lo que falta, paso por paso</h3><div class=\"rejilla\">" + filas + "</div></div>";
     var mat = RESULTADOS.materiales(modelo).map(function (x) {
       return '<div class="ln"><span class="q">' + esc(x.que) + '</span><span class="v">' +

@@ -21,7 +21,7 @@ const D = { luz_m: 20, largo_m: 60, sepPorticos_m: 6, alturaColumna_m: 6, panele
 const m3 = MON.monta(D);
 const SITIO = { espesorCobertura_mm: 0.4, Dotras_kgfm2: 5, hayNieve: false, V_kmh: 75,
   tipoEdificacion: 1, aberturas: { izqDer: "repartidas", derIzq: "repartidas", longitudinal: "repartidas" },
-  acero: "A36", zona: "Z4", suelo: "S2", uso: "deposito", riesgoAdicional: false, usoSecCat: "no", sistemaSismico: "OMF", industrial: false };
+  acero: "A36", distrito: "LIMA › LIMA · MIRAFLORES", suelo: "S2", uso: "deposito", riesgoAdicional: false, usoSecCat: "no", sistemaSismico: "OMF", industrial: false };
 const NOMBRES = { "columna": "W10X33", "brida superior": "2L3X3X1/4", "brida inferior": "2L3X3X1/4",
   "diagonal": "L2X2X3/16", "montante": "L2X2X3/16", "correa": "C8X11.5", "viga de alero": "C8X11.5" };
 const conPerfiles = (m) => {
@@ -38,8 +38,8 @@ const vac = R.cargas(m3, {});
 comp("vacío no está completo", vac.completo, false);
 const campos = vac.faltan.map((f) => f.campo).sort();
 comp("y pide cada dato de proyecto, sin rellenar ninguno",
-  campos, ["ca_ab_derIzq", "ca_ab_izqDer", "ca_ab_longitudinal", "ca_esp", "ca_nieve", "ca_sissis", "ca_suelo",
-    "ca_tipo", "ca_v", "ca_zona", "ed_indus", "ed_uso"]);
+  campos, ["ca_ab_derIzq", "ca_ab_izqDer", "ca_ab_longitudinal", "ca_esp", "ca_nieve", "ca_sissis",
+    "ca_tipo", "ca_v", "ed_dist", "ed_indus", "ed_suelo", "ed_uso"]);
 comp("cada falta apunta a un campo que existe: los de Cargas en Cargas, los de la edificación en Datos",
   vac.faltan.filter((f) => !(R.CAMPOS_CARGAS.some((g) => g.campos.some((c) => "ca_" + c.id === f.campo)) ||
     (f.paso === "datos" && R.CAMPOS_EDIFICACION.some((g) => g.campos.some((c) => "ed_" + c.id === f.campo))))), []);
@@ -49,9 +49,10 @@ comp("sin cargas no hay nada que pasarle al análisis", vac.cargas, null);
 const c = R.cargas(m3, SITIO);
 comp("con todo, completo", c.completo, true);
 comp("y el sismo va al análisis con lo que hace falta", c.cargas && c.cargas.sismo,
-  { zona: "Z4", suelo: "S2", vs30_ms: undefined, categoria: "C", sub: "C", uso: "deposito", sistema: "OMF", industrial: false });
+  { zona: "Z4", distrito: "LIMA › LIMA · MIRAFLORES", suelo: "S2", vs30_ms: undefined, categoria: "C", sub: "C", uso: "deposito",
+    sistema: "OMF", industrial: false });
 comp("8 combinaciones de acero con D, Lr, W y E", c.combinaciones.acero.length, 8);
-const sinE = R.cargas(m3, Object.assign({}, SITIO, { zona: undefined }));
+const sinE = R.cargas(m3, Object.assign({}, SITIO, { distrito: undefined }));
 comp("SIN SISMO NO ESTÁ COMPLETO: la E.030 aplica en todo el Perú", sinE.completo, false);
 cerca("D = 3,35 (TR-4 de 0,40) + 5 declarados", c.cargas.D_kgfm2, 3.35 + 5, 1e-12);
 cerca("Lr reducida con At = luz × separación: 30·(0,25 + 4,6/√120)",
@@ -87,8 +88,8 @@ comp("del sitio a los campos —Cargas y la edificación de Datos— y de vuelta
 comp("un campo vacío NO se guarda como cero", R.leeSitio({ esp: "", v: "", dotras: "" }), {});
 comp("cada dato de sitio que guarda el libro tiene su campo",
   L.SITIO.filter((k) => !R.CAMPOS_CARGAS.concat(R.CAMPOS_EDIFICACION).some((g) => g.campos.some((c2) => c2.clave.split(".")[0] === k))),
-  ["categoria"]);
-comp("(la categoría ya no tiene campo: sale del uso, y el libro solo la acepta de modelos viejos)",
+  ["categoria", "zona"]);
+comp("(la categoría y la zona ya no tienen campo: salen del uso y del distrito, y el libro solo las acepta de modelos viejos)",
   R.CAMPOS_CARGAS.some((g) => g.campos.some((c2) => c2.clave === "categoria")), false);
 comp("ningún campo trae valor de partida",
   R.CAMPOS_CARGAS.concat(R.CAMPOS_ANALISIS, R.CAMPOS_EDIFICACION).reduce((a, g) => a.concat(g.campos), [])
@@ -540,7 +541,7 @@ comp("NI UNA línea de Cimentación sin procedencia válida",
     "geom").completo, !require("../src/vistas.js").tablaPerfiles(m3, mok).sinPerfil);
   comp("Cargas pide cada dato una vez, con su campo", de(vacio, "cargas").faltas.map((f) => f.campo).sort(),
     R.cargas(m3, {}).faltan.filter((f) => !f.paso).map((f) => f.campo).concat(["ca_acero"]).sort());
-  comp("y los de la edificación, en Datos", de(vacio, "datos").faltas.map((f) => f.campo).sort(), ["ed_indus", "ed_uso", "pr_nom"]);
+  comp("y los de la edificación, en Datos", de(vacio, "datos").faltas.map((f) => f.campo).sort(), ["ed_dist", "ed_indus", "ed_suelo", "ed_uso", "pr_nom"]);
   comp("Diseño, Conexiones y Cimentación esperan al análisis", ["diseno", "conex", "cimen"].map((k) => de(vacio, k).espera
     .map((x) => x.paso)), [["analisis"], ["analisis"], ["analisis"]]);
   cierto("pero ya dicen sus propios datos, sin esperar", de(vacio, "conex").faltas.length > 0 &&
@@ -586,8 +587,32 @@ comp("NI UNA línea de Cimentación sin procedencia válida",
   comp("el libro guarda la edificación", L.deserializa(L.serializa(Object.assign(L.nuevo({}), { sitio: { uso: "deposito",
     riesgoAdicional: false, usoSecCat: "B", usoSecPct: 20 } }))).modelo.sitio,
     { uso: "deposito", riesgoAdicional: false, usoSecCat: "B", usoSecPct: 20 });
-  comp("el campo del riesgo solo sale para depósito y nave", R.CAMPOS_EDIFICACION[0].campos.filter((c2) => c2.id === "riesgo")[0].soloSi,
+  comp("el campo del riesgo solo sale para depósito y nave", R.CAMPOS_EDIFICACION[1].campos.filter((c2) => c2.id === "riesgo")[0].soloSi,
     "uso=deposito|industrial");
+}
+
+
+/* LA UBICACIÓN · la zona sale del distrito (fila S.zona.distrito) */
+{
+  const U = require("../src/ubicacion.js");
+  comp("cuatro Miraflores, y solo el de Lima es zona 4", U.buscar("miraflores").filter((k) => /· MIRAFLORES$/.test(k)).map(U.zona),
+    ["Z3", "Z3", "Z3", "Z4"]);
+  comp("Pucallpa es Callería, Yarinacocha y Manantay, aunque la norma escriba «CALLERIA»", U.buscar("pucallpa").length, 3);
+  comp("sin tildes ni mayúsculas, y por palabras sueltas", U.buscar("ancash aija"), U.buscar("ÁNCASH AIJA"));
+  comp("Aija es zona 3 en la E.030-2026 (V1.xlsm y Retícula la tenían en 4)", U.buscar("ancash aija").filter((k) => /› AIJA ·/.test(k)).map(U.zona).filter((v, i, a) => a.indexOf(v) === i), ["Z3"]);
+  comp("la zona de las cargas sale del distrito", R.cargas(m3, Object.assign({}, SITIO, { distrito: "AREQUIPA › AREQUIPA · MIRAFLORES" }))
+    .cargas.sismo.zona, "Z3");
+  const viejo = R.cargas(m3, Object.assign({}, SITIO, { distrito: undefined, zona: "Z4" }));
+  cierto("un modelo viejo con la zona a mano y sin distrito pide el distrito, en Datos", !viejo.completo &&
+    viejo.faltan.some((f) => f.campo === "ed_dist" && f.paso === "datos"));
+  comp("un distrito que no está en el Anexo no se guarda", R.leeEdificacion({ dist: "LIMA › LIMA · NARNIA" }).distrito, undefined);
+  const fs = R.fichaSitio({ distrito: "LIMA › LIMA · MIRAFLORES", suelo: "S2" })[0].lineas;
+  comp("la ficha del sitio: zona 4, Z = 0,45, S = 1,100 sin V̄s30", fs.slice(1, 4).map((l) => l.v), ["4", "0,45", "1,100"]);
+  cierto("y dice que el viento no se automatiza: es un mapa", /mapa/.test(fs[fs.length - 1].nota));
+  comp("con S4 en zona 4 lo dice, no inventa un S", R.fichaSitio({ distrito: "LIMA › LIMA · MIRAFLORES", suelo: "S4" })[0]
+    .lineas.filter((l) => /suelo S/.test(l.q))[0].v, "NO HAY");
+  comp("el libro guarda el distrito", L.deserializa(L.serializa(Object.assign(L.nuevo({}), { sitio: { distrito: "LIMA › LIMA · MIRAFLORES" } })))
+    .modelo.sitio.distrito, "LIMA › LIMA · MIRAFLORES");
 }
 
 fin();
