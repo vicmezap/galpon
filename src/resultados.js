@@ -47,7 +47,8 @@
     "LG.vertical", "LG.correa.puntal", "LG.techo.armadura", "LG.fachada.cruz", "LG.sismo.sistema",
     "LG.hastial.reparto", "LG.factores", "D.DIS.correas", "F.F6.sinLTB", "F.hipotesis", "D.cobertura.tabla",
     "SV.deflex", "SV.correa.Ld", "CR.cargas", "Z.longitudinal.articulada", "PD.biaxial", "ZT.tipos",
-    "ZT.cruz", "ZT.hastial", "ZT.placa.cruz"
+    "ZT.cruz", "ZT.hastial", "ZT.placa.cruz", "Z.volteo.E030", "Z.conexion",
+    "Z.conexion.diseno"
   ]);
   const ln = V.ln, ficha = V.ficha;
   const n2 = (x, d) => (Math.round(x * Math.pow(10, d)) / Math.pow(10, d))
@@ -750,6 +751,10 @@
         porque: cz.z.auto ? "ni con las medidas buscadas: revisa el suelo, el desplante o el pedestal"
           : "con las medidas dadas. Borra B, L y h para que se busquen.", paso: "cimen" });
     }
+    if (cz && cz.ok && cz.viga && cz.viga.exigida && (cz.viga.falta || !cz.viga.cumple)) {
+      L.push({ nivel: "error", que: "La viga de conexión " + (cz.viga.falta ? "no tiene sección" : "no cumple"),
+        porque: "con este suelo la E.030 Art. 65.1 la exige en las dos direcciones", fuente: "Z.conexion", paso: "cimen" });
+    }
     if (cz && cz.ok && cz.ped && !cz.ped.cumple) {
       L.push({ nivel: "error", que: "El pedestal no cumple: " + cz.ped.fallas.join(", "),
         porque: "se arregla con sus medidas, la barra o el estribo, en Cimentación", paso: "cimen" });
@@ -824,6 +829,11 @@
         fuente: "J.anclaje.geometria" },
       { id: "elec", clave: "electrodo", etiqueta: "Electrodo de la soldadura columna-placa", tipo: "opcion",
         fuente: "J.base.momento.soldadura", opciones: [ELEGIR, ["E70", "E70XX"], ["E60", "E60XX"]] }] },
+    { grupo: "Vigas de conexión (si se exigen)", campos: [
+      { id: "vcb", clave: "vigaB_cm", etiqueta: "Ancho de la viga de conexión", unidad: "cm", tipo: "numero",
+        fuente: "Z.conexion" },
+      { id: "vch", clave: "vigaH_cm", etiqueta: "Peralte de la viga de conexión", unidad: "cm", tipo: "numero",
+        fuente: "Z.conexion" }] },
     { grupo: "Llave de corte", campos: [
       { id: "lll", clave: "llaveL_cm", etiqueta: "Ancho de la llave", unidad: "cm", tipo: "numero", fuente: "J.llave.aplast" },
       { id: "llh", clave: "llaveH_cm", etiqueta: "Altura embebida", unidad: "cm", tipo: "numero", fuente: "J.llave.aplast" },
@@ -861,6 +871,7 @@
     if (val.elec) c.electrodo = val.elec;
     pon("llaveL_cm", num(val.lll)); pon("llaveH_cm", num(val.llh)); pon("llaveT_cm", num(val.llt));
     pon("grout_cm", num(val.grout));
+    pon("vigaB_cm", num(val.vcb)); pon("vigaH_cm", num(val.vch));
     return c;
   }
   function valoresDeCimentacion(cz) {
@@ -876,7 +887,7 @@
     s("plb", c.placaB_cm); s("pln", c.placaN_cm); s("plt", c.placaT_cm); s("pf", c.pernoF_cm);
     s("pnf", c.pernosFila); s("psep", c.pernoSep_cm); s("pd", c.pernoD); s("pmat", c.pernoMat);
     s("pld", c.pernoLd_cm); s("elec", c.electrodo); s("lll", c.llaveL_cm); s("llh", c.llaveH_cm);
-    s("llt", c.llaveT_cm); s("grout", c.grout_cm);
+    s("llt", c.llaveT_cm); s("grout", c.grout_cm); s("vcb", c.vigaB_cm); s("vch", c.vigaH_cm);
     return v;
   }
 
@@ -1054,11 +1065,24 @@
       if (ped.anclaje.hMin_cm <= hMin + 1e-9) break;
       hMin = ped.anclaje.hMin_cm;
     }
+    /* LAS VIGAS DE CONEXIÓN · filas Z.conexion y Z.conexion.diseno */
+    const sitio = modelo.sitio || {};
+    const exig = ZA.conexionExigida({ suelo: sitio.suelo, zona: sitio.zona, sigmaAdm_kgfcm2: c.sigmaAdm_kgfcm2 });
+    let viga = Object.assign({}, exig);
+    if (exig.exigida) {
+      if (!(c.vigaB_cm > 0 && c.vigaH_cm > 0)) {
+        viga.falta = "la sección de la viga de conexión, que aquí se exige";
+      } else {
+        const Pu = Math.max.apply(null, sols.map((x) => x.P_kgf));
+        viga = Object.assign(viga, ZA.vigaConexion({ Pu_kgf: Pu, b_cm: c.vigaB_cm, h_cm: c.vigaH_cm,
+          fc_kgcm2: c.fc_kgcm2, grado: c.grado, barra: c.pedBarra }));
+      }
+    }
     const placa = tipo === "hastial" ? placaHastial(casosZ, modelo, c, ped, z)
       : placaBase(m3, a.r, modelo, perfiles, c, ped, z, tipo === "interior" ? null : casosZ);
-    return { ok: true, tipo: tipo, z: z, ped: ped, placa: placa, r: a.r, datos: c,
+    return { ok: true, tipo: tipo, z: z, ped: ped, placa: placa, viga: viga, r: a.r, datos: c,
       eje: casosZ.eje, conCruz: !!casosZ.conCruz, linea: casosZ.linea || null,
-      fichas: fichasCimentacion(z).concat(fichasPedestal(ped), fichasPlaca(placa)) };
+      fichas: fichasCimentacion(z).concat(fichasPedestal(ped), fichasPlaca(placa), fichasViga(viga, sitio, c)) };
   }
 
   /* LA PLACA DE LA COLUMNA HASTIAL · fila ZT.hastial: compresión y cortante, sin momento
@@ -1437,6 +1461,28 @@
     return [ficha("El pedestal", "columna corta a flexocompresión · E.060", L, p.cumple ? "bien" : null)];
   }
 
+  function fichasViga(v, sitio, c) {
+    if (!v.exigida) {
+      return [ficha("Vigas de conexión", "E.030 Art. 65.1", [ln("Se exigen", "no", "norma", { fuente: "Z.conexion",
+        estado: "ok", nota: "suelo " + (sitio.suelo || "—") + " en la zona " + (sitio.zona || "—") + " y presión admisible " +
+          n2(c.sigmaAdm_kgfcm2, 2) + " kgf/cm² (el límite es " + n2(v.sigmaLimite_kgfcm2, 2) + ")" })])];
+    }
+    const L = [ln("Se exigen", "sí", "norma", { fuente: "Z.conexion", nota: v.porSuelo ? "suelo " + sitio.suelo +
+      " en la zona " + sitio.zona : "presión admisible menor que 0,10 MPa" })];
+    if (v.falta) {
+      L.push(ln(v.falta, "FALTA", "medido", { estado: "no" }));
+    } else {
+      L.push(ln("Fuerza: 10 % de la carga de la columna", t2(v.F_kgf), "norma", { fuente: "Z.conexion",
+        nota: "Pu = " + t2(v.Pu_kgf) + ", a tracción y a compresión" }));
+      L.push(ln("Acero", v.n + " Ø" + v.barra + "\"", "norma", { fuente: "Z.conexion.diseno",
+        nota: "hacen falta " + cm2(Math.max(v.As_traccion_cm2, v.As_min_cm2)) + " (manda " +
+          (v.As_min_cm2 >= v.As_traccion_cm2 ? "el 1 %" : "la tracción") + ")" }));
+      L.push(ln("Compresión", n2(v.ratioCompresion, 3), "norma", { fuente: "Z.conexion.diseno", estado: ok(v.cumple),
+        nota: v.nota }));
+    }
+    return [ficha("Vigas de conexión", "E.030 Art. 65.1 · en las dos direcciones", L, v.falta || !v.cumple ? null : "bien")];
+  }
+
   function fichasPlacaHastial(q) {
     const L = [ln("Placa B × N", n2(q.B_cm, 0) + " × " + n2(q.N_cm, 0) + " cm", "entrada", { nota: "bajo " + q.seccion }),
       ln("Compresión 1,2·D", t2(q.Pu_kgf), "medido"), ln("Cortante 1,3·W en la llave", t2(q.Hu_kgf), "medido")];
@@ -1518,6 +1564,10 @@
           { nota: s.vuelca ? "más de L/2: la resultante cae fuera de la base, la zapata vuelca"
             : (Math.abs(s.eL) > 1 / 6 ? "más de L/6: presión triangular, parte de la base no apoya"
               : "dentro del tercio central") })),
+      (isFinite(z.volteo.fs)
+        ? ln("Volteo con sismo, FS", n2(z.volteo.fs, 2), "norma", { fuente: "Z.volteo.E030", estado: ok(z.volteo.cumple),
+          nota: "mínimo 1,2 · " + z.volteo.combo + " en " + z.volteo.direccion + ", sin el 0,8" })
+        : ln("Volteo con sismo", "sin sismo", "medido", { nota: "a esta zapata no le llega sismo" })),
       ln("Deslizamiento μ·N/H", z.servicio.deslizamiento ? n2(z.servicio.deslizamiento.deslizamiento, 2) : "sin μ",
         "medido", { nota: "la E.060 no fija factor: lo decide el estudio de suelos (fila Z.deslizamiento)" })
     ]));

@@ -455,4 +455,20 @@ comp("NI UNA línea de Cimentación sin procedencia válida",
       .filter((l) => V.ORIGENES.indexOf(l.origen) < 0).map((l) => l.q), []);
 }
 
+
+/* las vigas de conexión en la pantalla · fila Z.conexion */
+{
+  const zNo = R.cimentacion(m3, mcz, P);
+  comp("con S2 en zona 4 y 1,5 kgf/cm², no se exigen", zNo.viga.exigida, false);
+  const mS3 = Object.assign({}, mcz, { sitio: Object.assign({}, mcz.sitio, { suelo: "S3" }) });
+  const zS3 = R.cimentacion(m3, mS3, P);
+  cierto("con S3 en zona 4 se exigen, y sin sección se pide", zS3.ok && zS3.viga.exigida && /sección/.test(zS3.viga.falta) &&
+    R.avisosResultados(null, null, zS3).some((x) => /viga de conexión no tiene sección/.test(x.que)));
+  const zV = R.cimentacion(m3, Object.assign({}, mS3, { cimentacion: Object.assign({}, mS3.cimentacion,
+    { vigaB_cm: 25, vigaH_cm: 40 }) }), P);
+  cierto("con sección, se diseña con el 10 % de la mayor carga de la columna", zV.viga.cumple && zV.viga.F_kgf > 0);
+  comp("y la guarda el libro", R.leeCimentacion(R.valoresDeCimentacion({ vigaB_cm: 25, vigaH_cm: 40 })), { vigaB_cm: 25, vigaH_cm: 40 });
+  cierto("la ficha dice el volteo con sismo", zNo.fichas[1].lineas.some((l) => /Volteo con sismo/.test(l.q)));
+}
+
 fin();

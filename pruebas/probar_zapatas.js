@@ -317,4 +317,56 @@ cierto("sin μ se dice que el deslizamiento no se comprobó", sinMu.avisos.some(
   cierto("y el punzonamiento suma los dos momentos", ambos.concreto.punz.vu > enL.concreto.punz.vu);
 }
 
+
+/* ================================================================
+   E.030 · EL VOLTEO (Art. 64) Y LAS VIGAS DE CONEXIÓN (Art. 65.1)
+   ================================================================ */
+{
+  /* el volteo a mano: FS = N·(L/2)/M con D + 1,0·E, sin el 0,8, y todo el peso que sujeta */
+  const sv = [{ id: "D", tipo: "D", reacciones: { B0: { Rx_kgf: 0, Ry_kgf: 10000, Mz_kgfcm: 0 } } },
+    { id: "Lr", tipo: "Lr", reacciones: { B0: { Rx_kgf: 0, Ry_kgf: 0, Mz_kgfcm: 0 } } },
+    /* reacciones con el signo de un pórtico real: el cortante de la base suma su momento en el fondo */
+    { id: "E1", tipo: "E", reacciones: { B0: { Rx_kgf: 2000, Ry_kgf: 0, Mz_kgfcm: -8e5 } } }];
+  const dv = { B_cm: 160, L_cm: 160, h_cm: 50 };
+  const vv = Z.verifica(Object.assign({}, D0, { casos: sv }), dv);
+  const N = 10000 + vv.pesos.pedestal + vv.pesos.zapata + vv.pesos.relleno;
+  const M = 8e5 + 2000 * (vv.altPedestal_cm + 50);
+  cerca("volteo: FS = N·(L/2)/M, con pedestal, zapata y relleno sujetando (fila Z.volteo.E030)", vv.volteo.fs,
+    N * 80 / M, 1e-12);
+  comp("con D + E, SIN el 0,8 del Art. 29", vv.volteo.combo, "D + E1");
+  cierto("(y aquí pasa de 1,2)", vv.volteo.cumple && vv.volteo.fs > 1.2);
+  /* con más momento no llega: FS = 1,1, entre 1,0 y 1,2, falla */
+  const Mz11 = N * 80 / 1.1 - 2000 * (vv.altPedestal_cm + 50);
+  const sv2 = sv.map((c) => c.id === "E1" ? { id: "E1", tipo: "E", reacciones: { B0: { Rx_kgf: 2000, Ry_kgf: 0, Mz_kgfcm: -Mz11 } } } : c);
+  const vf = Z.verifica(Object.assign({}, D0, { casos: sv2 }), dv);
+  cerca("(el caso: FS = 1,1)", vf.volteo.fs, 1.1, 1e-9);
+  cierto("con FS = 1,1 < 1,2 falla por volteo", !vf.volteo.cumple && vf.fallas.indexOf("volteo con sismo (E.030 Art. 64)") >= 0);
+  /* con un suelo muy bueno la presión no manda: lo que hace crecer el lado es el volteo */
+  const Dbueno = Object.assign({}, D0, { casos: sv2, suelo: Object.assign({}, D0.suelo, { sigmaAdm_kgfcm2: 20, esNeta: true }) });
+  const zf = Z.disena(Dbueno);
+  const antes = Z.verifica(Dbueno, { B_cm: zf.zapata.B_cm - 5, L_cm: zf.zapata.L_cm - 5, h_cm: zf.zapata.h_cm });
+  cierto("al buscar medidas, el lado crece hasta FS ≥ 1,2 aunque la presión no lo pida",
+    zf.volteo.cumple && !antes.volteo.cumple && antes.servicio.peor.ratio < 1);
+  /* a lo largo: el mismo FS con Hz en B */
+  const svz = [sv[0], sv[1], { id: "E1", tipo: "E", reacciones: { B0: { Rx_kgf: 0, Ry_kgf: 0, Mz_kgfcm: 0, Rz_kgf: -2000 } } }];
+  const vz = Z.verifica(Object.assign({}, D0, { casos: svz }), { B_cm: 120, L_cm: 200, h_cm: 50 });
+  comp("a lo largo se mira en B", vz.volteo.direccion, "B");
+
+  /* LAS VIGAS DE CONEXIÓN · fila Z.conexion */
+  comp("S3 en zona 4: se exigen", Z.conexionExigida({ suelo: "S3", zona: "Z4", sigmaAdm_kgfcm2: 2 }).exigida, true);
+  comp("S3 en zona 2: no, si la presión es buena", Z.conexionExigida({ suelo: "S3", zona: "Z2", sigmaAdm_kgfcm2: 2 }).exigida, false);
+  comp("S2 en zona 4: no", Z.conexionExigida({ suelo: "S2", zona: "Z4", sigmaAdm_kgfcm2: 1.5 }).exigida, false);
+  comp("y con presión admisible menor que 0,10 MPa, siempre", Z.conexionExigida({ suelo: "S1", zona: "Z1",
+    sigmaAdm_kgfcm2: 0.9 }).exigida, true);
+  cerca("0,10 MPa son 1,02 kgf/cm²", Z.conexionExigida({}).sigmaLimite_kgfcm2, 0.10 * UN.MPA_KGCM2, 1e-12);
+  const vg = Z.vigaConexion({ Pu_kgf: 60000, b_cm: 25, h_cm: 40, fc_kgcm2: 210, grado: "60", barra: "5/8" });
+  cerca("la fuerza: el 10 % de la carga amplificada de la columna", vg.F_kgf, 6000, 1e-12);
+  cerca("a tracción: F/(0,9·fy)", vg.As_traccion_cm2, 6000 / (0.9 * 420 * UN.MPA_KGCM2), 1e-12);
+  comp("con el 1 % de 25 × 40 = 10 cm² manda el mínimo: 6 barras de 5/8\" (11,9 cm²)", vg.n, 6);
+  const As = 6 * Math.PI * 1.5875 * 1.5875 / 4;
+  cerca("a compresión: 0,80·0,70·(0,85·f'c·(Ag − Ast) + fy·Ast)", vg.phiPn_kgf,
+    0.56 * (0.85 * 210 * (1000 - As) + 420 * UN.MPA_KGCM2 * As), 1e-9);
+  lanza("sin sección no se diseña", () => Z.vigaConexion({ Pu_kgf: 1, fc_kgcm2: 210, grado: "60", barra: "5/8" }), ["b y h"]);
+}
+
 fin();

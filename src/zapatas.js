@@ -41,7 +41,8 @@
     "Z.combos.E060", "Z.levantamiento", "Z.servicio", "Z.signo", "Z.peso", "Z.vuelco",
     "Z.deslizamiento", "Z.plano", "Z.As.min", "Z.s.max", "Z.Vc.viga", "Z.bloque", "Z.As.max",
     "Z.rec", "Z.punzon.momento", "Z.desarrollo", "D.concreto.gamma", "N.no.viento", "J.anclaje.concreto",
-    "PD.anclaje.zapata", "Z.biaxial", "Z.longitudinal.articulada", "Z.punzon.biaxial", "ZT.tipos"
+    "PD.anclaje.zapata", "Z.biaxial", "Z.longitudinal.articulada", "Z.punzon.biaxial", "ZT.tipos", "Z.volteo.E030",
+    "Z.conexion", "Z.conexion.diseno"
   ]);
 
   const MPA = UN.MPA_KGCM2;
@@ -290,6 +291,21 @@
       }
     }
 
+    /* ---- el volteo con sismo · fila Z.volteo.E030: D + 1,0·E, sin el 0,8, FS ≥ 1,2 por cada arista ---- */
+    let peorV = { fs: Infinity, combo: null };
+    for (const x of est.E) {
+      for (const b of bases) {
+        const s = suma([[est.D, 1], [x, 1]], b);
+        const N = s.P + Wp + Wf + Wr;
+        const ML = Math.abs(s.M - s.H * brazo), MB = Math.abs(s.Hz * brazo);
+        for (const [dir, Mv, lado] of [["L", ML, L], ["B", MB, B]]) {
+          if (Mv < 1e-9) continue;
+          const fs = N > 0 ? N * (lado / 2) / Mv : 0;
+          if (fs < peorV.fs) peorV = { fs: fs, combo: "D + " + x.id, base: b, direccion: dir, N: N, M: Mv };
+        }
+      }
+    }
+
     /* ---- el levantamiento · 0,9·CM contra el viento y el sismo · fila Z.levantamiento ---- */
     let peorL = { ratio: 0, combo: null };
     const muertas = (b) => deBase(est.D, b).P + Wp + Wf + Wr;
@@ -419,6 +435,7 @@
     if (peorS.ratio > 1 + 1e-9) fallas.push("presión en el suelo");
     if (vuelcoU.length) fallas.push("vuelco con cargas amplificadas");
     if (peorL.ratio > 1 + 1e-9) fallas.push("levantamiento");
+    if (peorV.fs < 1.2 - 1e-9) fallas.push("volteo con sismo (E.030 Art. 64)");
     for (const k of ["cortL", "cortB", "punz"]) if (est2[k] && est2[k].ratio > 1 + 1e-9) fallas.push(k);
     if (aL && (aL.insuficiente || !aL.cumple)) fallas.push("flexión L");
     if (aB && (aB.insuficiente || !aB.cumple)) fallas.push("flexión B");
@@ -435,6 +452,7 @@
         deslizamiento: su.mu > 0 ? servicio.filter((x) => x.deslizamiento !== null)
           .reduce((a, x) => (!a || x.deslizamiento < a.deslizamiento ? x : a), null) : null },
       levantamiento: peorL, vuelcoAmplificado: vuelcoU,
+      volteo: Object.assign(peorV, { minimo: 1.2, cumple: peorV.fs >= 1.2 - 1e-9, art: ART["Z.volteo.E030"] }),
       concreto: Object.assign({}, est2, { aceroL: aL, aceroB: aB, aceroSup: aSup, aceroSupB: aSupB, franja: franja, hMin: hMin,
         dL: dL, dB: dB, beta1: beta1, rhoMin: rhoMin, sMax: sMax }),
       fallas: fallas, cumple: !fallas.length, avisos: avisos
@@ -461,6 +479,32 @@
     return F;
   }
 
+  /* =====================================================================
+     5 · LAS VIGAS DE CONEXIÓN · filas Z.conexion y Z.conexion.diseno
+     ===================================================================== */
+  const SUELOS_BLANDOS = ["S3", "S4"], ZONAS_ALTAS = ["Z3", "Z4"];
+  const SIGMA_BAJA = 0.10 * MPA;               /* 0,10 MPa en kgf/cm² */
+  function conexionExigida(d) {
+    const porSuelo = SUELOS_BLANDOS.indexOf(d.suelo) >= 0 && ZONAS_ALTAS.indexOf(d.zona) >= 0;
+    const porPresion = d.sigmaAdm_kgfcm2 < SIGMA_BAJA - 1e-12;
+    return { exigida: porSuelo || porPresion, porSuelo: porSuelo, porPresion: porPresion,
+      sigmaLimite_kgfcm2: SIGMA_BAJA, art: ART["Z.conexion"] };
+  }
+  function vigaConexion(d) {
+    const F = 0.10 * d.Pu_kgf;
+    exige(d.b_cm > 0 && d.h_cm > 0, "la viga de conexión necesita su sección, b y h");
+    exige(d.fc_kgcm2 > 0 && GRADOS[d.grado] && BARRAS[d.barra], "la viga de conexión necesita f'c, el grado y la barra");
+    const fy = GRADOS[d.grado] * MPA, Ag = d.b_cm * d.h_cm, db = BARRAS[d.barra], Ab = Math.PI * db * db / 4;
+    const AsT = F / (PHI_F * fy), AsMin = 0.01 * Ag;
+    const n = Math.max(4, 2 * Math.ceil(Math.max(AsT, AsMin) / Ab / 2));
+    const As = n * Ab;
+    const phiPn = 0.80 * 0.70 * (0.85 * d.fc_kgcm2 * (Ag - As) + fy * As);
+    return { F_kgf: F, Pu_kgf: d.Pu_kgf, As_traccion_cm2: AsT, As_min_cm2: AsMin, n: n, barra: d.barra, As_cm2: As,
+      ratioTraccion: F / (PHI_F * fy * As), phiPn_kgf: phiPn, ratioCompresion: F / phiPn,
+      cumple: F <= PHI_F * fy * As + 1e-9 && F <= phiPn + 1e-9, art: ART["Z.conexion.diseno"],
+      nota: "sin la flexión que pudiera tener ni el pandeo: va enterrada (fila Z.conexion.diseno)" };
+  }
+
   const PASO = 5;            /* cm, el paso con que se buscan las medidas */
   function arriba(x) { return Math.ceil(x / PASO - 1e-9) * PASO; }
 
@@ -479,7 +523,8 @@
          otra vuelta, porque el peralte cambia el peso y el brazo del momento */
       const ladoMin = arriba(Math.max(d.pedestal.b_cm, d.pedestal.l_cm) + 40);   /* el pedestal y 20 cm a cada lado */
       let lado = ladoMin, h = hMin, vueltas = 0;
-      const sueloOk = (x) => x.servicio.peor.ratio <= 1 && x.levantamiento.ratio <= 1 && !x.vuelcoAmplificado.length;
+      const sueloOk = (x) => x.servicio.peor.ratio <= 1 && x.levantamiento.ratio <= 1 && !x.vuelcoAmplificado.length &&
+        x.volteo.cumple;
       const concretoOk = (x) => ["cortL", "cortB", "punz"].every((k) => !x.concreto[k] || x.concreto[k].ratio <= 1) &&
         (!x.concreto.aceroL || (!x.concreto.aceroL.insuficiente && x.concreto.aceroL.cumple)) &&
         (!x.concreto.aceroB || (!x.concreto.aceroB.insuficiente && x.concreto.aceroB.cumple)) &&
@@ -517,5 +562,5 @@
   }
 
   return { ART, PHI_V, PHI_F, INC_TEMPORAL, SISMO_SUELO, REC_MIN, GRADOS, BARRAS,
-    presion, presion2, integra, integra2, combosServicio, combosE060, estados, deBase, suma, verifica, faltan, disena };
+    presion, presion2, integra, integra2, conexionExigida, vigaConexion, combosServicio, combosE060, estados, deBase, suma, verifica, faltan, disena };
 });

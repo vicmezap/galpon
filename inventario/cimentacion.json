@@ -60,8 +60,8 @@
       "unidad": "—",
       "estado": "verificado",
       "editable": true,
-      "fuente": "E.060 §15.2.5",
-      "nota": "«…ya que las solicitaciones sísmicas especificadas en la NTE E.030 están especificadas al nivel de resistencia de la estructura.» Es un puente explícito entre el nivel de resistencia de la E.030 y el nivel de servicio del suelo. OJO: aplica al sismo, NO al viento."
+      "fuente": "E.060 §15.2.5 · E.030 Art. 62.2 y Art. 29",
+      "nota": "«…ya que las solicitaciones sísmicas especificadas en la NTE E.030 están especificadas al nivel de resistencia de la estructura.» Es un puente explícito entre el nivel de resistencia de la E.030 y el nivel de servicio del suelo. OJO: aplica al sismo, NO al viento. LA E.030 DICE LO MISMO: Art. 62.2, «la determinación de las presiones actuantes en el suelo para la verificación por esfuerzos admisibles, se calcula con las fuerzas obtenidas del análisis sísmico multiplicadas por 0,8 según lo indicado en el artículo 29»."
     },
     {
       "id": "Z.sigma.neta",
@@ -758,6 +758,42 @@
       "clave": true,
       "fuente": "filas ZT.cruz y J.base.momento.metodo · E.090 §1.4.1",
       "nota": "Las corridas del análisis son del pórtico en su plano y no llevan el tirón de la cruz. Para la placa y los pernos de la base de un paño arriostrado se añaden las combinaciones de la E.090 con los casos de la zapata (el pórtico más la cruz), en primer orden: a lo largo la fuerza la lleva la cruz y no hay ladeo que amplificar. El cortante en la llave es la resultante de los dos."
+    },
+    {
+      "id": "Z.volteo.E030",
+      "grupo": "El suelo",
+      "magnitud": "El factor de seguridad al volteo con sismo",
+      "valor": "FS = N·(L/2)/M ≥ 1,2 en cada dirección · con D + 1,0·E, SIN el 0,8 del Art. 29",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.030 Art. 64.1 y 64.2 · Art. 29",
+      "nota": "Leído en la página 28 renderizada. Art. 64.1: «Toda estructura y su cimentación deben diseñarse para resistir el momento de volteo que produce un sismo». Art. 64.2: «El factor de seguridad calculado con las fuerzas que se obtienen en el análisis estructural, SIN considerar la reducción establecida en el artículo 29 [el 0,8], debe ser mayor o igual que 1,2». Se toma por la arista de la zapata: el momento estabilizante es N·L/2 con todo el peso que sujeta (pedestal, zapata y relleno), el volcador el de la base, y en cada dirección por separado. Va además de la condición de que la resultante caiga dentro (fila Z.vuelco): FS ≥ 1,2 es e ≤ L/2,4."
+    },
+    {
+      "id": "Z.conexion",
+      "grupo": "El suelo",
+      "magnitud": "Las vigas de conexión entre zapatas",
+      "valor": "se exigen con suelo S3 o S4 en las zonas 3 y 4, o con presión admisible < 0,10 MPa · en las dos direcciones · a tracción y a compresión, con el 10 % de la carga vertical amplificada de la zapata",
+      "unidad": "kgf",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.030 Art. 65.1 · E.060 §15.2.6 (fila Z.conectar)",
+      "nota": "Leído en la página 28 renderizada. Textual: «Para zapatas aisladas con o sin pilotes en suelos tipo S3 y S4, para las Zonas 3 y 4, y en general para suelos con una presión admisible menor que 0,10 MPa, se provee elementos de conexión en ambas direcciones, los que se diseñan en tracción o compresión, para una fuerza horizontal mínima equivalente al 10% de las cargas verticales amplificadas que soporta la zapata, adicionalmente a las solicitaciones por flexión que pudieran existir». 0,10 MPa son 1,02 kgf/cm². La carga vertical amplificada es la mayor que baja de la columna en las combinaciones de la E.060."
+    },
+    {
+      "id": "Z.conexion.diseno",
+      "grupo": "El suelo",
+      "magnitud": "Cómo se verifica la viga de conexión",
+      "valor": "tracción: As ≥ F/(0,9·fy) · compresión: F ≤ 0,80·0,70·[0,85·f'c·(Ag − Ast) + fy·Ast] · As ≥ 0,01·Ag y 4 barras",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.060 §9.3.2.2, §10.3.6.2 (ec. 10-2) y §10.9",
+      "nota": "La viga se diseña para la fuerza axial del Art. 65.1 como tirante y como puntal: en tracción solo trabaja el acero; en compresión, la sección corta con el tope de la ec. 10-2. La cuantía mínima es la de un elemento en compresión (§10.9.1), sin la reducción de §10.8.3: del lado seguro. NO se verifica la flexión que pueda tener (por ejemplo si se usa para centrar una zapata excéntrica) ni el pandeo: la viga va enterrada y el terreno la sujeta. Se avisa."
     }
   ]
 }
