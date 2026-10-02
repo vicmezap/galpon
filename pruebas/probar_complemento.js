@@ -261,6 +261,29 @@ const fuentes = (der.match(/data-fte="([^"]+)"/g) || [])
 comp("todo botón de fuente apunta a una fila que existe",
   fuentes.filter((id) => !INV.existe(id)), []);
 
+/* DESMARCAR EL ÚLTIMO PAÑO DE TECHO NO PUEDE SER UN CALLEJÓN SIN SALIDA.
+   Visto en Excel: el motor se negaba —con razón— y con él se iba la tabla
+   de paños, la única casilla donde volver a marcarlo; las capas seguían
+   contando las barras del galpón anterior. */
+{
+  const casilla = (attr, pano, on) => {
+    const t = { checked: on, getAttribute: (k) => (k === attr ? String(pano) : null) };
+    for (const fn of M.dom.nodos.derecha._ev.change) fn({ target: t });
+  };
+  casilla("data-at", 5, false);
+  const d0 = pinto(M.dom, "derecha").innerHTML;
+  cierto("sin paño de techo el motor se niega", /NO HAY ARRIOSTRE DE TECHO/.test(pinto(M.dom, "centro").innerHTML));
+  comp("PERO LA TABLA DE PAÑOS SIGUE, con sus diez casillas por plano",
+    [(d0.match(/data-at=/g) || []).length, (d0.match(/data-af=/g) || []).length], [10, 10]);
+  cierto("ninguna de techo marcada, y dice qué hacer", !/data-at="\d+" checked/.test(d0) &&
+    /marca al menos un paño de techo/.test(d0));
+  comp("y las capas ya no cuentan barras de un galpón que no hay",
+    [pinto(M.dom, "capas").innerHTML, /no se monta/.test(pinto(M.dom, "resumen").innerHTML)], ["", true]);
+  casilla("data-at", 5, true);
+  cierto("al volver a marcarlo, el galpón se monta otra vez", !/NO HAY ARRIOSTRE/.test(pinto(M.dom, "centro").innerHTML) &&
+    /data-at="5" checked/.test(pinto(M.dom, "derecha").innerHTML) && /data-capa=/.test(pinto(M.dom, "capas").innerHTML));
+}
+
 /* ───── VER Y AISLAR, NO DIBUJAR ─────
    Aquí había una paleta de dibujo copiada de Retícula. Era un error de
    método: en un galpón no hay nada libre que dibujar. */

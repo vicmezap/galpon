@@ -1713,6 +1713,19 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
       '<p class="pie' + (t.sinPerfil ? " mal" : "") + '">' + esc(t.nota) + "</p></div>";
   }
 
+  /* la tabla de paños cuando el motor se niega: con los ejes, que no dependen
+     de los arriostres, y los paños de los campos. Si ni los ejes salen, no hay tabla */
+  function tablaPanosSinGalpon(d) {
+    var md, ej;
+    try {
+      md = paraElMotor(VISTAS.datosModelo(d));
+      ej = MONTAJE.ejes(md);
+    } catch (e) { return null; }
+    var en = function (k) { return k >= 0 && k < ej.panos; };
+    return tablaPanos({ ejes: ej, panosArriostradosTecho: md.panosArriostradosTecho.filter(en),
+      panosArriostradosFachada: md.panosArriostradosFachada.filter(en) });
+  }
+
   function tablaPanos(m3) {
     var t = VISTAS.tablaPanos(m3);
     var f = t.filas.map(function (r) {
@@ -1727,7 +1740,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
       '<table class="t"><thead><tr><th>#</th><th style="text-align:right">entre</th>' +
       '<th class="c">techo</th><th class="c">fachada</th></tr></thead><tbody>' +
       f + "</tbody></table>" +
-      '<p class="pie' + (t.filas.some(function (r) { return !r.alineado; }) ? " mal" : "") +
+      '<p class="pie' + (!t.montado || t.filas.some(function (r) { return !r.alineado; }) ? " mal" : "") +
       '">' + esc(t.nota) + "</p></div>";
   }
 
@@ -1846,9 +1859,13 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
 
     if (fallo) {
       $("metricas").innerHTML = "";
+      /* sin galpón no hay barras: las capas no pueden seguir contando las del último que se montó */
+      $("capas").innerHTML = "";
+      $("resumen").innerHTML = "el galpón no se monta: no hay barras que ver";
       $("centro").innerHTML = '<div class="guarda"><b>' + esc(fallo.titulo) +
         "</b><pre>" + esc(fallo.mensaje) + "\n\n" + esc(fallo.porQue) + "</pre></div>";
-      $("derecha").innerHTML = '<p class="nohay">' + esc(fallo.porQue) + "</p>";
+      var tp = tablaPanosSinGalpon(d);
+      $("derecha").innerHTML = (tp ? tp : "") + '<p class="nohay">' + esc(fallo.porQue) + "</p>";
       return;
     }
 

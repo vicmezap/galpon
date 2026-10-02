@@ -652,7 +652,11 @@
   }
 
   /* Los paños, con su arriostre. Sustituye al campo de texto «5, 9», que
-     obligaba a contar paños de cabeza mirando el dibujo. */
+     obligaba a contar paños de cabeza mirando el dibujo.
+     TAMBIÉN SIN GALPÓN MONTADO: si se desmarca el último paño de techo el
+     motor se niega, y sin la tabla no quedaba casilla donde volver a
+     marcarlo. Entonces se le pasan solo los ejes y los paños de los campos
+     ({ ejes, panosArriostradosTecho, panosArriostradosFachada }, sin camino). */
   function tablaPanos(m3) {
     const ej = m3.ejes;
     const techo = {}, fachada = {};
@@ -673,7 +677,11 @@
       conTecho: m3.panosArriostradosTecho.length,
       conFachada: m3.panosArriostradosFachada.length,
       art: ART["MT.mismo.pano"],
-      nota: m3.camino.alineados
+      montado: !!m3.camino,
+      nota: !m3.camino
+        ? (m3.panosArriostradosTecho.length ? "el galpón no se monta todavía: mira el mensaje del centro"
+          : "marca al menos un paño de techo: sin arriostre de techo el galpón no resiste a lo largo")
+        : m3.camino.alineados
         ? "techo y fachada en los mismos paños: la viga de alero solo amarra"
         : "techo y fachada en paños distintos: " +
           n2(m3.camino.recorridoMaximoAlero_m, 2) + " m de alero a AXIAL"
