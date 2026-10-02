@@ -2,7 +2,8 @@
   "seccion": "analisis",
   "titulo": "El análisis del pórtico",
   "modulos": [
-    "analisis.js"
+    "analisis.js",
+    "longitudinal.js"
   ],
   "version": 1,
   "fecha": "2026-10-01",
@@ -290,6 +291,126 @@
       "clave": true,
       "fuente": "decisión del proyectista (2026-10-01) · columnas.js: «la columna hastial NO lleva la carga del techo»",
       "nota": "Con la cabeza de la columna hastial unida con agujero ovalado vertical, el tijeral extremo flecha sin apoyarse en ella: la columna hastial no lleva techo, solo su peso, el del cerramiento del hastial y el viento, y trabaja como viga vertical entre la cimentación y el plano del techo (fila MT.hastial). EN SU PLANO NO APORTA NADA: articulada abajo y sin transmitir vertical arriba, no da rigidez lateral ni apoyo al tijeral, así que el pórtico de fachada se analiza sin ella. EL DETALLE TIENE QUE CUMPLIRLO: el ovalado tiene que admitir la flecha del tijeral extremo con la carga viva y la nieve; si se suelda o se aprieta, la columna hastial pasa a ser un apoyo del tijeral, los esfuerzos del tijeral extremo cambian (la brida inferior puede comprimirse sobre el apoyo) y este modelo deja de valer."
+    },
+    {
+      "id": "LG.viento.hastial",
+      "grupo": "El sistema longitudinal",
+      "magnitud": "El viento sobre los hastiales",
+      "valor": "barlovento C = 0,8 − Ci · sotavento C = −0,6 − Ci · las dos empujan en el sentido del viento",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.020 Art. 12, Tabla 4 (superficies verticales) y Tabla 5 · fila W.T4 · simultáneas por Art. 12.1",
+      "nota": "Con el viento a lo largo de la cumbrera los hastiales son los muros perpendiculares al viento: el de barlovento recibe presión y el de sotavento succión, y las dos fuerzas van en el MISMO sentido, así que el arriostre las recibe sumadas. La presión interior Ci actúa en los dos y se cancela en el total, pero no en cada muro: la columna hastial se diseña con el neto Ce − Ci de su muro. Como el viento puede venir de los dos extremos, cada hastial se diseña con el mayor de los dos papeles. La Ph es la de velocidadDiseno() a la altura de la cumbrera, como en el pórtico."
+    },
+    {
+      "id": "LG.hastial.reparto",
+      "grupo": "El sistema longitudinal",
+      "magnitud": "Cómo llega el viento del hastial a cada columna",
+      "valor": "largueros simplemente apoyados entre líneas de columna: ancho tributario · columna simplemente apoyada entre la base y su cabeza · lo que queda por encima de la cabeza va entero arriba",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "estática · columnas.js columnaHastial() ya la supone simplemente apoyada · fila MT.hastial",
+      "nota": "Las líneas de columna del hastial son las dos columnas de esquina (del pórtico de fachada) y las columnas hastiales. Cada una recibe la franja de muro a medio camino de sus vecinas, desde el suelo hasta el techo. La parte que llega hasta su cabeza la lleva como viga simplemente apoyada: w·H/2 abajo y w·H/2 arriba. El trozo de hastial por encima de la cabeza (el triángulo entre la brida inferior y el techo) se entrega entero arriba. Lo de abajo va a la cimentación de esa columna; lo de arriba entra al sistema longitudinal."
+    },
+    {
+      "id": "LG.vertical",
+      "grupo": "El sistema longitudinal",
+      "magnitud": "El arriostre vertical en la línea de cada columna hastial",
+      "valor": "cruz entre el tijeral extremo y el siguiente, solo a tracción, con un puntal en la brida inferior: T = R·ℓ/s · puntal = R",
+      "unidad": "kgf",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "decisión del proyectista (2026-10-01) · estática",
+      "nota": "La columna hastial remata en la BRIDA INFERIOR y el arriostre de techo está en el plano de la SUPERIOR; el tijeral no tiene rigidez fuera de su plano, así que sin algo más la reacción de arriba no tiene camino. Se resolvió con una cruz en el plano vertical, en la línea x de cada columna hastial, entre el pórtico extremo y el primero interior. Las diagonales trabajan solo a tracción y por eso hace falta un puntal entre los dos tijerales a la altura de la brida inferior: sin él la fuerza no llega a la diagonal que tracciona. Con la separación s y el peralte del tijeral en esa línea, ℓ = √(s² + peralte²). La fuerza sale arriba, en la brida superior, y sigue por la línea de correas."
+    },
+    {
+      "id": "LG.correa.puntal",
+      "grupo": "El sistema longitudinal",
+      "magnitud": "Las correas y vigas de alero como puntales",
+      "valor": "cada línea lleva a lo largo lo que entra en ella, hasta el paño arriostrado de techo más cercano",
+      "unidad": "kgf",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "estática · montaje.js caminoDeCarga() (eslabón 4, desde cada hastial)",
+      "nota": "Entre un hastial y el paño arriostrado de techo no hay más que correas y vigas de alero: son ellas las que llevan la fuerza a lo largo, a compresión o a tracción según de qué lado venga. La fuerza de cada hastial va al paño arriostrado más cercano (como lo mide montaje.js). En la línea de cada columna hastial la correa lleva su reacción; en el alero, la viga de alero lleva la de la columna de esquina. El sismo de cada pórtico se suma por el camino. Esa axial va además de la flexión de la correa, y se verifica con ella en el diseño."
+    },
+    {
+      "id": "LG.techo.armadura",
+      "grupo": "El sistema longitudinal",
+      "magnitud": "La armadura horizontal del paño arriostrado de techo",
+      "valor": "viga simplemente apoyada en los dos aleros, de canto la separación de pórticos · cortante del paño en la diagonal: N = V·ℓ/s · momento en las bridas: ±M/s",
+      "unidad": "kgf",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "estática, método de las secciones · montaje.js: celosía Warren con un nudo en cada correa",
+      "nota": "El arriostre de techo es una celosía Warren en planta entre dos pórticos: las bridas superiores de los dos tijerales son sus cordones, las correas sus montantes y los arriostres sus diagonales, una por panel. Cargada en z en cada línea de correa y apoyada en z en los dos aleros, es isostática y se resuelve como una viga: las reacciones por momentos, la diagonal de cada panel con su cortante y los cordones con ±M/s, que se SUMAN a lo que ya llevan las bridas en el pórtico. Las fuerzas se pasan a las barras reales con su longitud en el plano del techo, que es inclinado. Las componentes verticales que eso deja en los pórticos son pequeñas y no se llevan. El arriostre de techo trabaja a tracción y a compresión, porque el viento cambia de sentido."
+    },
+    {
+      "id": "LG.alero.nivel",
+      "grupo": "El sistema longitudinal",
+      "magnitud": "Del arriostre de techo al de fachada",
+      "valor": "la reacción en el alero baja a la línea de la viga de alero y va por ella hasta el paño arriostrado de fachada más cercano",
+      "unidad": "kgf",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "montaje.js: el arriostre de fachada llega a la cabeza de columna (I0) · fila MT.mismo.pano",
+      "nota": "El arriostre de techo apoya en el nudo de alero de la brida superior y el de fachada llega a la cabeza de la columna. Si no coinciden en altura (unión rígida, o tijeral con peralte en el apoyo), la fuerza baja ese tramo por la columna o el montante de apoyo, que trabajan fuera de su plano: se avisa. Si el paño arriostrado de techo y el de fachada no coinciden, la viga de alero lleva la reacción entre los dos a axial (fila MT.mismo.pano)."
+    },
+    {
+      "id": "LG.fachada.cruz",
+      "grupo": "El sistema longitudinal",
+      "magnitud": "El arriostre de fachada",
+      "valor": "cruz solo a tracción: T = H·ℓ/s, ℓ = √(s² + h²) · en la base de la diagonal: H en z y un tirón H·h/s · en la otra columna: compresión H·h/s",
+      "unidad": "kgf",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "estática · filas E.tension.only y MT.continuidad",
+      "nota": "Cada lado del galpón recibe en su alero la parte que le toca y la baja al suelo por la cruz del paño arriostrado. Con varillas que no empujan, una sola diagonal trabaja. Si hay varios paños arriostrados de fachada en un lado, cada fuerza va al más cercano. Las reacciones de la base se suman a las del pórtico y van a la cimentación: un tirón hacia arriba en una columna y compresión en la otra, además del cortante a lo largo, que la zapata hoy no recibe."
+    },
+    {
+      "id": "LG.sismo.sistema",
+      "grupo": "El sistema longitudinal",
+      "magnitud": "El sistema sismorresistente a lo largo",
+      "valor": "pórtico ordinario concéntricamente arriostrado, OCBF · R₀ = 4 · cruz solo a tracción permitida",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.030 Tabla N° 10 · AISC 341-22 F1.4d y F1.5a",
+      "nota": "A lo largo el galpón no tiene pórtico: resiste el arriostre de fachada, que es concéntrico. La E.030 da R₀ = 4 para OCBF y 7 para SCBF; el AISC 341 F2 prohíbe en SCBF las cruces que solo trabajan a tracción («Tension-only frames shall not be used in SCBF»), y en OCBF las permite (F1.4d), con la excepción de F1.5a para diagonales de esbeltez mayor que 200. Así que con varillas el sistema es OCBF y R₀ = 4. Se toma regular (Ia = Ip = 1), como en el pórtico."
+    },
+    {
+      "id": "LG.sismo.peso",
+      "grupo": "El sistema longitudinal",
+      "magnitud": "El peso sísmico a lo largo, y cómo entra al techo",
+      "valor": "P = 2·P de fachada + (n − 2)·P interior, con el P de cada pórtico del análisis · T = hn/45 · la fuerza de cada pórtico entra repartida por las líneas de correa según su ancho de techo",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.030 Art. 26 (fila S.P) y Art. 36.1 (fila S.CT, 45 para pórticos de acero arriostrados)",
+      "nota": "Es el mismo peso que el análisis transversal usa para cada pórtico (D + 25 % de la viva de techo), sumado en todo el largo: así las dos direcciones ven el mismo galpón. Los muros no entran, igual que en el pórtico. El período por hn/CT con CT = 45 y no por Rayleigh: el modelo longitudinal no tiene rigideces. Cada pórtico entrega su fuerza en las líneas de correa en proporción al ancho de techo que cada una recoge, y de ahí al paño arriostrado más cercano."
+    },
+    {
+      "id": "LG.factores",
+      "grupo": "El sistema longitudinal",
+      "magnitud": "Con qué factor se diseña lo que solo trabaja a lo largo",
+      "valor": "el mayor de |factor de W| y |factor de E| de las combinaciones de la E.090 (1,3·W y 1,0·E)",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.090 §1.4.1, combinaciones 1.4-4, 1.4-5 y 1.4-6",
+      "nota": "Los arriostres, los puntales y la cruz no reciben gravedad: su fuerza es solo del viento o del sismo longitudinal, así que de cada combinación cuenta solo el factor de W o de E. Las piezas que además llevan gravedad (columnas hastiales, correas, columnas de esquina) se combinan en el diseño."
     }
   ]
 }

@@ -86,6 +86,7 @@ MODULOS = [
     "generador.js",      # lee MODELO y SOLVER
     "montaje.js",        # lee GENERADOR
     "analisis.js",       # lee MODELO, SOLVER, ESTABILIDAD, VIENTO, COMBINACIONES y MONTAJE
+    "longitudinal.js",   # lee VIENTO, E030 y COMBINACIONES · el galpón a lo largo
     "diseno.js",         # lee ELEMENTO, TIJERAL, COLUMNAS, ANALISIS, CONEXIONES y PERFILES
     "zapatas.js",        # lee UNIDADES, E020 y COMBINACIONES · E8
     "pedestal.js",       # lee UNIDADES y E020 · E8
