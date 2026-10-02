@@ -460,6 +460,16 @@ cierto("y Comprobación oye a la zapata de LOS DOS pórticos",
   pulsa(M.dom, "pasos", "data-paso", "analisis");
   cierto("en Análisis no está, y vuelve al interior",
     !/data-portico="correas"/.test(sel()) && /data-portico="interior" aria-pressed="true"/.test(sel()));
+  /* LAS CUATRO ZAPATAS, en Cimentación */
+  pulsa(M.dom, "pasos", "data-paso", "cimen");
+  cierto("en Cimentación, las cuatro zapatas: interior, paño arriostrado, fachada y columna hastial",
+    ["interior", "arriostrado", "fachada", "hastial"].every((t) => sel().indexOf('data-portico="' + t + '"') >= 0));
+  pulsa(M.dom, "centro", "data-portico", "arriostrado");
+  cierto("al elegir el paño arriostrado queda marcado", /data-portico="arriostrado" aria-pressed="true"/.test(sel()));
+  pulsa(M.dom, "pasos", "data-paso", "analisis");
+  cierto("y en Análisis vuelve al pórtico interior", /data-portico="interior" aria-pressed="true"/.test(sel()));
+  cierto("Comprobación mira también las zapatas del paño arriostrado y de la columna hastial",
+    /\["arriostrado", "hastial"\]\.forEach/.test(modeHtml));
   cierto("Comprobación oye a las correas", /avisosCorreas\(correasActual\(\)\)/.test(modeHtml));
   pulsa(M.dom, "centro", "data-portico", "interior");
 }

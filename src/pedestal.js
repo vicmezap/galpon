@@ -33,7 +33,7 @@
     "PD.estribos", "PD.rec", "PD.separacion", "PD.friccion", "PD.friccion.Avf", "PD.ldc", "PD.ldg",
     "PD.anclaje.zapata", "PD.cargas", "PD.cap21", "Z.phi.compresion", "Z.phi.corte", "Z.bloque",
     "Z.As.max", "Z.dowels.min", "Z.dowels.traccion", "Z.lateral", "D.concreto.gamma",
-    "J.anclaje.E060.confinamiento"
+    "J.anclaje.E060.confinamiento", "PD.biaxial", "Z.longitudinal.articulada"
   ]);
 
   const MPA = UN.MPA_KGCM2;
@@ -179,6 +179,26 @@
       traccionaBarras: eps < 0 || (a.epsExtremo === -Infinity) || (b.epsExtremo === -Infinity) };
   }
 
+  /* La sección girada, para flexionar en b: las mismas barras con x e y cambiados */
+  function gira(sec) {
+    return Object.assign({}, sec, { b_cm: sec.l_cm, l_cm: sec.b_cm,
+      barras: sec.barras.map((b) => ({ x: b.y, y: b.x, As: b.As })), dEf_cm: sec.b_cm - sec.aEje_cm });
+  }
+
+  /* φMn de la curva a una φPn dada: la mayor, interpolando entre los puntos.  Fuera del
+     rango de la curva ningún tramo la cruza y sale 0: no hace falta otra guarda */
+  function momentoA(cv, Pu) {
+    let mejor = 0;
+    const p = cv.puntos;
+    for (let i = 0; i + 1 < p.length; i++) {
+      const a = p[i], b = p[i + 1];
+      if ((a.phiPn - Pu) * (b.phiPn - Pu) > 0 || a.phiPn === b.phiPn) continue;
+      const t = (Pu - a.phiPn) / (b.phiPn - a.phiPn);
+      mejor = Math.max(mejor, a.phiMn + t * (b.phiMn - a.phiMn));
+    }
+    return mejor;
+  }
+
   /* =====================================================================
      3 · EL PEDESTAL ENTERO
      d = { b_cm, l_cm, altura_cm, fc_kgcm2, grado, barra, estribo, rec_cm,
@@ -204,6 +224,7 @@
     exige(Array.isArray(d.solicitaciones) && d.solicitaciones.length, "verifica() necesita las solicitaciones");
     const sec = seccion(d);
     const cv = curva(sec, fc, fyMPa);
+    let cvB = null;                                      /* la curva en b, si hace falta */
     const gc = E020.GAMMA_CONCRETO / 1e6;
     const Wp = gc * sec.Ag_cm2 * d.altura_cm;
     const fallas = [], avisos = [];
@@ -242,6 +263,7 @@
       const fCM = s.factorCM === undefined ? 1 : s.factorCM;
       const Pb = s.P_kgf + fCM * Wp;
       const Mb = s.M_kgfcm - s.H_kgf * d.altura_cm;
+      const Hz = s.Hz_kgf || 0;
       for (const [donde, P, M] of [["arriba", s.P_kgf, s.M_kgfcm], ["junta", Pb, Mb]]) {
         const r = ratioPM(cv, P, M);
         if (donde === "junta" && r.traccionaBarras) traccionaEnJunta = true;
@@ -250,13 +272,30 @@
             capacidad: r.capacidad };
         }
       }
-      /* ---- el cortante · filas PD.Vc ---- */
+      /* A LO LARGO · fila PD.biaxial: en la junta llega Hz·altura en b (arriba la base es
+         articulada).  Con dos momentos, la recta entre las dos capacidades a la misma P:
+         la superficie de interacción es convexa, así que la recta queda por dentro */
+      if (Math.abs(Hz) > 1e-9) {
+        cvB = cvB || curva(gira(sec), fc, fyMPa);
+        const My = Math.abs(Hz) * d.altura_cm;
+        const cx = momentoA(cv, Pb), cy = momentoA(cvB, Pb);
+        const ratio = (cx > 0 && cy > 0) ? Math.abs(Mb) / cx + My / cy : Infinity;
+        if (ratio > peorPM.ratio) {
+          peorPM = { ratio: ratio, donde: "junta, en las dos direcciones", combo: s.id, base: s.base, Pu_kgf: Pb,
+            Mu_kgfcm: Math.abs(Mb), Muy_kgfcm: My, capacidad: { phiMnx: cx, phiMny: cy }, art: ART["PD.biaxial"] };
+        }
+        /* con Hz las barras de una cara pueden traccionar aunque el momento del pórtico no lo haga:
+           eso cambia su anclaje en la zapata (fila PD.anclaje.zapata) */
+        if (ratioPM(cvB, Pb, My).traccionaBarras) traccionaEnJunta = true;
+      }
+      /* ---- el cortante · filas PD.Vc · en cada dirección, con su ancho y su peralte ---- */
       const NuMPa = Pb / Ac / MPA;
-      const Vc = (NuMPa >= 0 ? 0.17 * (1 + NuMPa / 14) : Math.max(0, 0.17 * (1 + 0.29 * NuMPa))) *
-        raizFc(fc) * bw * dEf;
-      const Vu = Math.abs(s.H_kgf);
-      if (!peorCorte || Vu / (PHI_V * Vc || 1e-9) > peorCorte.Vu / (PHI_V * peorCorte.Vc || 1e-9)) {
-        peorCorte = { Vu: Vu, Vc: Vc, Nu_kgf: Pb, combo: s.id, base: s.base };
+      const kVc = (NuMPa >= 0 ? 0.17 * (1 + NuMPa / 14) : Math.max(0, 0.17 * (1 + 0.29 * NuMPa))) * raizFc(fc);
+      for (const [Vu, bwd, dd] of [[Math.abs(s.H_kgf), bw, dEf], [Math.abs(Hz), d.l_cm, d.b_cm - sec.aEje_cm]]) {
+        const Vc = kVc * bwd * dd;
+        if (!peorCorte || Vu / (PHI_V * Vc || 1e-9) > peorCorte.Vu / (PHI_V * peorCorte.Vc || 1e-9)) {
+          peorCorte = { Vu: Vu, Vc: Vc, Nu_kgf: Pb, combo: s.id, base: s.base, bw: bwd, d: dd };
+        }
       }
       /* ---- el cortante-fricción en la junta · filas PD.friccion ---- */
       const fyv = Math.min(fyMPa, FY_MAX_CORTE) * MPA;
@@ -264,6 +303,7 @@
       const Nt = Math.max(0, -Pb);
       const AvfEf = Math.max(0, Avf - Nt / (PHI_V * fyv));
       const Vn = Math.min(MU[d.junta] * AvfEf * fyv, 0.2 * fc * Ac, 5.5 * MPA * Ac);
+      const Vu = Math.hypot(s.H_kgf, Hz);                 /* la junta resiste la resultante */
       const rf = Vu / (PHI_V * Vn || 1e-9);
       if (!peorFriccion || rf > peorFriccion.ratio) {
         peorFriccion = { ratio: Vu > 0 ? rf : 0, Vu: Vu, phiVn: PHI_V * Vn, Avf_cm2: Avf, AvfEficaz_cm2: AvfEf,
@@ -286,17 +326,17 @@
     let sMax = sComp, porQue = "como elemento en compresión (§7.10.5.2)";
     const necesita = c.Vu > 0.5 * phiVc;
     if (necesita) {
-      const mitad = Vs > 0.33 * rf * bw * dEf;
-      const sCorte = (mitad ? 0.5 : 1) * Math.min(dEf / 2, 60);
+      const mitad = Vs > 0.33 * rf * c.bw * c.d;
+      const sCorte = (mitad ? 0.5 : 1) * Math.min(c.d / 2, 60);
       const avmin = Math.max(0.062 * rf, 0.35 * MPA);
-      const sAvmin = Av * fyt / (avmin * bw);
-      const sVs = Vs > 0 ? Av * fyt * dEf / Vs : Infinity;
+      const sAvmin = Av * fyt / (avmin * c.bw);
+      const sVs = Vs > 0 ? Av * fyt * c.d / Vs : Infinity;
       const s = Math.min(sComp, sCorte, sAvmin, sVs);
       if (s < sComp) porQue = s === sVs ? "por el cortante (ec. 11-15)" : (s === sCorte ? "por d/2 (§11.5.5.1)" : "por Av,min (ec. 11-13)");
       sMax = s;
     }
     const sPuesto = Math.floor(sMax + 1e-9);
-    const VsMax = 0.66 * rf * bw * dEf;
+    const VsMax = 0.66 * rf * c.bw * c.d;
     const estribos = { estribo: d.estribo, Av_cm2: Av, s_cm: sPuesto, porQue: porQue,
       minDiametro_cm: minEstribo, diametroCumple: sec.dt_cm >= minEstribo - 1e-9,
       Vu: c.Vu, phiVc: phiVc, Vs: Vs, VsMax: VsMax, combo: c.combo, base: c.base,
@@ -350,6 +390,6 @@
     return r;
   }
 
-  return { ART, GRADOS, BARRAS, ESTRIBOS, MU, PHI_C, PHI_T, seccion, estado, curva, ratioPM,
+  return { ART, GRADOS, BARRAS, ESTRIBOS, MU, PHI_C, PHI_T, seccion, estado, curva, ratioPM, gira, momentoA,
     faltan, verifica, disena };
 });

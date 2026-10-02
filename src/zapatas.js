@@ -41,7 +41,7 @@
     "Z.combos.E060", "Z.levantamiento", "Z.servicio", "Z.signo", "Z.peso", "Z.vuelco",
     "Z.deslizamiento", "Z.plano", "Z.As.min", "Z.s.max", "Z.Vc.viga", "Z.bloque", "Z.As.max",
     "Z.rec", "Z.punzon.momento", "Z.desarrollo", "D.concreto.gamma", "N.no.viento", "J.anclaje.concreto",
-    "PD.anclaje.zapata", "Z.biaxial", "Z.longitudinal.articulada", "Z.punzon.biaxial"
+    "PD.anclaje.zapata", "Z.biaxial", "Z.longitudinal.articulada", "Z.punzon.biaxial", "ZT.tipos"
   ]);
 
   const MPA = UN.MPA_KGCM2;
@@ -110,7 +110,7 @@
     if (Math.abs(ex) / L + Math.abs(ey) / B <= 1 / 6 + 1e-12) {
       return { N: N, e: ex, ey: ey, forma: "plano entero", qmax: qmaxDe(a, b, c),
         qmin: a - Math.abs(b) * L / 2 - Math.abs(c) * B / 2, contacto: 1,
-        q2: (x, y) => a + b * x + c * y, nx: 60, ny: 60 };
+        q2: (x, y) => a + b * x + c * y, nx: 2, ny: 2 };    /* plano · Simpson es exacto hasta cúbicas */
     }
     /* Newton sobre una malla de n × n celdas */
     const n = 80, hx = L / n, hy = B / n, dA = hx * hy;
@@ -152,7 +152,7 @@
     const conv = norma(R.F) <= 1e-6;
     return { N: N, e: ex, ey: ey, forma: "plano truncado", qmax: qmaxDe(a, b, c), qmin: 0,
       contacto: R.act / (n * n), iteraciones: it, convergio: conv,
-      q2: (x, y) => Math.max(0, a + b * x + c * y), nx: 80, ny: 80, malla: n };
+      q2: (x, y) => Math.max(0, a + b * x + c * y), nx: 40, ny: 40, malla: n };
   }
 
   /* ∫∫ f dx dy sobre un rectángulo, Simpson en las dos direcciones */
@@ -477,7 +477,8 @@
     } else {
       /* el lado, para el suelo y el levantamiento; luego el peralte, para el concreto; y
          otra vuelta, porque el peralte cambia el peso y el brazo del momento */
-      let lado = arriba(Math.max(d.pedestal.b_cm, d.pedestal.l_cm) + 40), h = hMin, vueltas = 0;
+      const ladoMin = arriba(Math.max(d.pedestal.b_cm, d.pedestal.l_cm) + 40);   /* el pedestal y 20 cm a cada lado */
+      let lado = ladoMin, h = hMin, vueltas = 0;
       const sueloOk = (x) => x.servicio.peor.ratio <= 1 && x.levantamiento.ratio <= 1 && !x.vuelcoAmplificado.length;
       const concretoOk = (x) => ["cortL", "cortB", "punz"].every((k) => !x.concreto[k] || x.concreto[k].ratio <= 1) &&
         (!x.concreto.aceroL || (!x.concreto.aceroL.insuficiente && x.concreto.aceroL.cumple)) &&
@@ -487,16 +488,25 @@
         x.fallas.indexOf("anclaje del pedestal") < 0;
       do {
         r = verifica(d, { B_cm: lado, L_cm: lado, h_cm: h });
-        while (!sueloOk(r) && lado < 1500) { lado += PASO; r = verifica(d, { B_cm: lado, L_cm: lado, h_cm: h }); }
+        /* de 4 en 4 pasos hasta que cumpla, y luego de uno en uno hacia abajo hasta el mínimo: el
+           mismo lado que subiendo de 5 en 5, con la cuarta parte de las vueltas */
+        while (!sueloOk(r) && lado < 1500) { lado += 4 * PASO; r = verifica(d, { B_cm: lado, L_cm: lado, h_cm: h }); }
+        while (lado - PASO >= ladoMin) {
+          const r2 = verifica(d, { B_cm: lado - PASO, L_cm: lado - PASO, h_cm: h });
+          if (!sueloOk(r2)) break;
+          lado -= PASO; r = r2;
+        }
         while (!concretoOk(r) && h < 300) { h += PASO; r = verifica(d, { B_cm: lado, L_cm: lado, h_cm: h }); }
         vueltas++;
       } while (!sueloOk(r) && vueltas < 5);
       r.auto = true;
     }
     r.ok = true;
-    r.avisos = r.avisos.concat([
-      "solo llega el momento del plano del pórtico: los de la dirección longitudinal —arriostre de fachada, " +
-        "viento en los hastiales— no están en el modelo (fila Z.plano)",
+    const aLoLargo = d.casos.some((c) => Object.keys(c.reacciones).some((b) => (c.reacciones[b].Rz_kgf || 0) !== 0));
+    r.avisos = r.avisos.concat(aLoLargo ? [] : [
+      "a esta zapata no le llega nada a lo largo: es la de un pórtico interior típico. Lo que baja por la " +
+        "cruz de fachada y el viento de los hastiales van a las zapatas del paño arriostrado, de fachada y " +
+        "de la columna hastial (filas Z.plano y ZT.tipos)"]).concat([
       "el anclaje de las barras de la parrilla (Cap. 12) no se comprueba aquí: con gancho en el extremo suele " +
         "bastar (fila Z.desarrollo)",
       "el lado del concreto del perno de anclaje sigue pendiente de norma (fila J.anclaje.concreto): el " +

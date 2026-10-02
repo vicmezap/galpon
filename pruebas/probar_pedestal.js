@@ -188,4 +188,53 @@ cerca("su peso: γc·b·l·altura", r.peso_kgf, 2400e-6 * 2400 * 120, 1e-9);
 cierto("la fila PD.ldg deja escrito el conflicto del mínimo de la E.060", INV.fila("PD.ldg").estado === "conflicto" &&
   /el MENOR valor/.test(INV.fila("PD.ldg").nota));
 
+
+/* ================================================================
+   A LO LARGO: Hz y el momento en b · fila PD.biaxial
+   ================================================================ */
+{
+  /* un pedestal CUADRADO con barras simétricas: girado es el mismo */
+  const Q = Object.assign({}, BASE, { b_cm: 50, l_cm: 50, n: 12 });
+  const sq = PD.seccion(Q), cvq = PD.curva(sq, fc, 420), cvg = PD.curva(PD.gira(sq), fc, 420);
+  cerca("en un pedestal cuadrado y simétrico, la curva girada es la misma", PD.momentoA(cvg, 20000), PD.momentoA(cvq, 20000), 1e-9);
+  /* φMn a una P: el de la curva, interpolado */
+  const pt = cvq.puntos.filter((x) => x.phiPn > 0 && x.phiMn > 0)[40];
+  cierto("φMn a la φPn de un punto de la curva es, al menos, el de ese punto", PD.momentoA(cvq, pt.phiPn) >= pt.phiMn - 1e-6);
+  comp("más allá del tope de compresión no hay momento", PD.momentoA(cvq, cvq.phiPnMax * 1.01), 0);
+  /* el pedestal real de 40 × 60: en b es más débil */
+  const s4 = PD.seccion(Object.assign({}, BASE, { n: 14 }));
+  const g4 = PD.gira(s4);
+  cerca("girada, las barras quedan en ±(40 − 2·c)/2: la cara de 40 cm es ahora la que flexiona",
+    Math.max.apply(null, g4.barras.map((x) => x.y)), (40 - 2 * s4.aEje_cm) / 2, 1e-12);
+  comp("con las mismas barras", g4.barras.length, s4.barras.length);
+  cierto("en el pedestal de 40 × 60, la capacidad en b es menor que en l",
+    PD.momentoA(PD.curva(PD.gira(s4), fc, 420), 10000) < PD.momentoA(PD.curva(s4, fc, 420), 10000));
+  /* la verificación: la recta entre las dos capacidades */
+  const solz = (P, M, H, Hz) => [{ id: "c", base: "B0", P_kgf: P, M_kgfcm: M, H_kgf: H, Hz_kgf: Hz, factorCM: 1.25 }];
+  const r = PD.verifica(Object.assign({}, BASE, { n: 14, solicitaciones: solz(8000, 2e5, 1000, 1500), zapata: ZAP }));
+  const Pb = 8000 + 1.25 * r.peso_kgf, Mb = 2e5 - 1000 * 120, My = 1500 * 120;
+  const cvx = PD.curva(s4, fc, 420), cvy = PD.curva(PD.gira(s4), fc, 420);
+  cerca("con Hz: Mux/φMnx(P) + Muy/φMny(P), con Muy = Hz·altura en la junta", r.flexocompresion.ratio,
+    Math.abs(Mb) / PD.momentoA(cvx, Pb) + My / PD.momentoA(cvy, Pb), 1e-9);
+  comp("y dice que es en las dos direcciones", r.flexocompresion.donde, "junta, en las dos direcciones");
+  /* el cortante a lo largo, con el ancho l y el peralte en b */
+  const rz = PD.verifica(Object.assign({}, BASE, { n: 14, solicitaciones: solz(8000, 0, 0, 30000), zapata: ZAP }));
+  cerca("el cortante a lo largo se mira con bw = l y d en b", rz.estribos.Vu, 30000, 1e-12);
+  {
+    const Pz = 8000 + 1.25 * rz.peso_kgf, NuMPa = Pz / (40 * 60) / UN.MPA_KGCM2;
+    const dz = 40 - s4.aEje_cm;
+    cerca("con φVc = 0,85·0,17·(1 + Nu/14Ag)·√f'c·l·(b − c)", rz.estribos.phiVc,
+      0.85 * 0.17 * (1 + NuMPa / 14) * Math.sqrt(fc / UN.MPA_KGCM2) * UN.MPA_KGCM2 * 60 * dz, 1e-9);
+  }
+  cierto("(y pide estribos por cortante)", /cortante|d\/2|Av,min/.test(rz.estribos.porQue));
+  const rf = PD.verifica(Object.assign({}, BASE, { n: 14, solicitaciones: solz(8000, 0, 3000, 4000), zapata: ZAP }));
+  cerca("la junta resiste la resultante de los dos cortantes", rf.friccion.Vu, 5000, 1e-12);
+  /* Hz que tracciona las barras de una cara: cambia su anclaje */
+  const rt = PD.verifica(Object.assign({}, BASE, { n: 14, solicitaciones: solz(3000, 0, 0, 6000), zapata: ZAP }));
+  comp("con Hz que dobla el pedestal en b, las barras de una cara traccionan: manda el gancho", rt.anclaje.manda,
+    "gancho en tracción");
+  const rc = PD.verifica(Object.assign({}, BASE, { n: 14, solicitaciones: solz(30000, 0, 0, 0), zapata: ZAP }));
+  comp("(sin él, con compresión pura, no)", rc.anclaje.manda, "compresión");
+}
+
 fin();

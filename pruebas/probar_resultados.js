@@ -360,4 +360,99 @@ comp("NI UNA línea de Cimentación sin procedencia válida",
   cierto("cada eslabón cita su fila", lo.cadena.every((x) => INV.existe(x.fuente)));
 }
 
+
+/* ================================================================
+   LOS TIPOS DE ZAPATA · filas ZT.*
+   ================================================================ */
+{
+  let mt = mcz;
+  for (const [k, v] of [["columna hastial", "W8X18"], ["arriostre de fachada", "VAR1"], ["arriostre de techo", "HSS4X4X1/4"],
+    ["arriostre vertical", "VAR1/2"], ["puntal inferior", "HSS3X3X1/4"]]) mt = L.asignaPerfil(mt, { clase: k }, v).modelo;
+  const m3h = MON.monta(Object.assign({}, D, { columnasHastiales: [5, 10, 15] }));
+  const aI = R.analisis(m3h, mt, P, "interior"), aF = R.analisis(m3h, mt, P, "fachada");
+  const lo = R.longitudinal(m3h, mt, P, aI, aF);
+  const cc = aI.cargas.cargas;
+  comp("cuatro tipos de zapata", R.TIPOS_ZAPATA, ["interior", "arriostrado", "fachada", "hastial"]);
+  lanza("y ninguno más", () => R.cimentacion(m3h, mt, P, aI, "esquina"), ["no «esquina»"]);
+
+  /* la del paño arriostrado: el pórtico interior + la cruz · fila ZT.cruz */
+  const cA = R.casosZapata("arriostrado", aI, lo.lg, m3h, mt, P, cc);
+  const wL = aI.r.casos.filter((x) => x.tipo === "W" && x.direccion === "longitudinal")[0];
+  const eW = lo.lg.estados.filter((e) => e.tipo === "W" && Math.abs(e.Ci - wL.Ci) < 1e-9)[0];
+  const cz0 = eW.cruces.filter((x) => x.lado === "izq")[0];
+  const tira = cA.filter((x) => x.id === wL.id + " · cruz tira")[0], compr = cA.filter((x) => x.id === wL.id + " · cruz comprime")[0];
+  cerca("cruz que tira: el pórtico con su viento longitudinal, menos el tirón H·h/s", tira.reacciones.B0.Ry_kgf,
+    wL.reacciones.B0.Ry_kgf - cz0.vertical_kgf, 1e-9);
+  cerca("y el cortante a lo largo, H", Math.abs(tira.reacciones.B0.Rz_kgf), cz0.H_kgf, 1e-9);
+  cerca("la otra columna: compresión H·h/s y nada a lo largo", compr.reacciones.B0.Ry_kgf,
+    wL.reacciones.B0.Ry_kgf + cz0.vertical_kgf, 1e-9);
+  comp("(sin cortante a lo largo)", compr.reacciones.B0.Rz_kgf, 0);
+  const eL = lo.lg.estados.filter((e) => e.tipo === "E")[0];
+  const ELt = cA.filter((x) => x.id === "EL · cruz tira")[0];
+  cerca("el sismo a lo largo entra como un estado más, solo con la cruz", Math.abs(ELt.reacciones.B0.Rz_kgf),
+    eL.cruces.filter((x) => x.lado === "izq")[0].H_kgf, 1e-9);
+  comp("(de tipo sismo)", ELt.tipo, "E");
+  cierto("los casos que no son a lo largo no cambian",
+    cA.filter((x) => x.id === "D")[0].reacciones.B0.Ry_kgf === aI.r.casos[0].reacciones.B0.Ry_kgf);
+
+  /* la del pórtico de fachada: + el viento del hastial en la esquina · fila ZT.tipos */
+  const cF = R.casosZapata("fachada", aF, lo.lg, m3h, mt, P, cc);
+  const wF = aF.r.casos.filter((x) => x.tipo === "W" && x.direccion === "longitudinal")[0];
+  const eF = lo.lg.estados.filter((e) => e.tipo === "W" && Math.abs(e.Ci - wF.Ci) < 1e-9)[0];
+  cerca("la esquina, como barlovento: Hz = la reacción de abajo de la columna de esquina",
+    Math.abs(cF.filter((x) => x.id === wF.id + " · barlovento")[0].reacciones.B0.Rz_kgf), eF.hastialInicio[0].Rbase_kgf, 1e-9);
+  cerca("y como sotavento, la suya", Math.abs(cF.filter((x) => x.id === wF.id + " · sotavento")[0].reacciones.B0.Rz_kgf),
+    eF.hastialFinal[0].Rbase_kgf, 1e-9);
+  comp("sin cruz: el paño extremo no está arriostrado", cF.conCruz, false);
+
+  /* la de la columna hastial · fila ZT.hastial */
+  const cH = R.casosZapata("hastial", aI, lo.lg, m3h, mt, P, cc);
+  const W8 = P.busca("W8X18"), Lh = cH.linea;
+  cerca("la columna hastial: su peso y el muro de su franja", cH[0].reacciones.H.Ry_kgf,
+    W8.peso_kgfm * Lh.H_m + cc.D_kgfm2 * (Lh.b - Lh.a) * Lh.H_m, 1e-9);
+  comp("y la que más viento recibe es una hastial", Lh.tipo, "hastial");
+
+  /* las zapatas */
+  const zI = R.cimentacion(m3h, mt, P, aI, "interior"), zA = R.cimentacion(m3h, mt, P, aI, "arriostrado", lo);
+  const zF = R.cimentacion(m3h, mt, P, aF, "fachada", lo), zH = R.cimentacion(m3h, mt, P, aI, "hastial", lo);
+  cierto("las cuatro se diseñan", zI.ok && zA.ok && zF.ok && zH.ok);
+  cierto("la del paño arriostrado sale MAYOR que la interior: le baja la cruz", zA.z.zapata.B_cm > zI.z.zapata.B_cm);
+  cierto("y la de la columna hastial, la menor", zH.z.zapata.B_cm <= Math.min(zI.z.zapata.B_cm, zF.z.zapata.B_cm));
+  cierto("la placa del paño arriostrado mira además lo que llega a lo largo", zA.placa.conHz &&
+    zA.placa.filas.some((x) => x.aLoLargo && /primer orden/.test(x.combo)));
+  cierto("la de la columna hastial se verifica con compresión y cortante", zH.placa.hastial && zH.placa.Hu_kgf > 0);
+  /* EL PEDESTAL CON LOS CASOS DE SU ZAPATA: primero se armaba con los del pórtico y no veía la cruz */
+  cierto("el pedestal del paño arriostrado ve el cortante a lo largo: su junta resiste la resultante",
+    / · cruz | EL /.test(zA.ped.friccion.combo + " " + zA.ped.flexocompresion.combo));
+  cierto("y el de la columna hastial, los de la columna hastial (base H, sin viva de techo)",
+    zH.ped.flexocompresion.base === "H" && !/Lr/.test(zH.ped.flexocompresion.combo));
+  cierto("la ficha del suelo dice las dos excentricidades cuando hay momento a lo largo",
+    zA.fichas[1].lineas.some((l) => /e\/L · e\/B/.test(l.q)));
+  cierto("y el aviso de Z.plano ya no dice que no llega nada a lo largo",
+    !zA.z.avisos.some((x) => /no le llega nada a lo largo/.test(x)) && zI.z.avisos.some((x) => /no le llega nada/.test(x)));
+  {
+    const dz0 = R.dibujoCimentacion(zA);
+    cierto("el dibujo de la presión va por el borde más cargado: su pico es la qmax del servicio",
+      Math.abs(Math.max.apply(null, dz0.presion.puntos.map((q) => q[1])) - zA.z.servicio.peor.qmax) < 1e-6 * zA.z.servicio.peor.qmax);
+  }
+  const zAm = R.cimentacion(m3h, Object.assign({}, mt, { cimentacion: Object.assign({}, mt.cimentacion,
+    { B_cm: 120, L_cm: 120, h_cm: 50 }) }), P, aI, "arriostrado", lo);
+  cierto("en Comprobación, el aviso dice que es la zapata del paño arriostrado",
+    R.avisosResultados(null, null, zAm).some((x) => /^Zapata del paño arriostrado · /.test(x.que)));
+  const m3x = MON.monta(Object.assign({}, D, { panosArriostradosTecho: [0, 9], panosArriostradosFachada: [0, 9] }));
+  /* con los paños extremos arriostrados, el paño 0 va del eje 0 al 1: el eje 1 es un pórtico interior que
+     lo bordea, y la zapata de FACHADA también recibe la cruz */
+  const cX = R.casosZapata("fachada", R.analisis(m3x, mt, P, "fachada"),
+    R.longitudinal(m3x, mt, P).lg, m3x, mt, P, cc);
+  cierto("con el paño extremo arriostrado, la zapata de fachada recibe también la cruz",
+    cX.conCruz && cX.some((x) => / · cruz tira · barlovento$/.test(x.id)));
+  comp("y la del paño arriostrado es la del eje 1", R.casosZapata("arriostrado", aI,
+    R.longitudinal(m3x, mt, P).lg, m3x, mt, P, cc).eje, 1);
+  cierto("sin columnas hastiales, tampoco hay zapata de columna hastial",
+    !R.cimentacion(m3, mt, P, undefined, "hastial").ok);
+  comp("NI UNA línea de las cuatro sin procedencia válida",
+    [zI, zA, zF, zH].reduce((a, z) => a.concat(z.fichas.reduce((b, f) => b.concat(f.lineas), [])), [])
+      .filter((l) => V.ORIGENES.indexOf(l.origen) < 0).map((l) => l.q), []);
+}
+
 fin();

@@ -355,13 +355,13 @@
       "id": "Z.plano",
       "grupo": "El suelo",
       "magnitud": "Qué momentos llegan a la zapata",
-      "valor": "solo el del plano del pórtico",
+      "valor": "en su plano, el momento del pórtico · a lo largo, el cortante de la cruz y del hastial (fila ZT.tipos)",
       "unidad": "—",
       "estado": "adoptado",
       "editable": false,
       "clave": true,
       "fuente": "fila A.portico.tipico",
-      "nota": "Las reacciones salen del pórtico plano, así que la zapata recibe momento en una sola dirección. Los momentos de la dirección longitudinal —el arriostre de fachada, el viento en los hastiales— no están en el modelo, y en las zapatas de los paños arriostrados pueden ser importantes. Se avisa."
+      "nota": "Las reacciones del análisis son del pórtico plano, así que en su plano la zapata recibe el momento del pórtico. A lo largo llega lo que baja por la cruz de fachada y el viento de los hastiales, que longitudinal.js calcula aparte: van a las zapatas del paño arriostrado, de fachada y de la columna hastial (fila ZT.tipos), como cortante Hz porque a lo largo la base es articulada (fila Z.longitudinal.articulada). La zapata del pórtico interior típico no recibe nada a lo largo, y se dice."
     },
     {
       "id": "Z.As.min",
@@ -698,6 +698,66 @@
       "clave": true,
       "fuente": "E.060 §11.12.6 aplicado en cada dirección · fila Z.punzon.momento",
       "nota": "El §11.12.6 da la transferencia por excentricidad del cortante para el momento en una dirección. Con momento en las dos, cada uno se transfiere por su propia excentricidad sobre la misma sección crítica, y los esfuerzos se suman en la esquina, donde coinciden los dos máximos: γv y Jc se calculan para cada dirección intercambiando c1 y c2. Es la extensión directa y del lado seguro."
+    },
+    {
+      "id": "PD.biaxial",
+      "grupo": "El pedestal",
+      "magnitud": "El pedestal con momento en las dos direcciones",
+      "valor": "Mux/φMnx(Pu) + Muy/φMny(Pu) ≤ 1, con las dos capacidades a la misma Pu, de la curva de §10.2 en cada dirección",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.060 §10.2 (cada curva) · convexidad de la superficie de interacción",
+      "nota": "A lo largo la base de la columna es articulada (fila Z.longitudinal.articulada): arriba del pedestal no llega momento en b, y en la junta llega Hz·altura. Con momento en las dos direcciones se arma la curva de §10.2 en cada una —la segunda con la misma sección girada— y se toma la recta entre las dos capacidades a la misma carga axial. La superficie de interacción de una sección de concreto armado es convexa, así que esa recta queda por dentro de la superficie real: es del lado seguro, y desaprovecha algo de capacidad en la diagonal. La E.060 no trae un método para flexión biaxial; si esta cota no alcanza, se puede afinar barriendo el eje neutro inclinado."
+    },
+    {
+      "id": "ZT.tipos",
+      "grupo": "Los tipos de zapata",
+      "magnitud": "Qué zapatas se diseñan",
+      "valor": "la del pórtico interior · la del paño arriostrado de fachada · la del pórtico de fachada · la de la columna hastial",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "filas A.portico.tipico, LG.fachada.cruz y LG.hastial.reparto",
+      "nota": "No todas las zapatas de un galpón reciben lo mismo. La del pórtico interior típico solo lleva el pórtico. Las de los pórticos que bordean un paño arriostrado de fachada llevan además lo que baja por la cruz: el cortante a lo largo y un tirón o una compresión. Las del pórtico de fachada llevan su pórtico (medio paño) y, en la columna de esquina, el viento del hastial; si el paño extremo está arriostrado, también la cruz. Las de las columnas hastiales llevan su peso, el del muro y el viento del hastial. Se diseña la peor de cada tipo; el plano de cimentación tiene que decir cuál va dónde."
+    },
+    {
+      "id": "ZT.cruz",
+      "grupo": "Los tipos de zapata",
+      "magnitud": "Lo que baja por la cruz a cada zapata",
+      "valor": "dos variantes por estado: la base de la diagonal que tracciona (Hz y tirón H·h/s) y la otra columna (compresión H·h/s)",
+      "unidad": "kgf",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "fila LG.fachada.cruz · el viento y el sismo van en los dos sentidos",
+      "nota": "La cruz solo tracciona una diagonal, y cuál depende del sentido del viento o del sismo, que va en los dos. Así que la misma zapata, según el sentido, es la base de la diagonal que tira —recibe el cortante a lo largo y un tirón hacia arriba— o la de la otra columna —recibe compresión y nada a lo largo—. Se diseña con las dos. El viento a lo largo es el MISMO estado físico que en el pórtico succiona el techo, así que se suman en el mismo caso, con su Ci. El sismo a lo largo entra como un estado aparte."
+    },
+    {
+      "id": "ZT.hastial",
+      "grupo": "Los tipos de zapata",
+      "magnitud": "La zapata y la placa de la columna hastial",
+      "valor": "la columna hastial con más viento · D: su peso y el muro de su franja · W: su reacción de abajo, barlovento o sotavento · placa con compresión y cortante, sin momento",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "filas LG.hastial.reparto, LG.cerramiento y A.hastial.deslizante",
+      "nota": "La columna hastial es articulada abajo en las dos direcciones y no lleva techo: a su zapata llega su peso con el del muro, y el cortante de abajo del viento del hastial (w·H/2), con barlovento y sotavento. No hay momento de la columna: lo que hay es Hz por la altura del pedestal y la zapata. La placa se verifica con 1,2·D de compresión y 1,3·W de cortante en la llave, con los mismos datos de placa que la columna del pórtico."
+    },
+    {
+      "id": "ZT.placa.cruz",
+      "grupo": "Los tipos de zapata",
+      "magnitud": "La placa del paño arriostrado",
+      "valor": "además de las corridas del pórtico, las combinaciones de la E.090 con lo que llega a lo largo, en primer orden",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "filas ZT.cruz y J.base.momento.metodo · E.090 §1.4.1",
+      "nota": "Las corridas del análisis son del pórtico en su plano y no llevan el tirón de la cruz. Para la placa y los pernos de la base de un paño arriostrado se añaden las combinaciones de la E.090 con los casos de la zapata (el pórtico más la cruz), en primer orden: a lo largo la fuerza la lleva la cruz y no hay ladeo que amplificar. El cortante en la llave es la resultante de los dos."
     }
   ]
 }

@@ -238,7 +238,7 @@ cierto("con buen suelo y poco desplante, el levantamiento se acerca a lo que dec
   ligero.levantamiento.ratio > 0.3);
 
 /* ---- avisos y rechazos ---- */
-cierto("avisa de que los momentos longitudinales no están", z.avisos.some((x) => /longitudinal/.test(x)));
+cierto("sin nada a lo largo, avisa de que es la zapata de un pórtico interior típico", z.avisos.some((x) => /no le llega nada a lo largo/.test(x)));
 cierto("y del anclaje del perno, pendiente de norma", z.avisos.some((x) => /J\.anclaje\.concreto/.test(x)));
 const recBajo = Z.verifica(Object.assign({}, D0, { concreto: Object.assign({}, D0.concreto, { rec_cm: 5 }) }), dims);
 cierto("un recubrimiento de 5 cm contra el suelo NO cumple (70 mm, fila Z.rec)",

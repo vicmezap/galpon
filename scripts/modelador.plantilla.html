@@ -530,6 +530,10 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
         analisisActual(p); disenoActual(p); cimenActual(p);
         extra = extra.concat(RESULTADOS.avisosResultados(analisisVigente(p), disenoVigente(p), cimenVigente(p)));
       });
+      ["arriostrado", "hastial"].forEach(function (t) {
+        cimenActual(t);
+        extra = extra.concat(RESULTADOS.avisosResultados(null, null, cimenVigente(t)));
+      });
       extra = extra.concat(RESULTADOS.avisosLongitudinal(largoActual()));
       extra = extra.concat(RESULTADOS.avisosCorreas(correasActual()));
     }
@@ -732,8 +736,19 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
           NOMBRE_PORTICO[p] + "</button>";
       }).join("") + "</div>";
   }
-  /* «a lo largo» no es un pórtico: la cimentación y las cachés de pórtico usan el interior */
-  function porticoMarco() { return (porticoSel === "longitudinal" || porticoSel === "correas") ? "interior" : porticoSel; }
+  /* «a lo largo», «correas» y las zapatas que no son de pórtico usan el pórtico interior */
+  function porticoMarco() { return porticoSel === "fachada" ? "fachada" : "interior"; }
+  /* LA ZAPATA QUE SE ENSEÑA · fila ZT.tipos */
+  var NOMBRE_ZAPATA = { interior: "pórtico interior", arriostrado: "paño arriostrado", fachada: "pórtico de fachada",
+    hastial: "columna hastial" };
+  function zapataSel() { return RESULTADOS.TIPOS_ZAPATA.indexOf(porticoSel) >= 0 ? porticoSel : "interior"; }
+  function selZapata() {
+    return '<div class="modos" role="group" aria-label="zapata">' +
+      RESULTADOS.TIPOS_ZAPATA.map(function (p) {
+        return '<button type="button" data-portico="' + p + '" aria-pressed="' + (p === zapataSel()) + '">' +
+          NOMBRE_ZAPATA[p] + "</button>";
+      }).join("") + "</div>";
+  }
   var analisisCache = {};
   var modoAnalisis = "compresion";
   function claveAnalisis() {
@@ -793,7 +808,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
   }
 
   function pintaAnalisis(fallo) {
-    if (porticoSel === "correas") porticoSel = "interior";
+    if (porticoSel === "correas" || porticoSel === "arriostrado" || porticoSel === "hastial") porticoSel = "interior";
     if (porticoSel === "longitudinal") { pintaLongitudinal("analisis", fallo); return; }
     if (!m3) {
       $("centro").innerHTML = '<div class="hoja"><h2>Análisis</h2>' + selPortico(true) + '<p class="lead">el galpón no ' +
@@ -879,6 +894,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
   }
 
   function pintaDiseno(fallo) {
+    if (porticoSel === "arriostrado" || porticoSel === "hastial") porticoSel = "interior";
     if (porticoSel === "longitudinal") { pintaLongitudinal("diseno", fallo); return; }
     if (porticoSel === "correas") { pintaCorreas(fallo); return; }
     if (!m3) {
@@ -937,15 +953,18 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
   var cimenCache = {};
   function claveCimen() { return claveAnalisis() + JSON.stringify(modelo.cimentacion || {}); }
   function cimenActual(p) {
-    p = p || porticoMarco();
+    p = p || zapataSel();
     var k = claveCimen(), c = cimenCache[p];
     if (!c || c.clave !== k) {
-      c = cimenCache[p] = { clave: k, res: RESULTADOS.cimentacion(m3, modelo, PERFILES, analisisActual(p)) };
+      var an = analisisActual(p === "fachada" ? "fachada" : "interior");
+      var lo = p === "interior" ? undefined : largoActual();
+      c = cimenCache[p] = { clave: k, res: RESULTADOS.cimentacion(m3, modelo, PERFILES, an, p,
+        lo && lo.ok ? lo : undefined) };
     }
     return c.res;
   }
   function cimenVigente(p) {
-    var c = cimenCache[p || porticoMarco()];
+    var c = cimenCache[p || zapataSel()];
     return c && c.clave === claveCimen() && c.res && c.res.ok ? c.res : null;
   }
 
@@ -1068,16 +1087,16 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
   }
 
   function pintaCimentacion(fallo) {
-    if (porticoSel === "longitudinal" || porticoSel === "correas") porticoSel = "interior";
+    if (RESULTADOS.TIPOS_ZAPATA.indexOf(porticoSel) < 0) porticoSel = "interior";
     if (!m3) {
-      $("centro").innerHTML = '<div class="hoja"><h2>Cimentación</h2>' + selPortico() + '<p class="lead">el galpón no ' +
+      $("centro").innerHTML = '<div class="hoja"><h2>Cimentación</h2>' + selZapata() + '<p class="lead">el galpón no ' +
         "se puede montar: " + esc(fallo ? fallo.titulo : "—") + ". Se corrige en Geometría.</p></div>";
       $("derecha").innerHTML = "";
       return;
     }
     var c = cimenActual();
     if (!c.ok) {
-      $("centro").innerHTML = '<div class="hoja"><h2>Cimentación</h2>' + selPortico() + '<p class="lead">todavía no se ' +
+      $("centro").innerHTML = '<div class="hoja"><h2>Cimentación</h2>' + selZapata() + '<p class="lead">todavía no se ' +
         "puede diseñar: falta lo que sigue</p>" + listaFaltas(c.faltas, true) + "</div>";
       $("derecha").innerHTML = '<p class="nohay">La zapata se dimensiona dos veces con la misma ' +
         "pieza: el área con las cargas de servicio contra el suelo, y el concreto con las " +
@@ -1089,7 +1108,8 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
       esc(dc.presion.combo) + " · base " + esc(dc.presion.base) + " · " + esc(dc.presion.forma || "—") + "</span>" +
       '<span><i style="border-top-color:var(--acero)"></i>acero de refuerzo</span>' +
       '<span><i style="border-top-color:var(--tinta)"></i>pernos de anclaje</span></div>';
-    $("centro").innerHTML = '<div class="hoja"><h2>Cimentación</h2>' + selPortico() + '<p class="lead">' + (c.r.fachada ? "pórtico de fachada" : "pórtico interior") + " · zapata " +
+    $("centro").innerHTML = '<div class="hoja"><h2>Cimentación</h2>' + selZapata() + '<p class="lead">' +
+      "zapata del " + NOMBRE_ZAPATA[c.tipo] + (c.conCruz ? " · con la cruz de fachada" : "") + " · " +
       n2(z.zapata.B_cm, 0) + " × " + n2(z.zapata.L_cm, 0) + " × " + n2(z.zapata.h_cm, 0) + " cm · " +
       (z.auto ? "las medidas mínimas que cumplen" : "las medidas dadas") + " · " +
       (z.cumple ? "cumple" : "NO cumple: " + esc(z.fallas.join(", "))) + "</p>" + svgCimen(dc) + ley +

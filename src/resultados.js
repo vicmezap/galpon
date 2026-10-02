@@ -46,7 +46,8 @@
     "J.anclaje.E060.confinamiento",
     "LG.vertical", "LG.correa.puntal", "LG.techo.armadura", "LG.fachada.cruz", "LG.sismo.sistema",
     "LG.hastial.reparto", "LG.factores", "D.DIS.correas", "F.F6.sinLTB", "F.hipotesis", "D.cobertura.tabla",
-    "SV.deflex", "SV.correa.Ld", "CR.cargas"
+    "SV.deflex", "SV.correa.Ld", "CR.cargas", "Z.longitudinal.articulada", "PD.biaxial", "ZT.tipos",
+    "ZT.cruz", "ZT.hastial", "ZT.placa.cruz"
   ]);
   const ln = V.ln, ficha = V.ficha;
   const n2 = (x, d) => (Math.round(x * Math.pow(10, d)) / Math.pow(10, d))
@@ -706,7 +707,9 @@
   function avisosResultados(a, d, cz) {
     const L = [];
     const rr = (a && a.ok && a.r) || (d && d.ok && d.r) || (cz && cz.ok && cz.r) || null;
-    const quien = rr && rr.fachada ? "Pórtico de fachada · " : "";
+    const quien = (cz && cz.ok && cz.tipo === "arriostrado") ? "Zapata del paño arriostrado · " :
+      ((cz && cz.ok && cz.tipo === "hastial") ? "Zapata de la columna hastial · " :
+        (rr && rr.fachada ? "Pórtico de fachada · " : ""));
     if (a && a.ok) {
       const r = a.r;
       if (!r.deriva.cumple) {
@@ -878,14 +881,137 @@
   }
 
   /* La zapata: necesita el análisis, porque lo que le llega son sus casos */
-  function cimentacion(m3, modelo, perfiles, an, portico) {
-    const a = an || analisis(m3, modelo, perfiles, portico);
+  /* =====================================================================
+     LOS TIPOS DE ZAPATA · fila ZT.tipos
+     interior     · pórtico interior, sin nada a lo largo
+     arriostrado  · pórtico interior en un paño arriostrado de fachada: + la cruz
+     fachada      · pórtico de fachada: + el viento del hastial en la esquina (y la cruz si el paño extremo
+                    está arriostrado)
+     hastial      · la columna hastial: su peso y el viento del hastial
+     ===================================================================== */
+  const TIPOS_ZAPATA = ["interior", "arriostrado", "fachada", "hastial"];
+
+  /* los paños arriostrados de fachada que tocan este eje */
+  const panosDe = (m3, eje) => m3.panosArriostradosFachada.filter((k) => k === eje || k + 1 === eje);
+  function existeTipo(m3, tipo) {
+    const ult = m3.ejes.porticos - 1;
+    if (tipo === "arriostrado") {
+      return m3.panosArriostradosFachada.some((k) => (k > 0 && k < ult) || (k + 1 > 0 && k + 1 < ult));
+    }
+    if (tipo === "hastial") return (m3.columnasHastiales || []).length > 0;
+    return true;
+  }
+
+  /* LOS CASOS DE UNA ZAPATA: los del pórtico más lo que llega a lo largo, por variantes ·
+     la cruz no se sabe de qué lado tira (el viento va en los dos sentidos), así que cada estado
+     a lo largo da DOS variantes: la base de la diagonal que tracciona (Hz y tirón) y la otra
+     columna (compresión) · fila ZT.cruz */
+  function casosZapata(tipo, a, lg, m3, modelo, perfiles, c) {
+    const conCero = (r) => Object.assign({ Rz_kgf: 0 }, r);
+    const copia = (cs) => cs.map((x) => Object.assign({}, x, { reacciones: Object.keys(x.reacciones)
+      .reduce((o, b) => { o[b] = conCero(x.reacciones[b]); return o; }, {}) }));
+    if (tipo === "interior") return copia(a.r.casos);
+    const lgW = (Ci) => lg.estados.filter((e) => e.tipo === "W" && Math.abs(e.Ci - Ci) < 1e-9)[0];
+    const lgE = lg.estados.filter((e) => e.tipo === "E")[0];
+    const lado = { B0: "izq", B1: "der" };
+    /* la cruz de un estado, en el lado de la base · H y V */
+    const cruzDe = (e, b) => {
+      const cs = e.cruces.filter((x) => x.lado === lado[b]);
+      return cs.length ? { H: Math.max.apply(null, cs.map((x) => Math.abs(x.H_kgf))),
+        V: Math.max.apply(null, cs.map((x) => x.vertical_kgf)) } : null;
+    };
+    if (tipo === "hastial") {
+      /* la columna hastial que más recibe · fila ZT.hastial */
+      const p = seccionDesde(modelo, perfiles)({ id: "clase:columna hastial", clase: "columna hastial" });
+      let peorJ = -1, peorR = -1;
+      lg.estados.filter((e) => e.tipo === "W").forEach((e) => e.hastialInicio.concat(e.hastialFinal).forEach((x, i) => {
+        const j = i % e.hastialInicio.length;
+        if (lg.geometria.lineas[j].tipo === "hastial" && Math.abs(x.Rbase_kgf) > peorR) { peorR = Math.abs(x.Rbase_kgf); peorJ = j; }
+      }));
+      const L = lg.geometria.lineas[peorJ];
+      const ancho = L.b - L.a;
+      const P = (p ? (p.peso_kgfm || 0) : 0) * L.H_m + c.D_kgfm2 * ancho * L.H_m;
+      const R = (Ry, Rz) => ({ H: { Rx_kgf: 0, Ry_kgf: Ry, Mz_kgfcm: 0, Rz_kgf: Rz } });
+      const out = [{ id: "D", tipo: "D", desc: "peso de la columna hastial y del muro de su franja", reacciones: R(P, 0) }];
+      for (const e of lg.estados.filter((x) => x.tipo === "W")) {
+        out.push({ id: e.id + " · barlovento", tipo: "W", reacciones: R(0, -e.hastialInicio[peorJ].Rbase_kgf) });
+        out.push({ id: e.id + " · sotavento", tipo: "W", reacciones: R(0, e.hastialFinal[peorJ].Rbase_kgf) });
+      }
+      out.linea = L;
+      out.perfil = p;
+      return out;
+    }
+    const eje = tipo === "fachada" ? 0 : m3.panosArriostradosFachada.map((k) => (k > 0 ? k : k + 1))
+      .filter((e) => e > 0 && e < m3.ejes.porticos - 1)[0];
+    const conCruz = panosDe(m3, eje).length > 0;
+    const out = [];
+    for (const x of copia(a.r.casos)) {
+      const longi = x.tipo === "W" && x.direccion === "longitudinal";
+      if (!longi) { out.push(x); continue; }
+      const e = lgW(x.Ci);
+      /* las variantes: la cruz (tracciona o comprime) × el papel del hastial (barlovento o sotavento) */
+      const vs = [];
+      for (const cz of conCruz ? ["T", "C"] : [null]) {
+        for (const papel of tipo === "fachada" ? ["barlovento", "sotavento"] : [null]) vs.push([cz, papel]);
+      }
+      for (const [cz, papel] of vs) {
+        const reac = {};
+        for (const b of Object.keys(x.reacciones)) {
+          const r = Object.assign({}, x.reacciones[b]);
+          const k = cz ? cruzDe(e, b) : null;
+          if (k && cz === "T") { r.Ry_kgf -= k.V; r.Rz_kgf -= k.H; }
+          if (k && cz === "C") r.Ry_kgf += k.V;
+          if (papel) {
+            const j = b === "B0" ? 0 : e.hastialInicio.length - 1;
+            r.Rz_kgf += papel === "barlovento" ? -e.hastialInicio[j].Rbase_kgf : e.hastialFinal[j].Rbase_kgf;
+          }
+          reac[b] = r;
+        }
+        out.push(Object.assign({}, x, { id: x.id + (cz ? " · cruz " + (cz === "T" ? "tira" : "comprime") : "") +
+          (papel ? " · " + papel : ""), reacciones: reac }));
+      }
+    }
+    /* el sismo a lo largo, solo con la cruz */
+    if (conCruz && lgE) {
+      for (const cz of ["T", "C"]) {
+        const reac = {};
+        for (const b of Object.keys(a.r.casos[0].reacciones)) {
+          const k = cruzDe(lgE, b) || { H: 0, V: 0 };
+          reac[b] = { Rx_kgf: 0, Ry_kgf: cz === "T" ? -k.V : k.V, Mz_kgfcm: 0, Rz_kgf: cz === "T" ? -k.H : 0 };
+        }
+        out.push({ id: "EL · cruz " + (cz === "T" ? "tira" : "comprime"), tipo: "E", desc: "sismo a lo largo",
+          reacciones: reac });
+      }
+    }
+    out.eje = eje;
+    out.conCruz = conCruz;
+    return out;
+  }
+
+  function cimentacion(m3, modelo, perfiles, an, portico, lo) {
+    const tipo = portico || "interior";
+    exige(TIPOS_ZAPATA.indexOf(tipo) >= 0, "la zapata es " + TIPOS_ZAPATA.join(" ó ") + ", no «" + tipo + "»");
+    const a = an || analisis(m3, modelo, perfiles, tipo === "fachada" ? "fachada" : "interior");
     if (!a.ok) {
       return { ok: false, faltas: [{ paso: "analisis",
         que: "la cimentación necesita las reacciones del análisis, y el análisis todavía no corre" }].concat(a.faltas) };
     }
+    if (!existeTipo(m3, tipo)) {
+      return { ok: false, faltas: [{ paso: "geom", que: tipo === "hastial"
+        ? "no hay columnas hastiales, así que no hay zapata de columna hastial"
+        : "los paños arriostrados de fachada están en los extremos: sus zapatas son las de fachada" }] };
+    }
     const c = modelo.cimentacion || {};
-    const d = { casos: a.r.casos,
+    let casosZ = a.r.casos;
+    if (tipo !== "interior") {
+      const L0 = lo || longitudinal(m3, modelo, perfiles, tipo === "fachada" ? undefined : a,
+        tipo === "fachada" ? a : undefined);
+      if (!L0.ok) return { ok: false, faltas: L0.faltas };
+      casosZ = casosZapata(tipo, a, L0.lg, m3, modelo, perfiles, a.cargas.cargas);
+    } else {
+      casosZ = casosZapata("interior", a, null, m3, modelo, perfiles, null);
+    }
+    const d = { casos: casosZ,
       suelo: { sigmaAdm_kgfcm2: c.sigmaAdm_kgfcm2, esNeta: c.esNeta, Df_cm: c.Df_cm,
         gammaRelleno_kgfm3: c.gammaRelleno_kgfm3, sc_kgfm2: c.sc_kgfm2, mu: c.mu },
       concreto: { fc_kgcm2: c.fc_kgcm2, grado: c.grado, rec_cm: c.rec_cm, barra: c.barra },
@@ -906,14 +1032,16 @@
     /* EL PERALTE QUE VUELVE · fila PD.anclaje.zapata.  La zapata da su peralte, el
        pedestal sale de ahí (su altura es Df − h + lo que sobresale) y sus barras piden
        un peralte para anclarse; si piden más, se rehace la zapata con ese mínimo. */
-    const est = ZA.estados(a.r.casos);
+    /* los casos de ESTA zapata (con lo que llega a lo largo), no los del pórtico: primero se
+       armaba con a.r.casos y el pedestal del paño arriostrado no veía la cruz */
+    const est = ZA.estados(casosZ);
     const combos = ZA.combosE060(est);
-    const bases = Object.keys(a.r.casos[0].reacciones);
+    const bases = Object.keys(casosZ[0].reacciones);
     const sols = [];
     for (const cb of combos) {
       for (const b of bases) {
         const s = ZA.suma(cb.partes, b);
-        sols.push({ id: cb.id, base: b, P_kgf: s.P, M_kgfcm: s.M, H_kgf: s.H, factorCM: cb.factorCM });
+        sols.push({ id: cb.id, base: b, P_kgf: s.P, M_kgfcm: s.M, H_kgf: s.H, Hz_kgf: s.Hz, factorCM: cb.factorCM });
       }
     }
     let hMin = 0, z = null, ped = null;
@@ -926,9 +1054,33 @@
       if (ped.anclaje.hMin_cm <= hMin + 1e-9) break;
       hMin = ped.anclaje.hMin_cm;
     }
-    const placa = placaBase(m3, a.r, modelo, perfiles, c, ped, z);
-    return { ok: true, z: z, ped: ped, placa: placa, r: a.r, datos: c,
+    const placa = tipo === "hastial" ? placaHastial(casosZ, modelo, c, ped, z)
+      : placaBase(m3, a.r, modelo, perfiles, c, ped, z, tipo === "interior" ? null : casosZ);
+    return { ok: true, tipo: tipo, z: z, ped: ped, placa: placa, r: a.r, datos: c,
+      eje: casosZ.eje, conCruz: !!casosZ.conCruz, linea: casosZ.linea || null,
       fichas: fichasCimentacion(z).concat(fichasPedestal(ped), fichasPlaca(placa)) };
+  }
+
+  /* LA PLACA DE LA COLUMNA HASTIAL · fila ZT.hastial: compresión y cortante, sin momento
+     (es articulada en las dos direcciones) */
+  function placaHastial(casos, modelo, c, ped, z) {
+    const p = casos.perfil;
+    if (!p) return { fallas: ["la columna hastial no tiene perfil"], cumple: false, sinPerfil: true };
+    const D = casos.filter((x) => x.tipo === "D")[0].reacciones.H;
+    const Hmax = Math.max.apply(null, casos.filter((x) => x.tipo === "W").map((x) => Math.abs(x.reacciones.H.Rz_kgf)));
+    const A2 = PB.A2DesdePedestal({ B_cm: c.placaB_cm, N_cm: c.placaN_cm, pedB_cm: c.pedB_cm, pedL_cm: c.pedL_cm });
+    const mat = AC.ACEROS[modelo.sitio.acero];
+    let r, fallas = [];
+    try {
+      r = PB.verifica({ B_cm: c.placaB_cm, N_cm: c.placaN_cm, d_cm: p.d_cm, bf_cm: p.bf_cm, tf_cm: p.tf_cm,
+        fc_kgcm2: c.fc_kgcm2, A2_cm2: A2.A2_cm2, Pu_kgf: 1.2 * D.Ry_kgf, Fy_kgcm2: mat.Fy, Hu_kgf: 1.3 * Hmax,
+        llave: { l_cm: c.llaveL_cm, h_cm: c.llaveH_cm, t_cm: c.llaveT_cm, grout_cm: c.grout_cm } });
+      if (!r.cumple) fallas.push(r.gobierna);
+    } catch (e) {
+      fallas.push(e.message.split("\n")[0].replace(/^\w+: /, ""));
+    }
+    return { hastial: true, seccion: p.nombre, r: r, Pu_kgf: 1.2 * D.Ry_kgf, Hu_kgf: 1.3 * Hmax, B_cm: c.placaB_cm,
+      N_cm: c.placaN_cm, fallas: fallas, cumple: !fallas.length, art: ART["ZT.hastial"] };
   }
 
   /* =====================================================================
@@ -1125,7 +1277,7 @@
     return F;
   }
 
-  function placaBase(m3, r, modelo, perfiles, c, ped, z) {
+  function placaBase(m3, r, modelo, perfiles, c, ped, z, casosLargo) {
     const g = AN.geometria(m3, r.sistema, r.eje);
     const secDe = seccionDesde(modelo, perfiles);
     const mat = AC.ACEROS[modelo.sitio.acero], matP = AC.ACEROS[c.pernoMat];
@@ -1144,6 +1296,37 @@
           A2_cm2: A2.A2_cm2, Fy_kgcm2: mat.Fy, t_cm: c.placaT_cm, f_cm: c.pernoF_cm, nPorLado: c.pernosFila,
           db_cm: dp.d_cm, Fy_perno_kgcm2: matP.Fy, Fu_perno_kgcm2: matP.Fu });
         filas.push({ combo: f.id, base: ap.nudo.split("@")[0], H_kgf: fz.Vr_kgf || 0, m: m });
+      }
+    }
+    /* LO QUE LLEGA A LO LARGO · fila ZT.placa.cruz: las corridas del pórtico no llevan el tirón de
+       la cruz ni el Hz del hastial, así que se añaden las combinaciones de la E.090 con los casos de
+       la zapata, en PRIMER orden (a lo largo no hay B2 que amplifique: lo lleva la cruz) */
+    if (casosLargo) {
+      const fam = CB.paraAcero({ casos: { D: true, Lr: true, W: true, E: true } }).combinaciones;
+      const largo = casosLargo.filter((x) => (x.tipo === "W" && x.direccion === "longitudinal") || x.id.indexOf("EL") === 0);
+      const deTipo = (t) => casosLargo.filter((x) => x.tipo === t)[0];
+      for (const cb of fam) {
+        const tW = cb.terminos.filter(([k]) => k === "W" || k === "E")[0];
+        if (!tW) continue;
+        for (const v of largo.filter((x) => x.tipo === tW[0])) {
+          for (const ap of g.apoyos) {
+            const b = ap.nudo.split("@")[0];
+            let P = 0, M = 0, Hx = 0, Hz = 0;
+            for (const [k, f] of cb.terminos) {
+              const cs = (k === tW[0]) ? v : deTipo(k);
+              if (!cs) continue;
+              const rr = cs.reacciones[b];
+              const ff = (k === tW[0]) ? Math.abs(f) : f;
+              P += ff * rr.Ry_kgf; M += ff * rr.Mz_kgfcm; Hx += ff * rr.Rx_kgf; Hz += ff * (rr.Rz_kgf || 0);
+            }
+            const m = PB.momento({ Pu_kgf: P, Mu_kgfcm: M, d_cm: sec.d_cm, bf_cm: sec.bf_cm,
+              tf_cm: sec.tf_cm, tw_cm: sec.tw_cm, B_cm: c.placaB_cm, N_cm: c.placaN_cm, fc_kgcm2: c.fc_kgcm2,
+              A2_cm2: A2.A2_cm2, Fy_kgcm2: mat.Fy, t_cm: c.placaT_cm, f_cm: c.pernoF_cm, nPorLado: c.pernosFila,
+              db_cm: dp.d_cm, Fy_perno_kgcm2: matP.Fy, Fu_perno_kgcm2: matP.Fu });
+            filas.push({ combo: cb.id + " · " + v.id + " (primer orden)", base: b, H_kgf: Math.hypot(Hx, Hz), m: m,
+              aLoLargo: true });
+          }
+        }
       }
     }
     const peor = (k) => filas.reduce((a, x) => (k(x) > k(a) ? x : a));
@@ -1177,13 +1360,14 @@
     if (pPer.m.pernos && !pPer.m.pernos.cumple) fallas.push("pernos a tracción");
     if (!soldadura.cumple) fallas.push("soldadura");
     if (llave && llave.cumple === false) fallas.push("llave de corte");
+    const conHz = filas.some((x) => x.aLoLargo);
     if (!geo.cumpleTodas) fallas.push("geometría de los pernos");
     if (ancho >= c.placaB_cm) fallas.push("los pernos no caben en la placa");
     if (fondo !== null && c.pernoLd_cm > fondo) fallas.push("el perno no cabe en el pedestal y la zapata");
     return { seccion: sec.nombre, d_cm: sec.d_cm, bf_cm: sec.bf_cm, tf_cm: sec.tf_cm,
       B_cm: c.placaB_cm, N_cm: c.placaN_cm, tDado_cm: c.placaT_cm > 0 ? c.placaT_cm : null,
       A2: A2, aplastamiento: pApl, espesor: pT, pernos: pPer, soldadura: soldadura, llave: llave, geometria: geo,
-      alBorde_cm: alBorde, fondo_cm: fondo, filas: filas, fallas: fallas, cumple: !fallas.length,
+      alBorde_cm: alBorde, fondo_cm: fondo, filas: filas, fallas: fallas, cumple: !fallas.length, conHz: conHz,
       pernoD: c.pernoD, pernosFila: c.pernosFila, pernoF_cm: c.pernoF_cm, pernoSep_cm: c.pernoSep_cm };
   }
 
@@ -1193,9 +1377,11 @@
   function dibujoCimentacion(cz) {
     const z = cz.z, p = z.servicio.peor, c = z.concreto;
     const d = cz.datos;
-    const pr = ZA.presion(p.N, p.e, z.zapata.B_cm, z.zapata.L_cm);
+    /* la sección en el plano del pórtico, por el borde más cargado en B si hay momento a lo largo */
+    const pr = ZA.presion2(p.N, p.e, p.ey || 0, z.zapata.B_cm, z.zapata.L_cm);
     const L = z.zapata.L_cm, puntos = [];
-    if (pr.q) for (let i = 0; i <= 40; i++) { const x = -L / 2 + L * i / 40; puntos.push([x, pr.q(x)]); }
+    const yb = (p.ey || 0) === 0 ? 0 : Math.sign(p.ey) * z.zapata.B_cm / 2;
+    if (pr.q2) for (let i = 0; i <= 40; i++) { const x = -L / 2 + L * i / 40; puntos.push([x, pr.q2(x, yb)]); }
     return {
       B: z.zapata.B_cm, L: L, h: z.zapata.h_cm, Df: d.Df_cm, sobre: d.sobreTerreno_cm,
       pedB: d.pedB_cm, pedL: d.pedL_cm,
@@ -1207,8 +1393,10 @@
       rec: d.rec_cm, cumple: z.cumple,
       pedestal: cz.ped ? { nb: cz.ped.seccion.nb, ns: cz.ped.seccion.ns, aEje: cz.ped.seccion.aEje_cm,
         gancho: cz.ped.anclaje.l_cm } : null,
-      placa: cz.placa ? { B: cz.placa.B_cm, N: cz.placa.N_cm, t: cz.placa.tDado_cm || cz.placa.espesor.m.placa.t_cm,
-        f: cz.placa.pernoF_cm, n: cz.placa.pernosFila, sep: cz.placa.pernoSep_cm || 0,
+      placa: cz.placa && !cz.placa.sinPerfil ? { B: cz.placa.B_cm, N: cz.placa.N_cm,
+        t: cz.placa.hastial ? (cz.datos.placaT_cm || (cz.placa.r && cz.placa.r.espesor ? cz.placa.r.espesor.t_cm : 1))
+          : (cz.placa.tDado_cm || cz.placa.espesor.m.placa.t_cm),
+        f: cz.datos.pernoF_cm, n: cz.datos.pernosFila, sep: cz.datos.pernoSep_cm || 0,
         Ld: cz.datos.pernoLd_cm } : null
     };
   }
@@ -1249,7 +1437,29 @@
     return [ficha("El pedestal", "columna corta a flexocompresión · E.060", L, p.cumple ? "bien" : null)];
   }
 
+  function fichasPlacaHastial(q) {
+    const L = [ln("Placa B × N", n2(q.B_cm, 0) + " × " + n2(q.N_cm, 0) + " cm", "entrada", { nota: "bajo " + q.seccion }),
+      ln("Compresión 1,2·D", t2(q.Pu_kgf), "medido"), ln("Cortante 1,3·W en la llave", t2(q.Hu_kgf), "medido")];
+    const r = q.r;
+    if (r && r.compresion) {
+      L.push(ln("Aplastamiento del concreto", n2(r.compresion.ratio, 3), "norma", { fuente: "J.base.phi",
+        estado: ok(r.compresion.cumple) }));
+      L.push(ln("Espesor que hace falta", n2(r.espesor.t_cm, 2) + " cm", "norma", { fuente: "J.base.momento.t",
+        nota: r.espesor.metodo }));
+    }
+    if (r && r.cortante) {
+      L.push(ln("Llave de corte · aplastamiento", n2(r.cortante.aplastamiento.ratio, 3), "norma",
+        { fuente: "J.llave.aplast", estado: ok(r.cortante.aplastamiento.cumple) }));
+      if (r.cortante.flexion) L.push(ln("Llave de corte · flexión", n2(r.cortante.flexion.ratio, 3), "norma",
+        { fuente: "J.llave.flexion", estado: ok(r.cortante.flexion.cumple) }));
+    }
+    for (const f of q.fallas) L.push(ln(f, "NO", "medido", { estado: "no" }));
+    return [ficha("La placa de la columna hastial", "compresión y cortante, sin momento · articulada", L,
+      q.cumple ? "bien" : null)];
+  }
+
   function fichasPlaca(q) {
+    if (q.hastial) return fichasPlacaHastial(q);
     const ap = q.aplastamiento.m, es = q.espesor.m.placa, pe = q.pernos.m.pernos, so = q.soldadura;
     const L = [
       ln("Placa B × N", n2(q.B_cm, 0) + " × " + n2(q.N_cm, 0) + " cm", "entrada", { nota: "bajo " + q.seccion }),
@@ -1299,10 +1509,15 @@
         { nota: s.combo + " · base " + s.base + " · " + (s.forma || (s.vuelca ? "VUELCA" : "se levanta")) }),
       ln("Contra la admisible", n2(s.admisible, 3) + " kgf/cm²", "norma",
         { fuente: "Z.inc30", estado: s.ratio <= 1 ? "ok" : "no" }),
-      ln("Excentricidad e/L", n2(Math.abs(s.eL), 3), "medido",
-        { nota: s.vuelca ? "más de L/2: la resultante cae fuera de la base, la zapata vuelca"
-          : (Math.abs(s.eL) > 1 / 6 ? "más de L/6: presión triangular, parte de la base no apoya"
-            : "dentro del tercio central") }),
+      (Math.abs(s.eB || 0) > 1e-9
+        ? ln("Excentricidad e/L · e/B", n2(Math.abs(s.eL), 3) + " · " + n2(Math.abs(s.eB), 3), "medido",
+          { nota: s.vuelca ? "la resultante cae fuera de la base: vuelca"
+            : (Math.abs(s.eL) + Math.abs(s.eB) > 1 / 6 ? "fuera del núcleo: parte de la base no apoya (" +
+              (s.forma || "") + ")" : "dentro del núcleo: apoya entera") })
+        : ln("Excentricidad e/L", n2(Math.abs(s.eL), 3), "medido",
+          { nota: s.vuelca ? "más de L/2: la resultante cae fuera de la base, la zapata vuelca"
+            : (Math.abs(s.eL) > 1 / 6 ? "más de L/6: presión triangular, parte de la base no apoya"
+              : "dentro del tercio central") })),
       ln("Deslizamiento μ·N/H", z.servicio.deslizamiento ? n2(z.servicio.deslizamiento.deslizamiento, 2) : "sin μ",
         "medido", { nota: "la E.060 no fija factor: lo decide el estudio de suelos (fila Z.deslizamiento)" })
     ]));
@@ -1335,7 +1550,7 @@
   return {
     ART, DIRECCIONES, ACEROS, MODOS, PORTICOS, longitudinal, fichasLongitudinal, avisosLongitudinal, cadena,
     correas, fichasCorreas, avisosCorreas, CAMPOS_CARGAS, CAMPOS_ANALISIS, CAMPOS_DISENO, avisosResultados,
-    CAMPOS_CIMENTACION, leeCimentacion, valoresDeCimentacion, cimentacion, fichasCimentacion, dibujoCimentacion,
+    TIPOS_ZAPATA, CAMPOS_CIMENTACION, leeCimentacion, casosZapata, valoresDeCimentacion, cimentacion, fichasCimentacion, dibujoCimentacion,
     leeSitio, valoresDeSitio, leeSistema, leeDiseno, valoresDeDiseno,
     diseno, fichasDiseno, dibujoDiseno, tablaDiseno, lineasDiseno, nivelRatio,
     forma, cargas, seccionDesde, analisis, fichasAnalisis, tablaReacciones, dibujo, lineasFuerzas
