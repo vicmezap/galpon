@@ -492,7 +492,7 @@ comp("LOS PANELES DE GEOMETRIA —Ver y Datos— solo los lleva Geometria",
     .map((p) => p.id), ["geom"]);
 comp("y cada paso con panel a la izquierda lleva EL SUYO",
   V.PASOS.filter((p) => (p.lados || []).length).map((p) => p.id + ":" + p.lados.join("+")),
-  ["geom:ver+parametros", "cargas:cargas", "analisis:analisis", "diseno:diseno", "cimen:cimen"]);
+  ["geom:ver+parametros", "cargas:cargas", "analisis:analisis", "diseno:diseno", "conex:diseno", "cimen:cimen"]);
 comp("Analisis lleva panel derecho sin la barra de cuatro vistas",
   [V.armazon("analisis").derecha, V.armazon("analisis").vistas], [true, false]);
 comp("Cargas no lleva panel derecho", V.armazon("cargas").derecha, false);
@@ -516,8 +516,8 @@ comp("y QUIEN la hara", flojos.filter((p) => !p.hara).map((p) => p.id), []);
 comp("y si el motor esta escrito", flojos.filter((p) => !p.motor).map((p) => p.id), []);
 comp("los que si tienen pantalla llevan subtitulo en vez de excusa",
   V.PASOS.filter((p) => p.listo && !p.sub).map((p) => p.id), []);
-comp("siete estan llenos hoy", V.PASOS.filter((p) => p.listo).map((p) => p.id),
-  ["inicio", "geom", "cargas", "analisis", "diseno", "cimen", "comprob"]);
+comp("ocho estan llenos hoy", V.PASOS.filter((p) => p.listo).map((p) => p.id),
+  ["inicio", "geom", "cargas", "analisis", "diseno", "conex", "cimen", "comprob"]);
 
 /* ---------------- INICIO · el tablero ---------------- */
 const tab = V.inicio(m3, null);

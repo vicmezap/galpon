@@ -344,15 +344,15 @@ comp("y las capas", pinto(M.dom, "lado-ver").hidden, false);
 comp("y los parametros", pinto(M.dom, "lado-parametros").hidden, false);
 
 /* UN PASO SIN PANTALLA: se va todo lo de Geometría y se dice qué falta */
-pulsa(M.dom, "pasos", "data-paso", "conex");
-comp("EN CONEXIONES LA BARRA DE VISTAS DESAPARECE", pinto(M.dom, "vistas").hidden, true);
+pulsa(M.dom, "pasos", "data-paso", "hojas");
+comp("EN HOJAS EXCEL LA BARRA DE VISTAS DESAPARECE", pinto(M.dom, "vistas").hidden, true);
 comp("y las metricas del galpon tambien", pinto(M.dom, "metricas").hidden, true);
 comp("y el panel entero de la izquierda", pinto(M.dom, "izquierda").hidden, true);
 comp("y el de la derecha, que era la seleccion de barras",
   pinto(M.dom, "derecha").hidden, true);
 const diseno = pinto(M.dom, "centro").innerHTML;
-cierto("Conexiones dice QUE enseñará y que su motor está escrito",
-  /placa/.test(diseno) && /conexiones\.js/.test(diseno));
+cierto("Hojas Excel dice QUE enseñará y quién lo hará",
+  /hojas de cálculo/.test(diseno) && /escritor\.js/.test(diseno));
 cierto("no se pone una maqueta, y se dice por que",
   /Todavía no hay pantalla/.test(diseno) && /engaña más que una que avisa/.test(diseno));
 cierto("y con tildes: el texto es para el proyectista, no para el compilador",
@@ -468,6 +468,18 @@ cierto("y Comprobación oye a la zapata de LOS DOS pórticos",
   cierto("al elegir el paño arriostrado queda marcado", /data-portico="arriostrado" aria-pressed="true"/.test(sel()));
   pulsa(M.dom, "pasos", "data-paso", "analisis");
   cierto("y en Análisis vuelve al pórtico interior", /data-portico="interior" aria-pressed="true"/.test(sel()));
+  /* CONEXIONES: los dos pórticos, el panel de Diseño y lo que falta */
+  pulsa(M.dom, "pasos", "data-paso", "conex");
+  cierto("en Conexiones, el pórtico interior y el de fachada, y nada más",
+    /data-portico="interior" aria-pressed="true"/.test(sel()) && /data-portico="fachada"/.test(sel()) &&
+    !/data-portico="(longitudinal|correas|arriostrado|hastial)"/.test(sel()));
+  comp("con el panel de Diseño a la izquierda, que es donde están las uniones",
+    [pinto(M.dom, "lado-diseno").hidden, pinto(M.dom, "derecha").hidden], [false, false]);
+  cierto("y sin las fuerzas o sin los datos de las uniones, dice qué falta",
+    /todavía no se pueden verificar las uniones/.test(sel()));
+  cierto("Comprobación oye a las uniones de los dos pórticos",
+    /avisosConexiones\(conexActual\(p\)\)/.test(modeHtml));
+  pulsa(M.dom, "pasos", "data-paso", "analisis");
   cierto("Comprobación mira también las zapatas del paño arriostrado y de la columna hastial",
     /\["arriostrado", "hastial"\]\.forEach/.test(modeHtml));
   cierto("Comprobación oye a las correas", /avisosCorreas\(correasActual\(\)\)/.test(modeHtml));

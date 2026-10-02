@@ -6,7 +6,7 @@
     "placabase.js"
   ],
   "version": 1,
-  "fecha": "2026-10-01",
+  "fecha": "2026-10-02",
   "regla": "Ningún número entra al código sin fila aquí. Sin fuente primaria leída, no entra.",
   "estados": {
     "verificado": "leído en el texto original de la fuente",
@@ -543,6 +543,18 @@
       "nota": "MISMOS NÚMEROS, DISTINTA COLUMNA DE ENTRADA, y es fácil no verlo. El AISC: «Material Thickness of Thinner Part Joined». La E.090: «Espesor de la parte unida más gruesa». El tamaño mínimo sale de una o de otra según la norma, y con la misma tabla eso cambia el resultado. Zapata, Ejemplo 5.3, usa la plancha de 1/2 plg y no distingue porque las dos son iguales. EJEMPLO DE GALPÓN: un ángulo de 6 mm a una cartela de 16 mm. AISC: 3 mm. E.090: 6 mm. DECISIÓN: manda el AISC, y el módulo dice lo que pediría la E.090 cuando difiere."
     },
     {
+      "id": "J.filete.pulgadas",
+      "grupo": "Soldadura",
+      "magnitud": "Los escalones del filete con material en pulgadas",
+      "valor": "material de catálogo en pulgadas: mínimo hasta 1/4\" inclusive → 1/8\" · hasta 1/2\" → 3/16\" · hasta 3/4\" → 1/4\" · más → 5/16\"  ·  máximo en el borde: t < 1/4\" → t; t ≥ 1/4\" → t − 1/16\"",
+      "unidad": "mm",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC 360-22 Tabla J2.4 y J2.2b(b)",
+      "nota": "La Tabla J2.4 trae dos columnas, pulgadas y entre paréntesis milímetros: «To 1/4 (6) inclusive 1/8 (3); Over 1/4 (6) to 1/2 (13) 3/16 (5); Over 1/2 (13) to 3/4 (19) 1/4 (6); Over 3/4 (19) 5/16 (8)». La J2.2b(b): «Along edges of material less than 1/4 in. (6 mm) thick; not greater than the thickness of the material. Along edges of material 1/4 in. (6 mm) or more in thickness; not greater than the thickness of the material minus 1/16 in. (2 mm)». Los milímetros son una conversión redondeada, y justo en 1/4\" = 6,35 mm cambian de escalón: un ángulo de 1/4\" a una cartela de 3/8\" leído en milímetros pide un mínimo de 5 mm y admite un máximo de 6,35 − 2 = 4,35 mm, y NO CABE NINGÚN FILETE; leído en pulgadas, que es en lo que está hecho, pide 1/8\" (3,2 mm) y admite 1/4 − 1/16 = 3/16\" (4,8 mm). DECISIÓN: el material de catálogo en pulgadas se mide con la columna en pulgadas, pasada exacta a milímetros; el resto, con la de milímetros (fila J.filete.min). Zapata, Ejemplo 5.3, ya usa el 1/16 plg para el máximo."
+    },
+    {
       "id": "J.pernos.Rn",
       "grupo": "Pernos en conexiones de aplastamiento",
       "magnitud": "Resistencia del perno a tracción o corte",
@@ -781,6 +793,78 @@
       "clave": true,
       "fuente": "McCormac-Csernak Ejemplo D-2 (p. 694-695) · AISC J2.4",
       "nota": "McCormac: «C = T = Mu/(d − tf) = 407,08 klb» y longitud por patín 2·(14,7) − 0,590 = 28,81 plg. Con la columna en tracción se le suma la mitad de la tracción a cada patín. El AISC J2.4(b) permitiría el factor 1 + 0,5·sen^1,5θ por ser carga transversal al cordón; no se toma, como McCormac: del lado seguro. En el ejemplo McCormac divide entre 28,41 en vez de 28,81 (sale 0,643 plg y no 0,634): errata suya."
+    },
+    {
+      "id": "J.union.angulo",
+      "grupo": "Las uniones del tijeral",
+      "magnitud": "Cómo se une una barra del tijeral",
+      "valor": "el ángulo, o los dos del ángulo doble, a la cartela del nudo · la cartela tiene el espesor de la separación de los ángulos dobles · las bridas, continuas, le pasan la diferencia de sus dos tramos",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "fila D.DIS.cartela · estática del nudo",
+      "nota": "En un tijeral de ángulos dobles las bridas pasan a cada lado de una cartela, y las diagonales y montantes se unen a ella: su espesor es la separación de los ángulos dobles que ya se da en Diseño. La diagonal o el montante entregan su fuerza entera. La brida es continua: en cada nudo pasa a la cartela solo la diferencia entre las fuerzas de sus dos tramos, en la misma corrida. Con los ángulos en contacto (separación 0) no hay cartela y las almas irían soldadas a la brida: esa unión no está conectada aquí y se dice."
+    },
+    {
+      "id": "J.excentricidad.angulo",
+      "grupo": "Las uniones del tijeral",
+      "magnitud": "Balancear la soldadura de un ángulo",
+      "valor": "no hace falta: el J1.7 exime las uniones de extremo de ángulos simples y dobles",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC 360-22 J1.7",
+      "nota": "Textual: «Groups of welds or bolts at the ends of any member that transmit axial force into that member shall be sized so that the center of gravity of the group coincides with the center of gravity of the member, unless provision is made for the eccentricity. The foregoing provision is not applicable to end connections of single-angle, double-angle, and similar members». Así que los dos filetes del ángulo pueden ser iguales."
+    },
+    {
+      "id": "J.whitmore",
+      "grupo": "Las uniones del tijeral",
+      "magnitud": "La cartela en tracción: la sección de Whitmore",
+      "valor": "ancho efectivo W = b + 2·L·tan 30° desde el comienzo de la unión · fluencia φ = 0,90·Fy·W·t · rotura φ = 0,75·Fu·Wn·t",
+      "unidad": "cm",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC 360-22 J4.1 y Comentario J4.1 y J4.4",
+      "nota": "El Comentario J4.4: «In practice, the equivalent column width is generally calculated with a constant 30° dispersion angle (...) the equivalent cross section is known as the Whitmore section». El Comentario J4.1 permite 45° en tracción por la capacidad de deformación de la cartela. Se toma 30°, la convención y del lado seguro, para tracción y compresión. b es el ancho de lo que se une (el ala del ángulo, o 0 con una línea de pernos) y L la longitud de la unión en la dirección de la fuerza."
+    },
+    {
+      "id": "J.bloque.soldado",
+      "grupo": "Las uniones del tijeral",
+      "magnitud": "El bloque de cortante alrededor de una unión soldada",
+      "valor": "en el ángulo y en la cartela · planos de corte a lo largo de los filetes, plano de tracción el ancho del ala · Ubs = 1",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC 360-22 J4.3 y su Comentario",
+      "nota": "El Comentario J4.3: «The block shear failure mode must also be checked around the periphery of welded connections». Con soldadura no hay agujeros: áreas netas iguales a las brutas. Los dos filetes longitudinales del ángulo dan los dos planos de corte, y el extremo del ala el de tracción."
+    },
+    {
+      "id": "J.cartela.pandeo",
+      "grupo": "Las uniones del tijeral",
+      "magnitud": "La cartela en compresión",
+      "valor": "no se verifica: hace falta su longitud libre, que no está en el modelo",
+      "unidad": "—",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC 360-22 J4.4 y Comentario J4.4 (Dowswell, 2006)",
+      "nota": "El J4.4 da Fy si Lc/r ≤ 25 y el Capítulo E si no, sobre la sección de Whitmore; pero Lc depende de la geometría de la cartela —cuánto queda libre entre el extremo de la barra y la brida— y su K, según el Comentario, es «difícil de establecer» (Dowswell). Esa geometría no está en el modelo, así que no se calcula: se dice. En un tijeral liviano con la cartela compacta casi nunca manda."
+    },
+    {
+      "id": "J.pernos.detalle",
+      "grupo": "Las uniones del tijeral",
+      "magnitud": "El detalle de una unión empernada del tijeral",
+      "valor": "una línea de pernos en el ala · separación s, distancia al borde le y gramil g, datos del proyecto · agujeros estándar",
+      "unidad": "cm",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC 360-22 J3.3, J3.4 y J3.11",
+      "nota": "La resistencia de los pernos al aplastamiento y al desgarramiento, y el bloque de cortante del ángulo, dependen de dónde van los agujeros: s, le y el gramil desde el talón. Son detalle del proyectista y se piden; distancias() comprueba los mínimos de J3.3 y J3.4. Con el ángulo doble los pernos trabajan en corte doble y la cartela aplasta contra la suma de las dos alas."
     }
   ]
 }

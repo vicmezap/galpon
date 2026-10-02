@@ -61,7 +61,7 @@
   const ART = INV.declara("conexiones.js", [
     "J.electrodo", "J.filete.Fnw", "J.filete.Rn", "J.filete.kds", "J.filete.grupo",
     "J.filete.garganta", "J.filete.min", "J.filete.max", "J.filete.minlong",
-    "J.filete.beta", "J.filete.largo.divergencia", "J.filete.min.divergencia",
+    "J.filete.beta", "J.filete.largo.divergencia", "J.filete.min.divergencia", "J.filete.pulgadas",
     "J.pernos.Rn", "J.pernos.Fn", "J.pernos.Fn.divergencia", "J.pernos.Fnv.divergencia",
     "J.pernos.combinado", "J.pernos.largo", "J.pernos.agujero", "J.pernos.agujero.pulg",
     "J.pernos.esp", "J.pernos.borde", "J.pernos.borde.pulg", "J.pernos.borde.min",
@@ -69,7 +69,9 @@
     "J.aplast", "J.desgarro", "J.aplast.ambos",
     "J.elem.traccion", "J.elem.085", "J.elem.corte", "J.elem.compresion",
     "T.varillas.Ab", "T.varillas.tracCorte", "T.An.agujero", "T.U.c4"
-  ]);
+  ,
+    "J.union.angulo", "J.excentricidad.angulo", "J.whitmore", "J.bloque.soldado", "J.cartela.pandeo",
+    "J.pernos.detalle"]);
 
   const MPA = UN.MPA_KGCM2, KSI = UN.KSI_KGCM2, PLG = UN.PULGADA_CM;
 
@@ -108,12 +110,20 @@
 
   /* Tabla J2.4 · los mismos escalones en las dos normas; lo que cambia es la
      columna de entrada (fila J.filete.min.divergencia) */
-  function minimoTabla(t_mm) {
+  function minimoTabla(t_mm, sistema) {
+    if (sistema === "pulgadas") {                  /* la columna en pulgadas · fila J.filete.pulgadas */
+      if (t_mm <= 0.25 * PULG + 1e-9) return 0.125 * PULG;
+      if (t_mm <= 0.5 * PULG + 1e-9) return 0.1875 * PULG;
+      if (t_mm <= 0.75 * PULG + 1e-9) return 0.25 * PULG;
+      return 0.3125 * PULG;
+    }
     if (t_mm <= 6) return 3;
     if (t_mm <= 13) return 5;
     if (t_mm <= 19) return 6;
     return 8;
   }
+  const PULG = 25.4;                               /* mm */
+  function sistemaDe(perfil) { return perfil && perfil.origen === "imperial" ? "pulgadas" : "mm"; }
 
   /* ---------- tamaño mínimo y máximo ------------------------------------ */
   function tamanosFilete(d) {
@@ -122,11 +132,15 @@
     const delgada = Math.min(t1, t2), gruesa = Math.max(t1, t2);
     const tBorde = (d.tBorde_mm === undefined) ? delgada : d.tBorde_mm;
     exige(tBorde > 0, "tBorde_mm tiene que ser > 0");
-    const wMin = minimoTabla(delgada);              /* AISC: la delgada */
-    const wMinE090 = minimoTabla(gruesa);           /* E.090: la gruesa */
-    const wMax = d.rellenoCompleto ? tBorde : (tBorde < 6 ? tBorde : tBorde - 2);
+    const pulg = d.sistema === "pulgadas";
+    exige(!d.sistema || pulg || d.sistema === "mm", "el sistema de la tabla J2.4 es «mm» o «pulgadas»");
+    const wMin = minimoTabla(delgada, d.sistema);   /* AISC: la delgada */
+    const wMinE090 = minimoTabla(gruesa, d.sistema); /* E.090: la gruesa */
+    const tope = pulg ? 0.25 * PULG - 1e-9 : 6, holgura = pulg ? PULG / 16 : 2;
+    const wMax = d.rellenoCompleto ? tBorde : (tBorde < tope ? tBorde : tBorde - holgura);
     const out = {
-      wMin_mm: wMin, wMax_mm: wMax, wMinE090_mm: wMinE090,
+      wMin_mm: wMin, wMax_mm: wMax, wMinE090_mm: wMinE090, sistema: pulg ? "pulgadas" : "mm",
+      artSistema: pulg ? ART["J.filete.pulgadas"] : null,
       cabe: wMin <= wMax,
       art: ART["J.filete.min"], artMax: ART["J.filete.max"],
       artDivergencia: ART["J.filete.min.divergencia"]
@@ -793,15 +807,110 @@
     }, extra);
   }
 
+  /* =====================================================================
+     LA BARRA DEL TIJERAL A SU CARTELA · filas J.union.angulo y siguientes
+     d = { perfil (L ó 2L), acero, tCartela_cm, Nt_kgf (tracción), Nc_kgf (compresión, > 0),
+           union: "soldadas" | "empernadas",
+           soldadas: Lw_cm (cada filete), w_mm, electrodo
+           empernadas: porLinea, diametro, grado, s_cm, le_cm, g_cm }
+     ===================================================================== */
+  const TAN30 = Math.tan(Math.PI / 6);
+  function unionAngulo(d) {
+    const p = d.perfil, tg = d.tCartela_cm;
+    exige(p && (p.familia === "L" || p.familia === "2L"), "unionAngulo() es para barras de ángulo simple o doble");
+    exige(tg > 0, "unionAngulo() necesita el espesor de la cartela");
+    const nAng = p.familia === "2L" ? 2 : 1;
+    const t = p.t_cm, b = Math.max(p.b_cm || 0, p.d_cm || 0);    /* el ala que se une */
+    const N = Math.max(d.Nt_kgf || 0, d.Nc_kgf || 0);
+    exige(N > 0, "unionAngulo() necesita alguna fuerza");
+    const mat = materialDe(d);
+    const estados = [], omitidos = [];
+    const pon = (estado, phiRn, F, art, extra) => estados.push(Object.assign(
+      { estado: estado, phiRn_kgf: phiRn, Pu_kgf: F, ratio: F / phiRn, art: art }, extra || {}));
+    let L, W, Wn;
+    if (d.union === "soldadas") {
+      exige(d.Lw_cm > 0 && d.w_mm > 0, "la unión soldada necesita la longitud de cada filete y su tamaño");
+      /* los filetes: a lo largo del talón y de la punta, en cada ángulo · J1.7 los exime de balancearse */
+      const f = filete({ w_mm: d.w_mm, electrodo: d.electrodo, L_cm: d.Lw_cm });
+      pon("soldadura: " + 2 * nAng + " filetes de " + d.w_mm + " mm × " + d.Lw_cm + " cm", 2 * nAng * f.phiRn_kgf, N,
+        f.art, { avisos: f.avisos });
+      const tam = tamanosFilete({ t1_mm: t * 10, t2_mm: tg * 10, tBorde_mm: t * 10, w_mm: d.w_mm,
+        sistema: sistemaDe(p) });
+      if (!tam.cumpleMin || !tam.cumpleMax) {
+        omitidos.push({ que: "el tamaño del filete", esencial: true, art: tam.art,
+          motivo: d.w_mm + " mm está fuera de " + tam.wMin_mm.toFixed(1) + " a " + tam.wMax_mm.toFixed(1) +
+            " mm (Tabla J2.4 y J2.2b" + (tam.sistema === "pulgadas" ? ", en pulgadas" : "") + ")" });
+      }
+      /* el bloque de cortante del ángulo y de la cartela, sin agujeros · fila J.bloque.soldado */
+      if (d.Nt_kgf > 0) {
+        const ba = AC.bloqueCortante({ acero: d.acero, Fy_kgcm2: d.Fy_kgcm2, Fu_kgcm2: d.Fu_kgcm2,
+          Agv_cm2: 2 * d.Lw_cm * t, Anv_cm2: 2 * d.Lw_cm * t, Agt_cm2: b * t, Ant_cm2: b * t, Ubs: 1.0 });
+        pon("ángulo: bloque de cortante", nAng * ba.Rd_kgf, d.Nt_kgf, ART["J.bloque.soldado"]);
+        const bg = AC.bloqueCortante({ acero: d.acero, Fy_kgcm2: d.Fy_kgcm2, Fu_kgcm2: d.Fu_kgcm2,
+          Agv_cm2: 2 * d.Lw_cm * tg, Anv_cm2: 2 * d.Lw_cm * tg, Agt_cm2: b * tg, Ant_cm2: b * tg, Ubs: 1.0 });
+        pon("cartela: bloque de cortante", bg.Rd_kgf, d.Nt_kgf, ART["J.bloque.soldado"]);
+      }
+      L = d.Lw_cm; W = b + 2 * L * TAN30; Wn = W;
+    } else if (d.union === "empernadas") {
+      exige(d.porLinea >= 1 && d.diametro && d.grado, "la unión empernada necesita los pernos por línea, su diámetro y su grado");
+      exige(d.le_cm > 0 && d.g_cm > 0 && (d.porLinea === 1 || d.s_cm > 0),
+        "la unión empernada necesita la separación s, la distancia al borde le y el gramil g (fila J.pernos.detalle)");
+      const di = diametro(d.diametro);
+      /* corte doble con el ángulo doble: la cartela aplasta contra la suma de las dos alas */
+      const capas = nAng === 2 ? [{ t_cm: tg, acero: d.acero, Fy_kgcm2: d.Fy_kgcm2, Fu_kgcm2: d.Fu_kgcm2 },
+        { t_cm: 2 * t, acero: d.acero, Fy_kgcm2: d.Fy_kgcm2, Fu_kgcm2: d.Fu_kgcm2 }]
+        : [{ t_cm: t, acero: d.acero, Fy_kgcm2: d.Fy_kgcm2, Fu_kgcm2: d.Fu_kgcm2 },
+          { t_cm: tg, acero: d.acero, Fy_kgcm2: d.Fy_kgcm2, Fu_kgcm2: d.Fu_kgcm2 }];
+      const gp = grupoPernos({ grado: d.grado, diametro: d.diametro, porLinea: d.porLinea, lineas: 1,
+        s_cm: d.s_cm, le_cm: d.le_cm, lt_cm: b - d.g_cm, planos: nAng, aplastamientoEn: capas, norma: d.norma });
+      pon("pernos: " + gp.gobierna, gp.phiRn_kgf, N, gp.art, { distancias: gp.distancias });
+      if (gp.distancias && !gp.distancias.ok) {
+        omitidos.push({ que: "las distancias de los pernos", esencial: true, art: ART["J.pernos.detalle"],
+          motivo: "no cumplen los mínimos de J3.3 o J3.4" });
+      }
+      if (d.Nt_kgf > 0) {
+        const hNeto = di.agujero_cm + 0.2;
+        const lv = d.le_cm + (d.porLinea - 1) * (d.s_cm || 0);
+        const Agv = lv * t, Anv = (lv - (d.porLinea - 0.5) * hNeto) * t;
+        const Agt = (b - d.g_cm) * t, Ant = (b - d.g_cm - hNeto / 2) * t;
+        if (Anv > 0 && Ant > 0) {
+          const ba = AC.bloqueCortante({ acero: d.acero, Fy_kgcm2: d.Fy_kgcm2, Fu_kgcm2: d.Fu_kgcm2,
+            Agv_cm2: Agv, Anv_cm2: Anv, Agt_cm2: Agt, Ant_cm2: Ant, Ubs: 1.0 });
+          pon("ángulo: bloque de cortante", nAng * ba.Rd_kgf, d.Nt_kgf, ba.art);
+        }
+      }
+      L = (d.porLinea - 1) * (d.s_cm || 0); W = Math.max(di.agujero_cm, 2 * L * TAN30); Wn = W - (di.agujero_cm + 0.2);
+    } else {
+      exige(false, "la unión es «soldadas» ó «empernadas»");
+    }
+    /* la cartela en tracción por la sección de Whitmore · fila J.whitmore */
+    if (d.Nt_kgf > 0) {
+      pon("cartela: fluencia en la sección de Whitmore", PHI.tFluencia * mat.Fy * W * tg, d.Nt_kgf, ART["J.whitmore"],
+        { W_cm: W });
+      if (Wn > 0) pon("cartela: rotura en la sección de Whitmore", PHI.tRotura * mat.Fu * Wn * tg, d.Nt_kgf, ART["J.whitmore"]);
+    }
+    if (d.Nc_kgf > 0) {
+      omitidos.push({ que: "la cartela a compresión", esencial: false, art: ART["J.cartela.pandeo"],
+        motivo: "hace falta su longitud libre, que no está en el modelo (fila J.cartela.pandeo)" });
+    }
+    const r = cierra(estados, { Pu_kgf: N });
+    r.omitidos = omitidos;
+    r.faltanEsenciales = omitidos.some((o) => o.esencial);
+    r.cumple = r.cumple && !r.faltanEsenciales;
+    r.nAngulos = nAng; r.W_cm = W;
+    r.art = ART["J.union.angulo"]; r.artExcentricidad = ART["J.excentricidad.angulo"];
+    return r;
+  }
+
   /* las conexiones de deslizamiento crítico se piden y se niegan */
   function deslizamiento() { noDeslizamiento({ deslizamientoCritico: true }); }
 
   return {
     ART, PHI, PERNOS, METRICOS, PULGADAS, ELECTRODOS_KSI, FNW, GARGANTA, NORMAS,
-    fexx, minimoTabla, tamanosFilete, filete, grupoFiletes,
+    fexx, minimoTabla, sistemaDe, tamanosFilete, filete, grupoFiletes,
     diametro, perno, traccionCorte, aplastamiento, distancias,
     grupoPernos, pernosNecesarios,
     elementoTraccion, elementoCorte, elementoCompresion, bloqueCortante,
-    extremoEmpernado, extremoSoldado, deslizamiento
+    extremoEmpernado, extremoSoldado, deslizamiento, unionAngulo
   };
 });

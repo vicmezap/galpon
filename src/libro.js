@@ -126,7 +126,8 @@
   const DISENO = ["arriostreInferior_m", "separacionLargueros_m", "LbColumna_m", "cartela",
     "tensores", "panelTramos", "clipCorreas",
     "separadores_cm", "conexionSeparadores", "condicionesE5", "uniones", "soldadura_cm",
-    "pernosPorLinea", "diametroPerno", "arriostreComprobado"];
+    "pernosPorLinea", "diametroPerno", "arriostreComprobado",
+    "filete_mm", "electrodo", "gradoPerno", "pernoS_cm", "pernoLe_cm", "gramil_cm"];
 
   /* Los datos del sitio y de las cargas.  Misma regla que PARAMETROS: una
      clave que no está aquí PARA al guardar, en vez de perderse en silencio. */

@@ -471,4 +471,50 @@ comp("NI UNA línea de Cimentación sin procedencia válida",
   cierto("la ficha dice el volteo con sismo", zNo.fichas[1].lineas.some((l) => /Volteo con sismo/.test(l.q)));
 }
 
+
+/* LAS UNIONES DEL TIJERAL · resultados.conexiones */
+{
+  comp("sin nada, pide cómo van las uniones y la cartela", R.conexiones(m3, mok, P).faltas.map((f) => f.campo),
+    ["di_un", "di_cart"]);
+  comp("soldadas sin filete ni electrodo, los pide", R.conexiones(m3, Object.assign({}, mok, { diseno: DZ }), P)
+    .faltas.map((f) => f.campo), ["di_filete", "di_elec"]);
+  const DZU = Object.assign({}, DZ, { filete_mm: 4, electrodo: "E70" });
+  comp("y el libro los guarda", R.leeDiseno(R.valoresDeDiseno(DZU)), DZU);
+  const mu = Object.assign({}, mok, { diseno: DZU });
+  const cx = R.conexiones(m3, mu, P);
+  comp("con ellos, las cuatro clases del tijeral", cx.ok && cx.filas.map((f) => f.clase),
+    ["diagonal", "montante", "brida superior", "brida inferior"]);
+  cierto("cada una con su ratio y lo que gobierna", cx.filas.every((f) => f.ratio > 0 && f.gobierna));
+  /* la diagonal: la mayor tracción de todas las diagonales, en la corrida que la da */
+  const g = require("../src/analisis.js").geometria(m3, ok.r.sistema, ok.r.eje);
+  const diag = g.truss.filter((b) => b.clase === "diagonal");
+  const NtMax = Math.max.apply(null, diag.map((b) => ok.r.barras[b.id.split("@")[0]].traccion.Pr_kgf));
+  cerca("la diagonal se une con la mayor tracción de las diagonales", cx.filas[0].Nt_kgf, NtMax, 1e-9);
+  /* la brida continua: en un nudo, la diferencia entre sus dos tramos */
+  const bi = cx.filas[3];
+  cierto("la brida pasa: se une la diferencia de sus tramos en un nudo, menor que su axial",
+    bi.Nt_kgf > 0 && bi.Nt_kgf === bi.Nc_kgf && /nudo entre/.test(bi.comboT));
+  cierto("en pulgadas, el filete de 4 mm cabe en los ángulos de 1/4\" (fila J.filete.pulgadas)",
+    cx.filas.every((f) => !f.faltanEsenciales));
+  comp("y todo cumple, sin avisos", [cx.cumple, R.avisosConexiones(cx)], [true, []]);
+  cierto("la ficha dice lo que todavía no verifica", cx.fichas[1].lineas.some((l) => /columna–tijeral/.test(l.q)));
+  /* con un filete demasiado grande falla, y la Comprobación lo dice */
+  const cg = R.conexiones(m3, Object.assign({}, mok, { diseno: Object.assign({}, DZU, { filete_mm: 8 }) }), P);
+  cierto("un filete de 8 mm no cabe en ningún borde de 1/4\" ni de 3/16\"", !cg.cumple &&
+    cg.filas.every((f) => f.faltanEsenciales));
+  cierto("y la Comprobación lo lleva a Conexiones", R.avisosConexiones(cg).some((x) => x.paso === "conex" && /4 unión/.test(x.que)));
+  /* sin cartela no hay unión que verificar, y se dice */
+  const c0 = R.conexiones(m3, Object.assign({}, mok, { diseno: Object.assign({}, DZU, { cartela: "0" }) }), P);
+  cierto("con los ángulos en contacto no hay cartela: se dice que falta", c0.ok && c0.filas.every((f) => /cartela/.test(f.falta)));
+  /* empernadas: pide sus datos */
+  const ce = R.conexiones(m3, Object.assign({}, mok, { diseno: Object.assign({}, DZ, { uniones: "empernadas",
+    pernosPorLinea: 3, diametroPerno: "5/8" }) }), P);
+  comp("empernadas: pide el grado, la separación, el borde y el gramil", ce.faltas.map((f) => f.campo),
+    ["di_gperno", "di_ps", "di_ple", "di_pg"]);
+  /* el de fachada, con su título en el aviso */
+  const cf = R.conexiones(m3, Object.assign({}, mok, { diseno: Object.assign({}, DZU, { filete_mm: 8 }) }), P, null, "fachada");
+  cierto("el pórtico de fachada también, y su aviso lo dice", cf.ok &&
+    /^Pórtico de fachada/.test(R.avisosConexiones(cf)[0].que));
+}
+
 fin();

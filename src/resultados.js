@@ -48,7 +48,8 @@
     "LG.hastial.reparto", "LG.factores", "D.DIS.correas", "F.F6.sinLTB", "F.hipotesis", "D.cobertura.tabla",
     "SV.deflex", "SV.correa.Ld", "CR.cargas", "Z.longitudinal.articulada", "PD.biaxial", "ZT.tipos",
     "ZT.cruz", "ZT.hastial", "ZT.placa.cruz", "Z.volteo.E030", "Z.conexion",
-    "Z.conexion.diseno"
+    "Z.conexion.diseno", "J.union.angulo", "J.whitmore", "J.pernos.detalle", "J.cartela.pandeo",
+    "J.excentricidad.angulo"
   ]);
   const ln = V.ln, ficha = V.ficha;
   const n2 = (x, d) => (Math.round(x * Math.pow(10, d)) / Math.pow(10, d))
@@ -570,6 +571,10 @@
         tipo: "opcion", fuente: "C.E5.cond", opciones: SINO },
       { id: "un", clave: "uniones", etiqueta: "Uniones de las barras", tipo: "opcion", fuente: "T.U.c2",
         opciones: [ELEGIR, ["soldadas", "soldadas"], ["empernadas", "empernadas"]] },
+      { id: "filete", clave: "filete_mm", etiqueta: "Tamaño del filete", unidad: "mm", tipo: "numero",
+        fuente: "J.union.angulo", soloSi: "un=soldadas" },
+      { id: "elec", clave: "electrodo", etiqueta: "Electrodo", tipo: "opcion", fuente: "J.union.angulo",
+        soloSi: "un=soldadas", opciones: [ELEGIR, ["E70", "E70XX"], ["E60", "E60XX"]] },
       { id: "sold", clave: "soldadura_cm", etiqueta: "Longitud de soldadura en la cartela", unidad: "cm",
         tipo: "numero", fuente: "T.U.c2", soloSi: "un=soldadas" },
       { id: "pern", clave: "pernosPorLinea", etiqueta: "Pernos por línea", tipo: "numero", fuente: "T.U.c8",
@@ -577,7 +582,15 @@
       { id: "dperno", clave: "diametroPerno", etiqueta: "Diámetro de los pernos", tipo: "opcion",
         fuente: "T.U.c8", soloSi: "un=empernadas",
         opciones: [ELEGIR, ["1/2", "1/2\""], ["5/8", "5/8\""], ["3/4", "3/4\""], ["7/8", "7/8\""],
-          ["M16", "M16"], ["M20", "M20"], ["M22", "M22"]] }] },
+          ["M16", "M16"], ["M20", "M20"], ["M22", "M22"]] },
+      { id: "gperno", clave: "gradoPerno", etiqueta: "Grado de los pernos", tipo: "opcion", fuente: "J.pernos.detalle",
+        soloSi: "un=empernadas", opciones: [ELEGIR, ["A325", "A325"], ["A307", "A307"], ["A490", "A490"]] },
+      { id: "ps", clave: "pernoS_cm", etiqueta: "Separación entre pernos", unidad: "cm", tipo: "numero",
+        fuente: "J.pernos.detalle", soloSi: "un=empernadas" },
+      { id: "ple", clave: "pernoLe_cm", etiqueta: "Distancia al borde, en la dirección de la fuerza", unidad: "cm",
+        tipo: "numero", fuente: "J.pernos.detalle", soloSi: "un=empernadas" },
+      { id: "pg", clave: "gramil_cm", etiqueta: "Gramil: del talón a la línea de pernos", unidad: "cm", tipo: "numero",
+        fuente: "J.pernos.detalle", soloSi: "un=empernadas" }] },
     { grupo: "Correas", campos: [
       { id: "ten", clave: "tensores", etiqueta: "Tensores por correa en cada paño (0 si ninguno)", tipo: "numero",
         fuente: "F.F6.sinLTB" },
@@ -605,6 +618,14 @@
       pon("pernosPorLinea", num(val.pern));
       if (val.dperno) d.diametroPerno = val.dperno;
     }
+    if (d.uniones === "soldadas") {
+      pon("filete_mm", num(val.filete));
+      if (val.elec === "E70" || val.elec === "E60") d.electrodo = val.elec;
+    }
+    if (d.uniones === "empernadas") {
+      if (["A325", "A307", "A490"].indexOf(val.gperno) >= 0) d.gradoPerno = val.gperno;
+      pon("pernoS_cm", num(val.ps)); pon("pernoLe_cm", num(val.ple)); pon("gramil_cm", num(val.pg));
+    }
     pon("tensores", num(val.ten));
     if (["1", "2", "3"].indexOf(val.ptram) >= 0) d.panelTramos = +val.ptram;
     if (val.clip === "si" || val.clip === "no") d.clipCorreas = val.clip === "si";
@@ -618,6 +639,8 @@
     s("cart", d.cartela); s("sep", d.separadores_cm); s("consep", d.conexionSeparadores);
     if (typeof d.condicionesE5 === "boolean") v.e5 = d.condicionesE5 ? "si" : "no";
     s("un", d.uniones); s("sold", d.soldadura_cm); s("pern", d.pernosPorLinea); s("dperno", d.diametroPerno);
+    s("filete", d.filete_mm); s("elec", d.electrodo); s("gperno", d.gradoPerno); s("ps", d.pernoS_cm);
+    s("ple", d.pernoLe_cm); s("pg", d.gramil_cm);
     s("ten", d.tensores); s("ptram", d.panelTramos);
     if (typeof d.clipCorreas === "boolean") v.clip = d.clipCorreas ? "si" : "no";
     return v;
@@ -1108,6 +1131,125 @@
   }
 
   /* =====================================================================
+     LAS UNIONES DEL TIJERAL · filas J.union.angulo y siguientes
+     Cada clase de barra con su peor fuerza: las almas, la suya; las bridas,
+     continuas, la diferencia entre sus dos tramos en cada nudo.
+     ===================================================================== */
+  const CARTELA_CM = { "3/8": 0.9525, "3/4": 1.905 };
+  function faltanUniones(dz) {
+    const F = [];
+    if (dz.uniones !== "soldadas" && dz.uniones !== "empernadas") F.push({ campo: "di_un", que: "si las barras van soldadas o empernadas" });
+    if (dz.uniones === "soldadas") {
+      if (!(dz.soldadura_cm > 0)) F.push({ campo: "di_sold", que: "la longitud de cada filete en la cartela" });
+      if (!(dz.filete_mm > 0)) F.push({ campo: "di_filete", que: "el tamaño del filete" });
+      if (!dz.electrodo) F.push({ campo: "di_elec", que: "el electrodo" });
+    }
+    if (dz.uniones === "empernadas") {
+      if (!(dz.pernosPorLinea >= 1)) F.push({ campo: "di_pern", que: "los pernos por línea" });
+      if (!dz.diametroPerno) F.push({ campo: "di_dperno", que: "el diámetro de los pernos" });
+      if (!dz.gradoPerno) F.push({ campo: "di_gperno", que: "el grado de los pernos" });
+      if (!(dz.pernoS_cm > 0) && dz.pernosPorLinea > 1) F.push({ campo: "di_ps", que: "la separación entre pernos" });
+      if (!(dz.pernoLe_cm > 0)) F.push({ campo: "di_ple", que: "la distancia al borde" });
+      if (!(dz.gramil_cm > 0)) F.push({ campo: "di_pg", que: "el gramil de la línea de pernos" });
+    }
+    if (CARTELA_CM[dz.cartela] === undefined && dz.cartela !== "0") F.push({ campo: "di_cart", que: "el espesor de la cartela" });
+    return F;
+  }
+
+  function conexiones(m3, modelo, perfiles, an, portico) {
+    const a = an || analisis(m3, modelo, perfiles, portico);
+    if (!a.ok) {
+      return { ok: false, faltas: [{ paso: "analisis", que: "las uniones necesitan las fuerzas del análisis" }].concat(a.faltas) };
+    }
+    const dz = modelo.diseno || {};
+    const F = faltanUniones(dz);
+    if (F.length) return { ok: false, faltas: F.map((f) => ({ paso: "conex", que: f.que, campo: f.campo })) };
+    const r = a.r, g = AN.geometria(m3, r.sistema, r.eje);
+    const seccion = seccionDesde(modelo, perfiles);
+    const filas = [];
+    const sinCartela = dz.cartela === "0";
+    for (const clase of ["diagonal", "montante", "brida superior", "brida inferior"]) {
+      const barras = g.truss.filter((b) => b.clase === clase);
+      if (!barras.length) continue;
+      const p = seccion(barras[0]);
+      let Nt = 0, Nc = 0, cNt = null, cNc = null;
+      if (clase.indexOf("brida") < 0) {
+        for (const b of barras) {
+          const e = r.barras[b.id.split("@")[0]];
+          if (e.traccion.Pr_kgf > Nt) { Nt = e.traccion.Pr_kgf; cNt = e.traccion.combo + " · " + e.id; }
+          if (-e.compresion.Pr_kgf > Nc) { Nc = -e.compresion.Pr_kgf; cNc = e.compresion.combo + " · " + e.id; }
+        }
+      } else {
+        /* la brida continua: en cada nudo, la diferencia de sus dos tramos en la misma corrida */
+        for (const b1 of barras) for (const b2 of barras) {
+          if (b1.id >= b2.id || !(b1.j === b2.i || b1.i === b2.j || b1.i === b2.i || b1.j === b2.j)) continue;
+          for (const c of r.corridas) {
+            const dN = Math.abs(c.fuerzas[b1.id].Pr_kgf - c.fuerzas[b2.id].Pr_kgf);
+            if (dN > Nt) { Nt = dN; Nc = dN; cNt = cNc = c.id + " · nudo entre " + b1.id.split("@")[0] + " y " + b2.id.split("@")[0]; }
+          }
+        }
+      }
+      const fila = { clase: clase, perfil: p ? (p.id || p.nombre) : null, Nt_kgf: Nt, Nc_kgf: Nc, comboT: cNt, comboC: cNc };
+      if (!p) { filas.push(Object.assign(fila, { ratio: null, cumple: false, falta: "sin perfil" })); continue; }
+      if (p.familia !== "L" && p.familia !== "2L") {
+        filas.push(Object.assign(fila, { ratio: null, cumple: false, falta: "la unión de una barra " + p.familia +
+          " no está conectada: solo ángulos simples y dobles" }));
+        continue;
+      }
+      if (sinCartela) {
+        filas.push(Object.assign(fila, { ratio: null, cumple: false, falta: "con los ángulos en contacto no hay cartela: " +
+          "la unión de las almas a la brida no está conectada (fila J.union.angulo)" }));
+        continue;
+      }
+      if (!(Nt > 0 || Nc > 0)) { filas.push(Object.assign(fila, { ratio: 0, cumple: true, nota: "sin fuerza" })); continue; }
+      let u;
+      try {
+        u = CX.unionAngulo({ perfil: p, acero: modelo.sitio.acero, tCartela_cm: CARTELA_CM[dz.cartela],
+          Nt_kgf: Nt, Nc_kgf: Nc, union: dz.uniones, Lw_cm: dz.soldadura_cm, w_mm: dz.filete_mm, electrodo: dz.electrodo,
+          porLinea: dz.pernosPorLinea, diametro: dz.diametroPerno, grado: dz.gradoPerno, s_cm: dz.pernoS_cm,
+          le_cm: dz.pernoLe_cm, g_cm: dz.gramil_cm });
+      } catch (e) {
+        filas.push(Object.assign(fila, { ratio: null, cumple: false, falta: e.message.split("\n")[0].replace(/^\w+: /, "") }));
+        continue;
+      }
+      filas.push(Object.assign(fila, { ratio: u.ratio, gobierna: u.gobierna, cumple: u.cumple, estados: u.estados,
+        omitidos: u.omitidos, faltanEsenciales: u.faltanEsenciales, W_cm: u.W_cm }));
+    }
+    const out = { ok: true, filas: filas, r: r, union: dz.uniones, cumple: filas.every((f) => f.cumple) };
+    out.fichas = fichasConexiones(out, dz);
+    return out;
+  }
+
+  function fichasConexiones(cx, dz) {
+    const L = [ln("Uniones", dz.uniones, "entrada", { nota: dz.uniones === "soldadas"
+      ? "filetes de " + dz.filete_mm + " mm, " + dz.soldadura_cm + " cm cada uno, " + dz.electrodo
+      : dz.pernosPorLinea + " pernos " + dz.gradoPerno + " de " + dz.diametroPerno + " por línea" }),
+      ln("Cartela", dz.cartela === "0" ? "no hay (ángulos en contacto)" : dz.cartela + "\"", "entrada")];
+    for (const f of cx.filas) {
+      L.push(ln(f.clase, f.ratio === null ? "FALTA" : n2(f.ratio, 3), f.ratio === null ? "medido" : "norma",
+        f.ratio === null ? { estado: "no", nota: f.falta } : { fuente: "J.union.angulo", estado: ok(f.cumple),
+          nota: (f.gobierna || "") + " · " + t2(Math.max(f.Nt_kgf, f.Nc_kgf)) }));
+    }
+    const pend = [ln("La cartela a compresión", "no se verifica", "medido",
+      { nota: "falta su longitud libre (fila J.cartela.pandeo)" }),
+      ln("La unión columna–tijeral", "pendiente", "medido", { nota: "las bridas a la columna en la unión rígida" }),
+      ln("Los empalmes de las bridas", "pendiente", "medido"),
+      ln("Las uniones de lo que trabaja a lo largo", "pendiente", "medido",
+        { nota: "cruces, arriostre de techo, puntales y clips de correa" })];
+    return [ficha("Las uniones del tijeral", "AISC 360-22 Cap. J", L, cx.cumple ? "bien" : null),
+      ficha("Lo que esta pantalla todavía no verifica", "se dice en vez de darlo por hecho", pend)];
+  }
+
+  function avisosConexiones(cx) {
+    if (!cx || !cx.ok) return [];
+    const no = cx.filas.filter((f) => !f.cumple);
+    if (!no.length) return [];
+    return [{ nivel: "error", que: (cx.r.fachada ? "Pórtico de fachada · " : "") + no.length + " unión(es) del tijeral no cumplen o faltan",
+      porque: no.map((f) => f.clase + (f.ratio !== null ? " (" + n2(f.ratio, 2) + ")" : ": " + f.falta)).join(" · "),
+      paso: "conex" }];
+  }
+
+  /* =====================================================================
      A LO LARGO · el sistema longitudinal y sus piezas
      Necesita los DOS pórticos: el peso sísmico de cada uno, y las corridas del
      de fachada para la columna de esquina.
@@ -1363,9 +1505,10 @@
     const Lw = pSol.m.soldadura.L_cm;
     const porMm = CX.filete({ w_mm: 1, L_cm: Lw, electrodo: c.electrodo }).phiRnPorCm_kgf;
     const tPlaca = c.placaT_cm > 0 ? c.placaT_cm : pT.m.placa.t_cm;
-    const tam = CX.tamanosFilete({ t1_mm: sec.tf_cm * 10, t2_mm: tPlaca * 10, tBorde_mm: sec.tf_cm * 10 });
+    const tam = CX.tamanosFilete({ t1_mm: sec.tf_cm * 10, t2_mm: tPlaca * 10, tBorde_mm: sec.tf_cm * 10,
+      sistema: CX.sistemaDe(sec) });
     const wReq = pSol.m.soldadura.Ff_kgf / (Lw * porMm);
-    const w = Math.max(Math.ceil(wReq - 1e-9), tam.wMin_mm);
+    const w = Math.ceil(Math.max(wReq, tam.wMin_mm) - 1e-9);
     const soldadura = { Ff_kgf: pSol.m.soldadura.Ff_kgf, L_cm: Lw, wReq_mm: wReq, w_mm: w, wMin_mm: tam.wMin_mm,
       wMax_mm: tam.wMax_mm, cumple: w <= tam.wMax_mm, combo: pSol.combo, base: pSol.base,
       art: ART["J.base.momento.soldadura"] };
@@ -1599,7 +1742,7 @@
 
   return {
     ART, DIRECCIONES, ACEROS, MODOS, PORTICOS, longitudinal, fichasLongitudinal, avisosLongitudinal, cadena,
-    correas, fichasCorreas, avisosCorreas, CAMPOS_CARGAS, CAMPOS_ANALISIS, CAMPOS_DISENO, avisosResultados,
+    correas, fichasCorreas, avisosCorreas, conexiones, fichasConexiones, avisosConexiones, faltanUniones, CAMPOS_CARGAS, CAMPOS_ANALISIS, CAMPOS_DISENO, avisosResultados,
     TIPOS_ZAPATA, CAMPOS_CIMENTACION, leeCimentacion, casosZapata, valoresDeCimentacion, cimentacion, fichasCimentacion, dibujoCimentacion,
     leeSitio, valoresDeSitio, leeSistema, leeDiseno, valoresDeDiseno,
     diseno, fichasDiseno, dibujoDiseno, tablaDiseno, lineasDiseno, nivelRatio,

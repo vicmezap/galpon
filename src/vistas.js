@@ -716,11 +716,9 @@
       vistas: false, lados: ["diseno"], derecha: true,
       sub: "el ratio de cada barra, por su capítulo del AISC" },
 
-    { id: "conex", grupo: "Paso 5", nombre: "Conexiones", listo: false,
-      vistas: false, lados: [],
-      hara: "una pantalla de conexiones",
-      motor: "placabase.js y conexiones.js (Cap. J), escritos y probados",
-      que: "placa de apoyo, pernos de anclaje y llave de corte" },
+    { id: "conex", grupo: "Paso 5", nombre: "Conexiones", listo: true,
+      vistas: false, lados: ["diseno"], derecha: true,
+      sub: "las barras del tijeral a sus cartelas, por el Cap. J" },
 
     { id: "cimen", grupo: "Paso 6", nombre: "Cimentación", listo: true,
       vistas: false, lados: ["cimen"], derecha: true,

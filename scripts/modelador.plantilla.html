@@ -322,6 +322,7 @@ svg.cr rect.falta { fill:none; stroke:var(--aviso); stroke-dasharray:3 2; }
 svg.cr .pt { fill:var(--acero); }
 svg.cr text { font-family:var(--cifra); font-size:12px; fill:var(--tinta-2); }
 table.lgp td:last-child, table.lgp th:last-child { white-space:normal; font-family:var(--cuerpo); text-align:left; }
+table.rx td.tx, table.rx th.tx { white-space:normal; font-family:var(--cuerpo); text-align:left; }
 svg.zp .placa.planta { fill:none; stroke-dasharray:6 4; }
 svg.zp .perno { stroke:var(--tinta); stroke-width:2.2; }
 svg.zp circle.perno { fill:var(--ficha); stroke-width:1.6; }
@@ -536,6 +537,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
       });
       extra = extra.concat(RESULTADOS.avisosLongitudinal(largoActual()));
       extra = extra.concat(RESULTADOS.avisosCorreas(correasActual()));
+      RESULTADOS.PORTICOS.forEach(function (p) { extra = extra.concat(RESULTADOS.avisosConexiones(conexActual(p))); });
     }
     if (!extra.length) return c;
     var lista = extra.concat(c.lista);
@@ -1321,6 +1323,57 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     $("derecha").innerHTML = v.fichas.map(pintaFicha).join("");
   }
 
+  /* ---------- CONEXIONES · las barras del tijeral a sus cartelas ----------
+     Un pórtico a la vez, como Análisis. Cada clase con la mayor fuerza de sus
+     barras (las bridas, la diferencia de sus tramos en un nudo). */
+  var conexCache = {};
+  function conexActual(p) {
+    p = p || porticoMarco();
+    var k = claveAnalisis() + JSON.stringify(modelo.diseno || {}), c = conexCache[p];
+    if (!c || c.clave !== k) {
+      c = conexCache[p] = { clave: k, res: RESULTADOS.conexiones(m3, modelo, PERFILES, analisisActual(p), p) };
+    }
+    return c.res;
+  }
+
+  function pintaConexiones(fallo) {
+    if (RESULTADOS.PORTICOS.indexOf(porticoSel) < 0) porticoSel = "interior";
+    if (!m3) {
+      $("centro").innerHTML = '<div class="hoja"><h2>Conexiones</h2>' + selPortico(false, false) + '<p class="lead">el ' +
+        "galpón no se puede montar: " + esc(fallo ? fallo.titulo : "—") + ". Se corrige en Geometría.</p></div>";
+      $("derecha").innerHTML = "";
+      return;
+    }
+    var cx = conexActual();
+    if (!cx.ok) {
+      $("centro").innerHTML = '<div class="hoja"><h2>Conexiones</h2>' + selPortico(false, false) + '<p class="lead">' +
+        "todavía no se pueden verificar las uniones: falta lo que sigue</p>" + listaFaltas(cx.faltas, true) + "</div>";
+      $("derecha").innerHTML = '<p class="nohay">Cada barra del tijeral se une a su cartela con la mayor fuerza de su ' +
+        "clase: la soldadura o los pernos, el bloque de cortante y la sección de Whitmore (AISC 360-22 Cap. J).</p>";
+      return;
+    }
+    var cumplen = cx.filas.filter(function (f) { return f.cumple; }).length;
+    var filas = cx.filas.map(function (f) {
+      var falta = (f.omitidos || []).filter(function (o) { return o.esencial; })[0];
+      var nota = f.ratio === null ? "FALTA · " + f.falta : (falta ? "FALTA · " + falta.que + ": " + falta.motivo :
+        (f.omitidos || []).map(function (o) { return "sin " + o.que; }).join(" · "));
+      return "<tr><td>" + esc(f.clase) + "</td><td>" + esc(f.perfil || "—") + "</td><td>" +
+        (f.Nt_kgf > 0 ? n2(f.Nt_kgf / 1000, 2) : "—") + "</td><td>" + (f.Nc_kgf > 0 ? n2(f.Nc_kgf / 1000, 2) : "—") +
+        '</td><td class="' + (f.cumple ? "" : "neg") + '">' + (f.ratio === null ? "—" : n2(f.ratio, 2)) +
+        (f.faltanEsenciales ? " ?" : "") + '</td><td class="tx">' + esc(f.gobierna || "") + "</td><td>" + esc(nota) + "</td></tr>";
+    }).join("");
+    $("centro").innerHTML = '<div class="hoja"><h2>Conexiones</h2>' + selPortico(false, false) + '<p class="lead">' +
+      cumplen + " de " + cx.filas.length + " uniones del tijeral cumplen · " +
+      (cx.r.fachada ? "pórtico de fachada" : "pórtico interior") + " · " + esc(cx.union) + "</p>" +
+      '<h3>Cada clase a su cartela</h3><div class="tarj"><div class="rueda-x"><table class="rx lgp"><thead><tr>' +
+      "<th>clase</th><th>perfil</th><th>tracción (t)</th><th>compresión (t)</th><th>ratio</th><th class=\"tx\">gobierna</th>" +
+      "<th>lo que no se verifica</th></tr></thead><tbody>" + filas + "</tbody></table></div>" +
+      '<p class="pie">Las diagonales y los montantes, con la mayor fuerza de su clase; las bridas pasan corridas y a la ' +
+      "cartela llega la diferencia entre sus dos tramos (fila J.union.angulo). Las uniones y la cartela se cambian en " +
+      "el panel de la izquierda, en «Tijeral».</p></div></div>";
+    $("derecha").innerHTML = cx.fichas.map(pintaFicha).join("");
+  }
+
   /* ---------- LO QUE TODAVIA NO TIENE PANTALLA ----------
      No se pone una maqueta. Un paso que parece hecho y esta vacio engana
      mas que uno que avisa, y lo que dice es util: QUE hara, QUE modulo lo
@@ -1789,6 +1842,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     if (pasoActivo === "analisis") { pintaAnalisis(fallo); return; }
     if (pasoActivo === "diseno") { pintaDiseno(fallo); return; }
     if (pasoActivo === "cimen") { pintaCimentacion(fallo); return; }
+    if (pasoActivo === "conex") { pintaConexiones(fallo); return; }
 
     if (fallo) {
       $("metricas").innerHTML = "";

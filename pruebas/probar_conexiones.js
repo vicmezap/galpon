@@ -318,4 +318,97 @@ comp("GOBIERNA LA SOLDADURA", m142.gobierna, "soldadura");
 cerca("con el U = 1,0 de antes, la rotura habría salido un 33 % alta",
   kip(e142(/rotura/).phiRn_kgf) / 0.75, 0.75 * 65 * 7.5, 0.001);
 
+
+/* ================================================================
+   LA TABLA J2.4 EN PULGADAS · fila J.filete.pulgadas
+   En 1/4" = 6,35 mm la columna en milímetros salta de escalón y la
+   de pulgadas no: con material en pulgadas se usa la de pulgadas.
+   ================================================================ */
+{
+  const mm = C.tamanosFilete({ t1_mm: 6.35, t2_mm: 9.525, tBorde_mm: 6.35 });
+  comp("en mm, un ángulo de 1/4\" a una cartela de 3/8\": mínimo 5 mm", mm.wMin_mm, 5);
+  cerca("y máximo 6,35 − 2", mm.wMax_mm, 4.35, 1e-12);
+  comp("LEÍDO EN MILÍMETROS NO CABE NINGÚN FILETE", mm.cabe, false);
+  const pg = C.tamanosFilete({ t1_mm: 6.35, t2_mm: 9.525, tBorde_mm: 6.35, sistema: "pulgadas" });
+  cerca("en pulgadas: hasta 1/4\" inclusive, mínimo 1/8\"", pg.wMin_mm, 25.4 / 8, 1e-12);
+  cerca("y máximo 1/4 − 1/16 = 3/16\"", pg.wMax_mm, 25.4 * 3 / 16, 1e-12);
+  comp("y cabe", pg.cabe, true);
+  cierto("con su fila", /J2\.4/.test(pg.artSistema));
+  comp("los escalones en pulgadas, pasados exactos (en 1/32\")",
+    [6.35, 6.36, 12.7, 12.71, 19.05, 19.06].map((t) => Math.round(C.minimoTabla(t, "pulgadas") * 32 / 25.4)),
+    [4, 6, 6, 8, 8, 10]);
+  comp("el borde de menos de 1/4\" admite su espesor",
+    C.tamanosFilete({ t1_mm: 6.3, t2_mm: 10, sistema: "pulgadas" }).wMax_mm, 6.3);
+  comp("de qué sistema es un perfil: el de su catálogo",
+    [C.sistemaDe({ origen: "imperial" }), C.sistemaDe({ origen: "metrico" }), C.sistemaDe(null)], ["pulgadas", "mm", "mm"]);
+  lanza("un sistema que no existe", () => C.tamanosFilete({ t1_mm: 6, t2_mm: 6, sistema: "plg" }), ["«pulgadas»"]);
+}
+
+/* ================================================================
+   LA BARRA DEL TIJERAL A SU CARTELA · fila J.union.angulo
+   2L3X3X1/4 A36 a una cartela de 3/8", a mano.
+   ================================================================ */
+{
+  const PF = require("../src/perfiles.js");
+  const p = PF.busca("2L3X3X1/4");
+  const A36 = AC.material("A36"), tg = 0.9525, t = 0.635, b = 7.62, T30 = Math.tan(Math.PI / 6);
+  const base = { perfil: p, acero: "A36", tCartela_cm: tg, Nt_kgf: 10000, Nc_kgf: 5000 };
+  const s = C.unionAngulo(Object.assign({ union: "soldadas", Lw_cm: 10, w_mm: 4, electrodo: "E70" }, base));
+  const es = (re) => s.estados.filter((e) => re.test(e.estado))[0];
+  cerca("SOLDADA · 4 filetes (talón y punta de cada ángulo): 4 · 0,75·0,60·FEXX·0,707·w·L",
+    es(/soldadura/).phiRn_kgf, 4 * 0.75 * 0.6 * C.fexx("E70").FEXX_kgcm2 * Math.SQRT1_2 * 0.4 * 10, 1e-9);
+  cerca("Whitmore: W = b + 2·L·tan 30°", s.W_cm, b + 2 * 10 * T30, 1e-12);
+  cerca("fluencia en Whitmore: 0,9·Fy·W·tg", es(/fluencia en la sección de Whitmore/).phiRn_kgf,
+    0.9 * A36.Fy * (b + 20 * T30) * tg, 1e-9);
+  cerca("rotura en Whitmore, sin agujeros: 0,75·Fu·W·tg", es(/rotura en la sección de Whitmore/).phiRn_kgf,
+    0.75 * A36.Fu * (b + 20 * T30) * tg, 1e-9);
+  /* bloque: cortante por los dos filetes, tracción a través del ala */
+  const blq = (tt) => 0.75 * (Math.min(0.6 * A36.Fu, 0.6 * A36.Fy) * 2 * 10 * tt + A36.Fu * b * tt);
+  cerca("bloque de cortante de la cartela, sin agujeros (fila J.bloque.soldado)", es(/cartela: bloque/).phiRn_kgf, blq(tg), 1e-9);
+  cerca("y el de los dos ángulos", es(/ángulo: bloque/).phiRn_kgf, 2 * blq(t), 1e-9);
+  comp("gobierna la soldadura", s.gobierna, "soldadura: 4 filetes de 4 mm × 10 cm");
+  cerca("con su ratio", s.ratio, 10000 / es(/soldadura/).phiRn_kgf, 1e-12);
+  comp("la cartela a compresión se dice, sin bloquear", s.omitidos.map((o) => [o.que, o.esencial]),
+    [["la cartela a compresión", false]]);
+  comp("y cumple", s.cumple, true);
+  /* el mismo ángulo en milímetros: no cabe ningún filete, y entonces no cumple */
+  const pm = Object.assign({}, p, { origen: "metrico" });
+  const sm = C.unionAngulo(Object.assign({ union: "soldadas", Lw_cm: 10, w_mm: 4, electrodo: "E70" }, base, { perfil: pm }));
+  cierto("con el ángulo en mm, el filete de 4 mm queda fuera y es esencial", sm.faltanEsenciales && !sm.cumple &&
+    sm.omitidos.some((o) => o.que === "el tamaño del filete" && o.esencial));
+  /* un filete de 6 mm en el ángulo de 1/4": pasa el máximo de 3/16" */
+  const s6 = C.unionAngulo(Object.assign({ union: "soldadas", Lw_cm: 10, w_mm: 6, electrodo: "E70" }, base));
+  cierto("un filete de 6 mm en el borde de 1/4\" supera 3/16\": no cumple", !s6.cumple && s6.faltanEsenciales);
+  /* solo compresión: sin Whitmore ni bloque */
+  const sc = C.unionAngulo(Object.assign({ union: "soldadas", Lw_cm: 10, w_mm: 4, electrodo: "E70" }, base, { Nt_kgf: 0 }));
+  comp("a compresión sola, solo la soldadura", sc.estados.map((e) => e.estado), ["soldadura: 4 filetes de 4 mm × 10 cm"]);
+
+  /* EMPERNADA · 3 pernos A325 de 5/8" en corte doble */
+  const e = C.unionAngulo(Object.assign({ union: "empernadas", porLinea: 3, diametro: "5/8", grado: "A325",
+    s_cm: 5, le_cm: 3, g_cm: 4.5 }, base, { Nc_kgf: 0 }));
+  const ee = (re) => e.estados.filter((x) => re.test(x.estado))[0];
+  const gp = C.grupoPernos({ grado: "A325", diametro: "5/8", porLinea: 3, lineas: 1, s_cm: 5, le_cm: 3, lt_cm: b - 4.5,
+    planos: 2, aplastamientoEn: [{ t_cm: tg, acero: "A36" }, { t_cm: 2 * t, acero: "A36" }] });
+  cerca("los pernos: el grupo en corte doble, con la cartela y los dos ángulos aplastando", ee(/pernos/).phiRn_kgf, gp.phiRn_kgf, 1e-9);
+  const h = C.diametro("5/8").agujero_cm;
+  cerca("Whitmore con pernos: W = 2·(n − 1)·s·tan 30°", e.W_cm, 2 * 10 * T30, 1e-12);
+  cerca("rotura en Whitmore, menos un agujero (+2 mm)", ee(/rotura en la sección de Whitmore/).phiRn_kgf,
+    0.75 * A36.Fu * (20 * T30 - (h + 0.2)) * tg, 1e-9);
+  const hn = h + 0.2, lv = 3 + 2 * 5;
+  const be = 0.75 * (Math.min(0.6 * A36.Fu * (lv - 2.5 * hn) * t, 0.6 * A36.Fy * lv * t) + A36.Fu * (b - 4.5 - hn / 2) * t);
+  cerca("bloque del ángulo: lv = le + 2s, medio agujero en la tracción", ee(/ángulo: bloque/).phiRn_kgf, 2 * be, 1e-9);
+  comp("cumple", e.cumple, true);
+  const ec = C.unionAngulo(Object.assign({ union: "empernadas", porLinea: 3, diametro: "5/8", grado: "A325",
+    s_cm: 5, le_cm: 1, g_cm: 4.5 }, base));
+  cierto("con el borde de 1 cm, las distancias no cumplen y es esencial", !ec.cumple &&
+    ec.omitidos.some((o) => o.que === "las distancias de los pernos" && o.esencial));
+
+  lanza("una W no es ángulo", () => C.unionAngulo(Object.assign({}, base, { perfil: PF.busca("W8X10"), union: "soldadas" })),
+    ["ángulo"]);
+  lanza("sin fuerza", () => C.unionAngulo(Object.assign({}, base, { Nt_kgf: 0, Nc_kgf: 0, union: "soldadas" })), ["fuerza"]);
+  lanza("ni soldada ni empernada", () => C.unionAngulo(Object.assign({}, base, { union: "remachada" })), ["soldadas"]);
+  lanza("empernada sin gramil", () => C.unionAngulo(Object.assign({}, base, { union: "empernadas", porLinea: 2,
+    diametro: "5/8", grado: "A325", s_cm: 5, le_cm: 3 })), ["gramil"]);
+}
+
 fin();
