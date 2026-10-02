@@ -27,12 +27,13 @@
   if (typeof module === "object" && module.exports) {
     module.exports = definir(require("./inventario.js"), require("./excel.js"), require("./e020.js"),
       require("./viento.js"), require("./e030.js"), require("./combinaciones.js"), require("./analisis.js"),
-      require("./acero.js"), require("./perfiles.js"), require("./ubicacion.js"), require("./zapatas.js"), require("./unidades.js"));
+      require("./acero.js"), require("./perfiles.js"), require("./ubicacion.js"), require("./zapatas.js"), require("./unidades.js"),
+      require("./estabilidad.js"));
   } else {
     raiz.HOJAS = definir(raiz.INVENTARIO, raiz.EXCEL, raiz.E020, raiz.VIENTO, raiz.E030, raiz.COMBINACIONES,
-      raiz.ANALISIS, raiz.ACERO, raiz.PERFILES, raiz.UBICACION, raiz.ZAPATAS, raiz.UNIDADES);
+      raiz.ANALISIS, raiz.ACERO, raiz.PERFILES, raiz.UBICACION, raiz.ZAPATAS, raiz.UNIDADES, raiz.ESTABILIDAD);
   }
-})(typeof self !== "undefined" ? self : this, function (INV, EX, E020, VI, E030, CB, AN, AC, PF, UB, ZA, UN) {
+})(typeof self !== "undefined" ? self : this, function (INV, EX, E020, VI, E030, CB, AN, AC, PF, UB, ZA, UN, ES) {
   "use strict";
 
   const ART = INV.declara("hojas.js", [
@@ -45,7 +46,9 @@
     "S.categoria.riesgo", "S.usos.combinados", "S.deriva.industrial", "A.sistema", "MAT.E", "C.Ec", "Z.As.min",
     "Z.sigma.neta", "MT.ejes", "D.cobertura.pendmin", "G.correa.inclinada", "G.correa.sep", "SV.correa.Ld", "SV.deflex",
     "D.cobertura.tabla", "D.cobertura.neta", "SV.viento.H", "S.despl", "S.deriva", "MT.no.diafragma", "MT.dos.direcciones",
-    "MT.mismo.pano", "MT.continuidad", "MT.termica", "MT.deltaT", "MT.hastial", "G.peralte", "MT.alfa"
+    "MT.mismo.pano", "MT.continuidad", "MT.termica", "MT.deltaT", "MT.hastial", "G.peralte", "MT.alfa",
+    "A.segundo.orden", "E.C2.k080", "E.C2.Ni", "E.C2.taub.alt", "A.nocional", "E.A8.RM", "E.A8.Pestory", "E.A8.B2",
+    "E.A8.Pe1", "E.A8.Pr", "E.A8.Cm", "E.A8.Cm.transv", "E.A8.B1", "E.A8.Mr", "A.Mr.max", "A.B1.tramo", "A.fachada.trib"
   ]);
 
   function exige(c, msg) { if (!c) throw new Error("hojas: " + msg); }
@@ -858,6 +861,254 @@
   }
 
   /* ---------- las hojas que hay, y las que faltan ---------------------- */
+  /* =====================================================================
+     LA HOJA ANALISIS · d = { modelo, interior, fachada (los .r del análisis de cada pórtico, o null),
+       version, fecha }
+
+     El pórtico se resuelve con su matriz de rigidez, y eso no cabe en celdas: lo que sale de ella
+     entra en verde (fila H.analisis). Lo que la norma HACE con esos resultados va con fórmulas: el
+     equilibrio de cada caso, la carga nocional, Pe,story y B2 de cada combinación, y Pe1, B1, Pr y Mr
+     de cada tramo de columna (AISC Apéndice 8). Por eso aquí una combinación no es Σ factor × caso:
+     el segundo orden no es lineal, y escribirlo así sería escribir otra cuenta que la del motor.
+     ===================================================================== */
+  const TRAMOS = { C0: "columna izquierda, de la base a la brida inferior", C0s: "columna izquierda, de la brida inferior al alero",
+    C1: "columna derecha, de la base a la brida inferior", C1s: "columna derecha, de la brida inferior al alero" };
+  function hojaAnalisis(d) {
+    const m = d.modelo || {};
+    const h = armador("ANALISIS");
+    cabeceraProyecto(h, "ANÁLISIS · EL PÓRTICO RESUELTO", Object.assign({}, d, { proyecto: m.proyecto }));
+    const art = (id) => ART[id];
+    const kgm = (x) => x / 100;
+    h.nota("El pórtico se resuelve con su matriz de rigidez, que no cabe en celdas: lo que sale de ella —reacciones, fuerzas " +
+      "de primer orden, la deriva del apoyo ficticio— entra en verde. Lo que la norma hace con esos resultados va con " +
+      "fórmulas: el equilibrio de cada caso, la carga nocional, Pe,story y B2 de cada combinación, y Pe1, B1, Pr y Mr de " +
+      "cada tramo de columna. Una combinación no es Σ factor × caso: el segundo orden (AISC Apéndice 8) no es lineal.");
+    h.nota("El sismo (cortante basal) está en la hoja CARGAS; la deriva, en GEOMETRIA.");
+    h.blanco();
+
+    /* ---- 1 · el método ---- */
+    const r0 = d.interior || d.fachada;
+    const RMm = r0 && r0.combinaciones.some((c) => c.RM !== null) ? r0.combinaciones.filter((c) => c.RM !== null)[0].RM
+      : ES.factorRM({ Pmf_kgf: 1, Pstory_kgf: 1 }).RM;
+    h.seccion("1. EL MÉTODO  ·  AISC 360-22 CAPÍTULO C Y APÉNDICE 8");
+    h.cabeceraMagnitudes();
+    h.linea({ que: "Método", v: "Directo de Análisis · LRFD", norma: art("A.segundo.orden") });
+    h.linea({ n: "kR", que: "Factor de rigidez del Método Directo", v: ES.K_RIGIDEZ, estilo: "norma",
+      como: "sobre todas las rigideces", norma: art("E.C2.k080") });
+    h.linea({ n: "alfa", que: "α, en LRFD", v: ES.ALFA.LRFD, estilo: "norma", fmt: "0.0", norma: art("E.C2.Ni") });
+    h.linea({ n: "Ea", que: "Módulo de elasticidad del acero E", v: INV.num("MAT.E"), u: "kgf/cm²", estilo: "norma", fmt: "#,##0",
+      norma: art("MAT.E") });
+    h.linea({ n: "cN", que: "Coeficiente de la carga nocional", v: ES.COEF_NOCIONAL, estilo: "norma", fmt: "0.000",
+      como: "Ni = 0,002·α·Yi", norma: art("E.C2.Ni") });
+    h.linea({ n: "cTau", que: "Nocional adicional, si alguna columna pasa de α·Pr/Pns = 0,5", v: AN.COEF_TAUB_ALT, estilo: "norma",
+      fmt: "0.000", norma: art("E.C2.taub.alt") });
+    h.linea({ n: "B2lim", que: "Con viento o sismo, la nocional solo si B2 pasa de", v: AN.LIMITE_B2_NOCIONAL, estilo: "norma",
+      fmt: "0.0", norma: art("A.nocional") });
+    h.linea({ n: "rPmf", que: "Pmf / Pstory: todas las columnas son del pórtico a momento", v: 1, estilo: "modelo",
+      norma: art("E.A8.RM") });
+    h.linea({ n: "RM", que: "Factor RM", f: "=1-0.15*rPmf", debe: RMm, fmt: "0.00", como: "1 − 0,15·Pmf/Pstory",
+      norma: art("E.A8.RM") });
+    h.nota("Cada combinación se resuelve dos veces en primer orden: nt, con un apoyo ficticio que impide el ladeo, y lt, con " +
+      "la reacción de ese apoyo (H) aplicada al revés. ΔH es la deriva de lt. Con ellas, Pe,story y B2.");
+
+    /* ---- un pórtico ---- */
+    let sec = 2;
+    for (const [nom, suf, r] of [["PÓRTICO INTERIOR", "i", d.interior], ["PÓRTICO DE FACHADA", "f", d.fachada]]) {
+      h.seccion(sec + ". EL " + nom);
+      if (!r) {
+        h.nota("El análisis de este pórtico todavía no corre: lo que falta lo dice la pantalla Análisis.");
+        sec++;
+        continue;
+      }
+
+      /* X.1 · el modelo */
+      h.subseccion(sec + ".1  El modelo");
+      h.cabeceraMagnitudes();
+      h.linea({ que: "Eje que se analiza", v: r.eje, fmt: "0", estilo: "modelo", norma: art("A.portico.tipico") });
+      h.linea({ que: "Ancho tributario", v: r.trib_m, u: "m", estilo: "modelo",
+        norma: art(r.fachada ? "A.fachada.trib" : "A.portico.tipico") });
+      h.linea({ que: "Base de las columnas", v: r.sistema.base, estilo: "modelo", norma: art("A.sistema") });
+      h.linea({ que: "Unión columna–tijeral", v: r.sistema.union, estilo: "modelo", norma: art("A.sistema") });
+      h.linea({ n: "hPiso_" + suf, que: "Altura del nudo de ladeo (" + r.nudoLadeo.split("@")[0] + ")", v: r.hLadeo_m * 100,
+        u: "cm", estilo: "modelo", fmt: "0.0", como: "la L de Pe,story", norma: art("E.A8.Pestory") });
+      h.linea({ que: "Perfil de las columnas", v: (r.corridas[0] && r.corridas[0].fuerzas[r.barras.C0.barra].det.perfil) || "—",
+        estilo: "modelo", norma: "dato del proyecto" });
+      h.blanco();
+
+      /* X.2 · los casos sin factorizar */
+      h.subseccion(sec + ".2  Los casos, sin factorizar: las reacciones en la base");
+      h.nota("Primer orden y rigidez nominal. Es lo que va a la cimentación: el concreto arma sus propias combinaciones (" +
+        art("J.costura") + "). B0 es la base de la columna izquierda (x = 0) y B1 la de la derecha (x = luz). + hacia la " +
+        "derecha y hacia arriba; el momento, antihorario.");
+      h.cabecera([["C", "Caso"], ["D", "Rx B0 (kgf)"], ["E", "Ry B0 (kgf)"], ["F", "Mz B0 (kgf·m)"], ["G", "Rx B1 (kgf)"],
+        ["H", "Ry B1 (kgf)"], ["I", "Mz B1 (kgf·m)"], ["J", "Qué es"]]);
+      const filaCaso = {};
+      for (const c of r.casos) {
+        const f = h.fila;
+        filaCaso[c.id] = f;
+        const b0 = c.reacciones.B0, b1 = c.reacciones.B1;
+        h.pon("C" + f, { v: c.id, estilo: "etiqueta" });
+        [["D", b0.Rx_kgf], ["E", b0.Ry_kgf], ["F", kgm(b0.Mz_kgfcm)], ["G", b1.Rx_kgf], ["H", b1.Ry_kgf], ["I", kgm(b1.Mz_kgfcm)]]
+          .forEach(([col, x]) => h.pon(col + f, { v: x, estilo: "analisis", fmt: "0" }));
+        h.pon("J" + f, { v: c.desc, estilo: "fuente" });
+        h.fila++;
+      }
+      h.blanco();
+
+      /* X.3 · el equilibrio */
+      h.subseccion(sec + ".3  El equilibrio de cada caso: lo aplicado más las reacciones da cero");
+      h.cabecera([["C", "Caso"], ["D", "ΣFx aplicada"], ["E", "ΣRx"], ["F", "ΣFx + ΣRx"], ["G", "ΣFy aplicada"], ["H", "ΣRy"],
+        ["I", "ΣFy + ΣRy"], ["J", "Qué comprueba"]]);
+      for (const c of r.casos) {
+        const f = h.fila, fc = filaCaso[c.id];
+        const Rx = c.reacciones.B0.Rx_kgf + c.reacciones.B1.Rx_kgf, Ry = c.reacciones.B0.Ry_kgf + c.reacciones.B1.Ry_kgf;
+        h.pon("C" + f, { v: c.id, estilo: "etiqueta" });
+        h.pon("D" + f, { v: c.aplicada.Fx_kgf, estilo: "analisis", fmt: "0.0" });
+        h.pon("E" + f, { f: "=D" + fc + "+G" + fc, debe: Rx, estilo: "formula", fmt: "0.0", que: c.id + " ΣRx" });
+        h.pon("F" + f, { f: "=D" + f + "+E" + f, debe: c.aplicada.Fx_kgf + Rx, estilo: "formula", fmt: "0.000", que: c.id + " residuo x" });
+        h.pon("G" + f, { v: c.aplicada.Fy_kgf, estilo: "analisis", fmt: "0.0" });
+        h.pon("H" + f, { f: "=E" + fc + "+H" + fc, debe: Ry, estilo: "formula", fmt: "0.0", que: c.id + " ΣRy" });
+        h.pon("I" + f, { f: "=G" + f + "+H" + f, debe: c.aplicada.Fy_kgf + Ry, estilo: "formula", fmt: "0.000", que: c.id + " residuo y" });
+        h.pon("J" + f, { v: "la matriz de rigidez cierra el equilibrio", estilo: "fuente" });
+        h.fila++;
+      }
+      h.blanco();
+
+      /* X.4 · el segundo orden de cada combinación */
+      h.subseccion(sec + ".4  El segundo orden de cada combinación · AISC Apéndice 8");
+      h.nota("Pstory: la gravedad de la combinación. Ni: la nocional, en el sentido que dice el id (N→, N←); con viento o sismo " +
+        "solo si B2 pasa de " + mm(AN.LIMITE_B2_NOCIONAL) + ". H y ΔH: la reacción del apoyo ficticio y la deriva que produce. " +
+        "Pe,story = RM·H·L/ΔH y B2 = 1/(1 − α·Pstory/Pe,story) ≥ 1.");
+      h.cabecera([["C", "Combinación"], ["D", "Pstory (kgf)"], ["E", "Ni (kgf)"], ["F", "H (kgf)"], ["G", "ΔH (cm)"],
+        ["H", "Pe,story (kgf)"], ["I", "B2"], ["J", "Combinación de la E.090"]]);
+      const dirB2 = {};
+      const tau = r.segundoOrden.tauBalt;
+      for (const c of r.combinaciones) {
+        const f = h.fila;
+        dirB2[c.id] = "I" + f;
+        h.pon("C" + f, { v: c.id, estilo: "etiqueta" });
+        h.pon("D" + f, { v: c.Pstory_kgf, estilo: "analisis", fmt: "0" });
+        const conN = !c.lateral || c.nocionalPorB2;
+        const coef = conN ? (tau ? "(cN+cTau)" : "cN") : (tau ? "cTau" : null);
+        if (coef) h.pon("E" + f, { f: "=" + coef + "*D" + f, debe: Math.abs(c.nocional_kgf), estilo: "formula", fmt: "0.0",
+          que: c.id + " Ni" });
+        else h.pon("E" + f, { v: 0, estilo: "norma", fmt: "0.0" });
+        h.pon("F" + f, { v: c.H_kgf, estilo: "analisis", fmt: "0.0" });
+        h.pon("G" + f, { v: c.dH_cm, estilo: "analisis", fmt: "0.0000" });
+        if (c.PeStory_kgf === null) {
+          h.pon("H" + f, { v: "—", estilo: "como" });
+          h.pon("I" + f, { v: 1, estilo: "norma", fmt: "0.000" });
+        } else {
+          h.pon("H" + f, { f: "=RM*F" + f + "*hPiso_" + suf + "/G" + f, debe: c.PeStory_kgf, estilo: "formula", fmt: "#,##0",
+            que: c.id + " Pe,story" });
+          h.pon("I" + f, { f: "=MAX(1,1/(1-alfa*D" + f + "/H" + f + "))", debe: c.B2, estilo: "formula", fmt: "0.000",
+            que: c.id + " B2" });
+        }
+        h.pon("J" + f, { v: c.texto + (c.nocionalPorB2 ? " · B2 > " + mm(AN.LIMITE_B2_NOCIONAL) + ": con nocional" : ""),
+          estilo: "fuente" });
+        h.fila++;
+      }
+      h.blanco();
+
+      /* X.5 · las columnas, tramo por tramo */
+      h.subseccion(sec + ".5  Las columnas, tramo por tramo: Pe1, B1, Pr y Mr en la combinación de mayor momento");
+      h.nota("Mr(x) = B1·Mnt(x) + B2·Mlt(x), con Mnt(x) = Mnt,i + Vnt·x + w·x²/2 y Mlt(x) = Mlt,i + Vlt·x (x desde el pie " +
+        "del tramo, el momento interno). Es una parábola: su máximo está en un extremo o donde la derivada se anula, y es el " +
+        "de la SUMA, no la suma de los máximos (" + art("A.Mr.max") + "). B1 solo si el tramo está comprimido.");
+      let k = 0;
+      for (const id of Object.keys(TRAMOS)) {
+        const e = r.barras[id];
+        if (!e || !e.momento.combo) continue;
+        k++;
+        const s = suf + k, cb = r.corridas.filter((x) => x.id === e.momento.combo)[0];
+        const fz = cb.fuerzas[e.barra], dt = fz.det;
+        const N = (x) => x + "_" + s;
+        h.blanco();
+        h.subseccion(sec + ".5." + k + "  " + id + " · " + TRAMOS[id] + " · " + (dt.perfil || "") + " · " + cb.id + " (" + cb.texto + ")");
+        h.cabeceraMagnitudes();
+        h.linea({ n: N("Lc"), que: "Longitud del tramo Lc1", v: fz.L_cm, u: "cm", estilo: "modelo", fmt: "0.0", norma: art("A.B1.tramo") });
+        h.linea({ n: N("Ix"), que: "Inercia Ix del perfil", v: dt.Ix_cm4, u: "cm⁴", estilo: "modelo", fmt: "0.0",
+          norma: "catálogo de perfiles" });
+        h.linea({ n: N("Pe1"), que: "Carga crítica del tramo Pe1", f: "=PI()^2*kR*Ea*" + N("Ix") + "/" + N("Lc") + "^2",
+          debe: dt.Pe1_kgf, u: "kgf", fmt: "#,##0", como: "π²·0,80·E·I / Lc1²", norma: art("E.A8.Pe1") });
+        h.linea({ n: N("Pnt"), que: "Axial nt (+ tracción)", v: dt.Pnt_kgf, u: "kgf", estilo: "analisis", fmt: "0.0",
+          como: "con el ladeo impedido" });
+        h.linea({ n: N("Plt"), que: "Axial lt", v: dt.Plt_kgf, u: "kgf", estilo: "analisis", fmt: "0.0", como: "solo el ladeo" });
+        h.linea({ n: N("B2"), que: "B2 de la combinación", f: "=" + dirB2[cb.id], debe: cb.B2, fmt: "0.000",
+          como: "de la tabla " + sec + ".4", norma: art("E.A8.B2") });
+        h.linea({ n: N("Pr"), que: "Axial requerido Pr (+ tracción)", f: "=" + N("Pnt") + "+" + N("B2") + "*" + N("Plt"),
+          debe: fz.Pr_kgf, u: "kgf", fmt: "0.0", como: "Pnt + B2·Plt", norma: art("E.A8.Pr") });
+        h.linea({ n: N("Mnti"), que: "Momento nt al pie del tramo", v: dt.Mnt_i_kgfcm, u: "kgf·cm", estilo: "analisis", fmt: "0" });
+        h.linea({ n: N("Vnt"), que: "Cortante nt al pie", v: dt.Vnt_i_kgf, u: "kgf", estilo: "analisis", fmt: "0.0" });
+        h.linea({ n: N("w"), que: "Carga repartida sobre el tramo", v: dt.w_kgfcm, u: "kgf/cm", estilo: "analisis", fmt: "0.0000",
+          como: dt.transversal ? "el viento sobre la columna" : "no hay" });
+        h.linea({ n: N("Mlti"), que: "Momento lt al pie del tramo", v: dt.Mlt_i_kgfcm, u: "kgf·cm", estilo: "analisis", fmt: "0" });
+        h.linea({ n: N("Vlt"), que: "Cortante lt", v: dt.Vlt_i_kgf, u: "kgf", estilo: "analisis", fmt: "0.0" });
+        const L = fz.L_cm, w = dt.w_kgfcm;
+        const Mntj = dt.Mnt_i_kgfcm + dt.Vnt_i_kgf * L + w * L * L / 2;
+        h.linea({ n: N("Mntj"), que: "Momento nt en la cabeza del tramo", f: "=" + N("Mnti") + "+" + N("Vnt") + "*" + N("Lc") + "+" +
+          N("w") + "*" + N("Lc") + "^2/2", debe: Mntj, u: "kgf·cm", fmt: "0", como: "Mnt(Lc1)" });
+        const comprimido = fz.Pr_kgf < 0;
+        if (comprimido) {
+          if (dt.transversal) {
+            h.linea({ n: N("Cm"), que: "Cm", v: 1, estilo: "norma", fmt: "0.000", como: "con carga en el tramo: 1,0",
+              norma: art("E.A8.Cm.transv") });
+          } else {
+            h.linea({ n: N("Cm"), que: "Cm", fmt: "0.000", debe: fz.Cm, norma: art("E.A8.Cm"),
+              f: "=IF(MAX(ABS(" + N("Mnti") + "),ABS(" + N("Mntj") + "))=0,1,0.6+0.4*IF(ABS(" + N("Mnti") + ")>=ABS(" + N("Mntj") +
+                ")," + N("Mntj") + "/" + N("Mnti") + "," + N("Mnti") + "/" + N("Mntj") + "))",
+              como: "0,6 − 0,4·M1/M2, M1/M2 > 0 en curvatura doble" });
+          }
+          h.linea({ n: N("B1"), que: "B1", f: "=MAX(1," + N("Cm") + "/(1-alfa*(-" + N("Pr") + ")/" + N("Pe1") + "))", debe: fz.B1,
+            fmt: "0.0000", como: "Cm / (1 − α·Pr/Pe1) ≥ 1", norma: art("E.A8.B1") });
+        } else {
+          h.linea({ n: N("B1"), que: "B1", f: "=IF(" + N("Pr") + ">=0,1,NA())", debe: fz.B1, fmt: "0.0000",
+            como: "en tracción no hay P-δ", norma: art("E.A8.B1") });
+        }
+        h.linea({ n: N("Mri"), que: "Mr al pie", f: "=" + N("B1") + "*" + N("Mnti") + "+" + N("B2") + "*" + N("Mlti"),
+          debe: fz.Mi_kgfcm, u: "kgf·cm", fmt: "0", como: "B1·Mnt + B2·Mlt", norma: art("E.A8.Mr") });
+        h.linea({ n: N("Mrj"), que: "Mr en la cabeza", f: "=" + N("B1") + "*" + N("Mntj") + "+" + N("B2") + "*(" + N("Mlti") + "+" +
+          N("Vlt") + "*" + N("Lc") + ")", debe: fz.Mj_kgfcm, u: "kgf·cm", fmt: "0", norma: art("E.A8.Mr") });
+        let fMr = "=MAX(ABS(" + N("Mri") + "),ABS(" + N("Mrj") + ")";
+        if (Math.abs(w) > 1e-12) {
+          const xs = -(fz.B1 * dt.Vnt_i_kgf + cb.B2 * dt.Vlt_i_kgf) / (fz.B1 * w);
+          h.linea({ n: N("xs"), que: "Donde la derivada de Mr(x) se anula", f: "=-(" + N("B1") + "*" + N("Vnt") + "+" + N("B2") + "*" +
+            N("Vlt") + ")/(" + N("B1") + "*" + N("w") + ")", debe: xs, u: "cm", fmt: "0.0", como: "cuenta solo si cae dentro del tramo" });
+          fMr += ",IF(AND(" + N("xs") + ">0," + N("xs") + "<" + N("Lc") + "),ABS(" + N("B1") + "*(" + N("Mnti") + "+" + N("Vnt") + "*" +
+            N("xs") + "+" + N("w") + "*" + N("xs") + "^2/2)+" + N("B2") + "*(" + N("Mlti") + "+" + N("Vlt") + "*" + N("xs") + ")),0)";
+        }
+        h.linea({ n: N("Mr"), que: "Momento requerido Mr", f: fMr + ")", debe: fz.Mr_kgfcm, u: "kgf·cm", fmt: "0",
+          como: "el máximo de la parábola", norma: art("A.Mr.max") });
+        h.linea({ n: N("MrT"), que: "Mr en t·m", f: "=" + N("Mr") + "/100000", debe: fz.Mr_kgfcm / 1e5, u: "t·m", fmt: "0.000",
+          como: "a la hoja DISEÑO" });
+      }
+      h.blanco();
+
+      /* X.6 · la envolvente */
+      h.subseccion(sec + ".6  La envolvente de cada barra: lo que va a la hoja DISEÑO");
+      h.nota("Las " + r.combinaciones.length + " corridas de la tabla " + sec + ".4, barra por barra: la mayor tracción, " +
+        "la mayor compresión y, en las columnas, el mayor Mr, con la combinación que las da.");
+      h.cabecera([["C", "Barra"], ["D", "L (m)"], ["E", "Tracción (kgf)"], ["F", "en"], ["G", "Compresión (kgf)"], ["H", "en"],
+        ["I", "Mr (t·m)"], ["J", "en"]]);
+      for (const id of Object.keys(r.barras)) {
+        const e = r.barras[id], f = h.fila;
+        h.pon("C" + f, { v: id + " · " + e.clase, estilo: "etiqueta" });
+        h.pon("D" + f, { v: e.L_cm / 100, estilo: "modelo", fmt: "0.00" });
+        h.pon("E" + f, { v: e.traccion.Pr_kgf, estilo: "analisis", fmt: "0" });
+        if (e.traccion.combo) h.pon("F" + f, { v: e.traccion.combo, estilo: "como" });
+        h.pon("G" + f, { v: -e.compresion.Pr_kgf, estilo: "analisis", fmt: "0" });
+        if (e.compresion.combo) h.pon("H" + f, { v: e.compresion.combo, estilo: "como" });
+        if (e.columna) {
+          h.pon("I" + f, { v: e.momento.Mr_kgfcm / 1e5, estilo: "analisis", fmt: "0.000" });
+          if (e.momento.combo) h.pon("J" + f, { v: e.momento.combo, estilo: "fuente" });
+        }
+        h.fila++;
+      }
+      sec++;
+    }
+    return cerrar(h);
+  }
+
   const HOJAS = [
     { id: "datos", nombre: "DATOS", titulo: "Datos del proyecto", listo: true,
       que: "el sitio, la edificación, los materiales, el suelo, el sistema y los perfiles" },
@@ -865,10 +1116,12 @@
       que: "la separación, la pendiente, los paneles, el peralte y la altura, con lo que verifica cada una" },
     { id: "cargas", nombre: "CARGAS", titulo: "Cargas y combinaciones", listo: true,
       que: "E.020 (muerta, viva, nieve, viento), E.030 y las combinaciones de E.090 y E.060" },
+    { id: "analisis", nombre: "ANALISIS", titulo: "Análisis: el pórtico resuelto", listo: true,
+      que: "reacciones por caso, el equilibrio, el segundo orden de cada combinación (B2) y las columnas paso a paso (B1, Mr)" },
     { id: "diseno", nombre: "DISENO", titulo: "Diseño de barras", listo: false, que: "cada clase de barra por su capítulo del AISC" },
     { id: "cimentacion", nombre: "CIMENTACION", titulo: "Cimentación", listo: false, que: "zapata, pedestal y placa base" },
     { id: "metrado", nombre: "METRADO", titulo: "Metrado", listo: false, que: "acero por clase de barra, concreto y armadura" }
   ];
 
-  return { ART, HOJAS, ANCHOS, nombreValido, armador, hojaCargas, hojaDatos, hojaGeometria };
+  return { ART, HOJAS, ANCHOS, nombreValido, armador, hojaCargas, hojaDatos, hojaGeometria, hojaAnalisis };
 });

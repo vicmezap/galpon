@@ -412,4 +412,36 @@ comp("sin datos de sismo, se dice que no entra", r.avisos.some((a) => /sismo no 
   comp("el interior sigue diciendo que es el interior", r.avisos.some((x) => /INTERIOR/.test(x)), true);
 }
 
+/* ---- LAS PIEZAS QUE LEE LA HOJA ANALISIS: con ellas se rehace la cuenta del motor ---- */
+{
+  let maxEq = 0;
+  for (const c of r.casos) {
+    const R0 = c.reacciones;
+    maxEq = Math.max(maxEq, Math.abs(c.aplicada.Fx_kgf + R0.B0.Rx_kgf + R0.B1.Rx_kgf),
+      Math.abs(c.aplicada.Fy_kgf + R0.B0.Ry_kgf + R0.B1.Ry_kgf));
+  }
+  cierto("la carga aplicada, sumada (con la repartida de las columnas), equilibra las reacciones de cada caso", maxEq < 1e-6);
+  cierto("y en un caso de viento no es cero: la repartida entra con su signo",
+    r.casos.filter((c) => c.tipo === "W").every((c) => Math.abs(c.aplicada.Fx_kgf) > 1 || c.direccion === "longitudinal"));
+  let peor = 0, n = 0;
+  for (const cb of r.corridas) {
+    if (cb.PeStory_kgf !== null) {
+      peor = Math.max(peor, Math.abs(cb.PeStory_kgf - cb.RM * cb.H_kgf * r.hLadeo_m * 100 / cb.dH_cm) / cb.PeStory_kgf);
+      peor = Math.max(peor, Math.abs(cb.B2 - Math.max(1, 1 / (1 - cb.Pstory_kgf / cb.PeStory_kgf))));
+    }
+    for (const id of Object.keys(cb.fuerzas)) {
+      const f = cb.fuerzas[id], dt = f.det;
+      if (!dt) continue;
+      n++;
+      peor = Math.max(peor, Math.abs(f.Pr_kgf - (dt.Pnt_kgf + cb.B2 * dt.Plt_kgf)) / Math.max(1, Math.abs(f.Pr_kgf)));
+      peor = Math.max(peor, Math.abs(f.Mi_kgfcm - (f.B1 * dt.Mnt_i_kgfcm + cb.B2 * dt.Mlt_i_kgfcm)) / Math.max(1, Math.abs(f.Mi_kgfcm)));
+      const L = f.L_cm, Mj = f.B1 * (dt.Mnt_i_kgfcm + dt.Vnt_i_kgf * L + dt.w_kgfcm * L * L / 2) + cb.B2 * (dt.Mlt_i_kgfcm + dt.Vlt_i_kgf * L);
+      peor = Math.max(peor, Math.abs(f.Mj_kgfcm - Mj) / Math.max(1, Math.abs(f.Mj_kgfcm)));
+      peor = Math.max(peor, Math.abs(dt.Pe1_kgf - Math.PI * Math.PI * 0.8 * M.E_ACERO * dt.Ix_cm4 / (L * L)) / dt.Pe1_kgf);
+    }
+  }
+  cierto("con H, ΔH, RM y la altura del ladeo se rehacen Pe,story y B2 (A-8-6, A-8-7); con Pnt, Plt, Mnt, Vnt, Mlt, Vlt y w, " +
+    "Pr y los Mr de extremo de las " + n + " columnas-combinación (A-8-1, A-8-2), y Pe1 con 0,80·EI (A-8-5)", n > 100 && peor < 1e-9);
+}
+
 fin();

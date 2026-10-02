@@ -1639,14 +1639,29 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
       return { hoja: HOJAS.hojaCargas({ cargas: cg, sitio: modelo.sitio, proyecto: modelo.proyecto, interior: ai.ok ? ai.r : null,
         fachada: af.ok ? af.r : null, version: BUILD, fecha: fecha }), sinAnalisis: sin };
     }
+    /* ANALISIS: sin ningún pórtico resuelto no hay hoja, y lo que falta es lo que dice el análisis */
+    if (id === "analisis") {
+      if (!ai.ok && !af.ok) {
+        var vistas = {};
+        return { faltas: (ai.faltas || []).concat(af.faltas || []).filter(function (f) {
+          if (vistas[f.que]) return false;
+          vistas[f.que] = true;
+          return true;
+        }) };
+      }
+      return { hoja: HOJAS.hojaAnalisis({ modelo: modelo, interior: ai.ok ? ai.r : null, fachada: af.ok ? af.r : null,
+        version: BUILD, fecha: fecha }), sinAnalisis: sin };
+    }
     return null;
   }
   function celdaTexto(c, x) {
     if (x === null || x === undefined || x === "") return "";
     if (EXCEL.esErr(x)) return String(x);
     if (typeof x === "number") {
-      var m = /^0(?:\.(0+))?$/.exec(c.fmt || "0.00");
-      return n2(x, m ? (m[1] ? m[1].length : 0) : 2);
+      var m = /^(#,##)?0(?:\.(0+))?$/.exec(c.fmt || "0.00");
+      var t = n2(x, m ? (m[2] ? m[2].length : 0) : 2);
+      /* «#,##0»: con los miles separados, como en Excel */
+      return m && m[1] ? t.replace(/\B(?=(\d{3})+(?!\d))/g, " ") : t;
     }
     if (typeof x === "boolean") return x ? "VERDADERO" : "FALSO";
     return String(x);
@@ -1752,7 +1767,10 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
       '<p class="pie">La vista enseña el tablero de la hoja, de C a J. Las tablas de la norma van al final, como anexo.</p></div>' +
       '<div class="tarj"><h4>Por qué estas medidas</h4><p class="pie">GEOMETRIA dice qué verifica cada medida: la separación ' +
       "de pórticos, la correa y el panel; la pendiente, la cobertura; la altura, la deriva. DATOS reúne lo que se eligió, con " +
-      "lo que sale solo de ello (Ec, la presión neta).</p></div>";
+      "lo que sale solo de ello (Ec, la presión neta).</p>" +
+      '<p class="pie">ANALISIS no es Σ factor × caso: el segundo orden del Apéndice 8 no es lineal. Lo que sale de la matriz ' +
+      "de rigidez va en verde, y con fórmulas el equilibrio, la nocional, Pe,story y B2 de cada combinación, y B1 y Mr de " +
+      "cada tramo de columna.</p></div>";
   }
   /* el panel las escribe una tras otra, en el orden en que llegan (su cola) */
   function mandaHoja(h, sinPintar) {

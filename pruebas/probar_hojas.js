@@ -179,7 +179,8 @@ lanza("y un nombre repetido", () => { const a = H.armador("X"); a.nombra("Vh", "
   cierto("con sus factores en celdas", Object.keys(h0.celdas).some((k) => h0.celdas[k].v === 1.6 && h0.celdas[k].estilo === "norma"));
   lanza("sin las cargas completas no hay hoja", () => H.hojaCargas({ cargas: R.cargas(m3, {}), sitio: {} }), ["no están completas"]);
   comp("las hojas que hay y las que vienen", H.HOJAS.map((x) => [x.id, x.listo]),
-    [["datos", true], ["geometria", true], ["cargas", true], ["diseno", false], ["cimentacion", false], ["metrado", false]]);
+    [["datos", true], ["geometria", true], ["cargas", true], ["analisis", true], ["diseno", false], ["cimentacion", false],
+      ["metrado", false]]);
   comp("todo texto lleva formato de texto: «1.4-3» no se vuelve una fecha al escribirse",
     Object.keys(h0.celdas).filter((k) => typeof h0.celdas[k].v === "string" && h0.celdas[k].fmt !== "@"), []);
 }
@@ -281,6 +282,47 @@ lanza("y un nombre repetido", () => { const a = H.armador("X"); a.nombra("Vh", "
   lanza("sin el galpón montado, no", () => H.hojaGeometria({ modelo: em }), ["necesita el galpón montado"]);
   comp("y ningún nombre de las dos hojas se confunde con una celda, en ningún idioma",
     Object.keys(hd.nombres).concat(Object.keys(hg.nombres)).filter((n) => !H.nombreValido(n)), []);
+
+  /* ================================================================
+     ANALISIS · el pórtico resuelto: lo que sale de la matriz en verde,
+     y con fórmulas lo que la norma hace con ello (Apéndice 8)
+     ================================================================ */
+  const ha = H.hojaAnalisis({ modelo: em, interior: eai.r, fachada: eaf.r, version: "v", fecha: "2026-10-02" });
+  comp("ANALISIS: sus fórmulas dan el número del motor", [ha.nombre, ha.comprobacion.ok, ha.comprobacion.malas], ["ANALISIS", true, []]);
+  cierto("cientos de fórmulas: el equilibrio, B2 por combinación y las columnas", ha.comprobacion.comprobadas > 300);
+  comp("solo con funciones que excel.js sabe evaluar", X.funciones(ha).filter((f) => !X.FUNCIONES[f]), []);
+  comp("ningún nombre se confunde con una celda, en ningún idioma", Object.keys(ha.nombres).filter((n) => !H.nombreValido(n)), []);
+  cerca("RM = 1 − 0,15·Pmf/Pstory = 0,85 en un pórtico a momento (A-8-8)", v(ha, "RM"), 0.85, 1e-12);
+  /* el equilibrio: cada residuo, de la hoja, es cero */
+  const residuos = Object.keys(ha.celdas).filter((k) => /residuo/.test(ha.celdas[k].que || "")).map((k) => Math.abs(X.valor(ha, k)));
+  cierto("el equilibrio de cada caso, en los dos pórticos: ΣF + ΣR = 0 (" + residuos.length + " residuos)",
+    residuos.length === 4 * eai.r.casos.length && residuos.every((x) => x < 1e-6));
+  /* B2, de la hoja, es el del motor, y es vivo */
+  const filaB2 = Object.keys(ha.celdas).filter((k) => /^I\d+$/.test(k) && / B2$/.test(ha.celdas[k].que || ""));
+  comp("un B2 por combinación y pórtico", filaB2.length, eai.r.combinaciones.filter((c) => c.PeStory_kgf !== null).length +
+    eaf.r.combinaciones.filter((c) => c.PeStory_kgf !== null).length);
+  const b2max = Math.max(...filaB2.map((k) => X.valor(ha, k)));
+  cerca("el mayor, el del motor", b2max, Math.max(eai.r.segundoOrden.maxB2, eaf.r.segundoOrden.maxB2), 1e-12);
+  /* las columnas: Pe1, B1 y Mr */
+  const tr = eai.r.barras.C0, cbm = eai.r.corridas.filter((x) => x.id === tr.momento.combo)[0], fz = cbm.fuerzas[tr.barra];
+  cerca("Pe1 = π²·0,80·E·I/Lc1² (A-8-5, con la rigidez reducida)", v(ha, "Pe1_i1"),
+    Math.PI * Math.PI * 0.8 * INV.num("MAT.E") * fz.det.Ix_cm4 / (fz.L_cm * fz.L_cm), 1e-9);
+  cerca("Pr = Pnt + B2·Plt (A-8-2)", v(ha, "Pr_i1"), fz.det.Pnt_kgf + cbm.B2 * fz.det.Plt_kgf, 1e-9);
+  cerca("B1 de la hoja, el del motor", v(ha, "B1_i1"), fz.B1, 1e-12);
+  cerca("y Mr, el máximo de la parábola, el del motor (y el de la envolvente)", v(ha, "Mr_i1"), tr.momento.Mr_kgfcm, 1e-9);
+  /* VIVA: si la columna fuera más rígida, Pe1 sube y B1 baja */
+  const ha2 = cambia(ha, "Ix_i1", 2 * fz.det.Ix_cm4);
+  cierto("es viva: con el doble de inercia, Pe1 se duplica y B1 baja (o se queda en 1)",
+    Math.abs(v(ha2, "Pe1_i1") - 2 * v(ha, "Pe1_i1")) < 1e-6 && v(ha2, "B1_i1") <= v(ha, "B1_i1"));
+  const ha3 = cambia(ha, "rPmf", 0);
+  cierto("y en un sistema arriostrado (Pmf = 0) RM = 1 y Pe,story sube: B2 baja en todas",
+    v(ha3, "RM") === 1 && filaB2.every((k) => X.valor(ha3, k) <= X.valor(ha, k) + 1e-15));
+  comp("la envolvente: una fila por barra del pórtico, en los dos",
+    Object.keys(ha.celdas).filter((k) => /^C\d+$/.test(k) && /^[A-Z]+\d+s? · (columna|brida superior|brida inferior|montante|diagonal)$/.test(ha.celdas[k].v)).length,
+    Object.keys(eai.r.barras).length + Object.keys(eaf.r.barras).length);
+  const haSin = H.hojaAnalisis({ modelo: em, interior: eai.r, fachada: null, version: "v", fecha: "x" });
+  cierto("sin el de fachada, la hoja lo dice y sigue con el interior", haSin.comprobacion.ok &&
+    Object.keys(haSin.celdas).some((k) => /todavía no corre/.test(haSin.celdas[k].v || "")));
 }
 
 fin();

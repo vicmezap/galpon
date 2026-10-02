@@ -543,6 +543,24 @@
     return { max_kgfcm: m, Mi_kgfcm: Mx(0), Mj_kgfcm: Mx(L) };
   }
 
+  /* LA CARGA APLICADA, sumada: lo que la hoja ANALISIS pone contra la suma de reacciones para
+     comprobar el equilibrio. La repartida w va perpendicular a la barra, hacia su eje local y
+     (el eje x de i a j girado 90°): en una columna que sube, hacia −x */
+  function aplicada(g, L) {
+    let Fx = 0, Fy = 0;
+    for (const n of Object.keys(L.nudos)) { Fx += L.nudos[n].Fx_kgf; Fy += L.nudos[n].Fy_kgf; }
+    const nd = {};
+    for (const n of g.nudos) nd[n.id] = n;
+    const barras = g.columnas.concat(g.truss);
+    for (const c of L.barras) {
+      const b = barras.filter((x) => x.id === c.barra)[0];
+      const ni = nd[b.i], nj = nd[b.j];
+      const dx = nj.x_m - ni.x_m, dy = nj.y_m - ni.y_m, Lm = Math.hypot(dx, dy);
+      Fx += c.w_kgfm * Lm * (-dy / Lm); Fy += c.w_kgfm * Lm * (dx / Lm);
+    }
+    return { Fx_kgf: Fx, Fy_kgf: Fy };
+  }
+
   /* Un caso sin factorizar: primer orden, rigidez nominal · fila A.reacciones.casos */
   function resuelveCaso(g, seccion, caso) {
     const m = modelo(g, seccion);
@@ -557,7 +575,7 @@
     }
     const dx = Math.max(Math.abs(r.desplaza(g.alero.izq, "ux")), Math.abs(r.desplaza(g.alero.der, "ux")));
     return { id: caso.id, tipo: caso.tipo, desc: caso.desc, direccion: caso.direccion, Ci: caso.Ci,
-      reacciones: reac, derivaAlero_cm: dx, resultado: r };
+      reacciones: reac, derivaAlero_cm: dx, aplicada: aplicada(g, caso.cargas), resultado: r };
   }
 
   /* Una combinación con el Método Directo y el segundo orden del Apéndice 8 */
@@ -579,13 +597,13 @@
     const H = Math.abs(R);
     const hcm = g.hLadeo_m * 100;
 
-    let B2 = 1, PeS = null;
+    let B2 = 1, PeS = null, RM = null;
     if (H > 1e-6 && dH > 1e-12 && Pstory > 0) {
-      const RM = ES.factorRM({ Pmf_kgf: Pstory, Pstory_kgf: Pstory }).RM;
+      RM = ES.factorRM({ Pmf_kgf: Pstory, Pstory_kgf: Pstory }).RM;
       PeS = ES.PeStory({ H_kgf: H, L_cm: hcm, deltaH_cm: dH, RM: RM }).Pestory_kgf;
       B2 = ES.B2({ Pstory_kgf: Pstory, Pestory_kgf: PeS }).B2;
     }
-    return { rnt: rnt, rlt: rlt, B2: B2, Pstory_kgf: Pstory, H_kgf: H, dH_cm: dH,
+    return { rnt: rnt, rlt: rlt, B2: B2, Pstory_kgf: Pstory, H_kgf: H, dH_cm: dH, hcm: hcm, RM: RM,
       PeStory_kgf: PeS, nocional_kgf: op.nocional || 0 };
   }
 
@@ -625,6 +643,11 @@
           B1 = ES.B1({ Cm: Cm, Pr_kgf: -Pr, Pe1_kgf: pe.Pe1_kgf }).B1;
         }
         r.B1 = B1; r.Cm = Cm;
+        /* las piezas, para que la hoja ANALISIS rehaga el Apéndice 8 con fórmulas */
+        r.det = { Pnt_kgf: fn.N_kgf, Plt_kgf: fl.N_kgf, Mnt_i_kgfcm: mn.Mi_kgfcm, Vnt_i_kgf: fn.V_i_kgf,
+          Mlt_i_kgfcm: ml.Mi_kgfcm, Vlt_i_kgf: fl.V_i_kgf, w_kgfcm: (wDe[b.id] || 0) / 100, Ix_cm4: s.Ix_cm4,
+          Pe1_kgf: ES.Pe1({ E_kgcm2: E_kgcm2, I_cm4: s.Ix_cm4, Lc1_cm: fn.L_cm }).Pe1_kgf,
+          transversal: Math.abs(wDe[b.id] || 0) > 1e-9, perfil: s.nombre || s.id || null };
         r.Mi_kgfcm = B1 * mn.Mi_kgfcm + sol.B2 * ml.Mi_kgfcm;
         r.Mj_kgfcm = B1 * mn.Mj_kgfcm + sol.B2 * ml.Mj_kgfcm;
         /* EL MÁXIMO DE LA SUMA, NO LA SUMA DE LOS MÁXIMOS · fila A.Mr.max.
@@ -755,6 +778,7 @@
           filas.push({ id: cb.id + (sg === null ? "" : (sg > 0 ? " · N→" : " · N←")),
             base: cb.base, texto: cb.texto, lateral: cb.lateral,
             B2: sol.B2, Pstory_kgf: sol.Pstory_kgf, nocional_kgf: sol.nocional_kgf,
+            H_kgf: sol.H_kgf, dH_cm: sol.dH_cm, PeStory_kgf: sol.PeStory_kgf, RM: sol.RM, coefNocional: coef,
             nocionalPorB2: nocionalAgregada, fuerzas: fz });
         }
       }
@@ -802,13 +826,14 @@
     const maxB2 = filas.reduce((a, f) => Math.max(a, f.B2), 1);
     return {
       sistema: g.sistema, eje: g.eje, trib_m: g.trib_m,
-      hAlero_m: g.hAlero_m, nudoLadeo: g.ladeo, omitidas: g.omitidas,
+      hAlero_m: g.hAlero_m, nudoLadeo: g.ladeo, hLadeo_m: g.hLadeo_m, omitidas: g.omitidas,
       acero: d.acero,
       casos: sinFactorizar.map((x) => ({ id: x.id, tipo: x.tipo, desc: x.desc, direccion: x.direccion, Ci: x.Ci,
-        reacciones: x.reacciones, derivaAlero_cm: x.derivaAlero_cm })),
+        reacciones: x.reacciones, derivaAlero_cm: x.derivaAlero_cm, aplicada: x.aplicada })),
       viento: { Vh_kmh: vw.Vh_kmh, hCumbre_m: vw.hCumbre_m, estados: vw.casos.length },
       combinaciones: filas.map((f) => ({ id: f.id, base: f.base, texto: f.texto,
         lateral: f.lateral, B2: f.B2, Pstory_kgf: f.Pstory_kgf, nocional_kgf: f.nocional_kgf,
+        H_kgf: f.H_kgf, dH_cm: f.dH_cm, PeStory_kgf: f.PeStory_kgf, RM: f.RM, coefNocional: f.coefNocional,
         nocionalPorB2: f.nocionalPorB2 })),
       corridas: filas,
       barras: env,
