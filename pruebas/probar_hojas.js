@@ -179,7 +179,7 @@ lanza("y un nombre repetido", () => { const a = H.armador("X"); a.nombra("Vh", "
   cierto("con sus factores en celdas", Object.keys(h0.celdas).some((k) => h0.celdas[k].v === 1.6 && h0.celdas[k].estilo === "norma"));
   lanza("sin las cargas completas no hay hoja", () => H.hojaCargas({ cargas: R.cargas(m3, {}), sitio: {} }), ["no están completas"]);
   comp("las hojas que hay y las que vienen", H.HOJAS.map((x) => [x.id, x.listo]),
-    [["datos", true], ["geometria", true], ["cargas", true], ["analisis", true], ["diseno", false], ["cimentacion", false],
+    [["datos", true], ["geometria", true], ["cargas", true], ["analisis", true], ["diseno", true], ["cimentacion", false],
       ["metrado", false]]);
   comp("todo texto lleva formato de texto: «1.4-3» no se vuelve una fecha al escribirse",
     Object.keys(h0.celdas).filter((k) => typeof h0.celdas[k].v === "string" && h0.celdas[k].fmt !== "@"), []);
@@ -320,6 +320,48 @@ lanza("y un nombre repetido", () => { const a = H.armador("X"); a.nombra("Vh", "
   comp("la envolvente: una fila por barra del pórtico, en los dos",
     Object.keys(ha.celdas).filter((k) => /^C\d+$/.test(k) && /^[A-Z]+\d+s? · (columna|brida superior|brida inferior|montante|diagonal)$/.test(ha.celdas[k].v)).length,
     Object.keys(eai.r.barras).length + Object.keys(eaf.r.barras).length);
+  /* ================================================================
+     DISENO · cada barra por su capítulo: la que manda de cada clase,
+     calculada en la hoja, y su ratio igual al del motor
+     ================================================================ */
+  const R2 = require("../src/resultados.js");
+  const ddi = R2.diseno(e3, em, P, eai), ddf = R2.diseno(e3, em, P, eaf);
+  const hds = H.hojaDiseno({ modelo: em, interior: { an: eai.r, di: ddi.v }, fachada: { an: eaf.r, di: ddf.v },
+    version: "v", fecha: "2026-10-02" });
+  comp("DISENO: sus fórmulas dan el número del motor", [hds.nombre, hds.comprobacion.ok, hds.comprobacion.malas], ["DISENO", true, []]);
+  cierto("cientos de fórmulas", hds.comprobacion.comprobadas > 250);
+  comp("solo con funciones que excel.js sabe evaluar", X.funciones(hds).filter((f) => !X.FUNCIONES[f]), []);
+  comp("ningún nombre se confunde con una celda, en ningún idioma (f34 era la celda F34)",
+    Object.keys(hds.nombres).filter((n) => !H.nombreValido(n)), []);
+  const ORDEN = ["columna", "brida superior", "brida inferior", "diagonal", "montante"];
+  const clases = ORDEN.filter((c) => ddi.v.porClase[c]);
+  comp("un ratio calculado por cada clase de barra y pórtico, igual al del motor",
+    clases.map((c, i) => +X.valor(hds, "ratio_i" + (i + 1)).toFixed(12)), clases.map((c) => +ddi.v.porClase[c].ratio.toFixed(12)));
+  const clasesF = ORDEN.filter((c) => ddf.v.porClase[c]);
+  comp("y en el de fachada", clasesF.map((c, i) => +X.valor(hds, "ratio_f" + (i + 1)).toFixed(12)),
+    clasesF.map((c) => +ddf.v.porClase[c].ratio.toFixed(12)));
+  const filasRes = Object.keys(hds.celdas).filter((k) => /^[A-Z]+\d+s? veredicto$/.test(hds.celdas[k].que || ""));
+  comp("el resumen: una fila con veredicto por barra, en los dos pórticos", filasRes.length,
+    Object.keys(ddi.v.barras).length + Object.keys(ddf.v.barras).length);
+  /* la columna, VIVA: con Lb = 6 m entra en otra zona de F2 y el ratio sube */
+  cierto("la columna por H1: es viva — con el doble de Mr el ratio sube",
+    X.valor(cambia(hds, "Mr_i1", 2 * v(hds, "Mr_i1")), "ratio_i1") > v(hds, "ratio_i1"));
+  const hdLb = cambia(hds, "LbCol", 6);
+  cierto("y con Lb = 6 m el Mn baja (pandeo lateral-torsional)", X.valor(hdLb, "Mn_i1") < v(hds, "Mn_i1"));
+  /* la brida 2L, VIVA: separadores a 100 cm → a/ri > 40, la esbeltez se modifica con Ki = 0,50 */
+  const hdSep = cambia(hds, "aSep", 100);
+  const lr0 = v(hds, "lr0_i2"), ari100 = 100 / v(hds, "rz_i2");
+  cerca("separadores a 100 cm: (Lc/r)m = √[(Lc/r)o² + (0,50·a/ri)²] (E6-2)", X.valor(hdSep, "lrm_i2"),
+    Math.sqrt(lr0 * lr0 + Math.pow(0.5 * ari100, 2)), 1e-9);
+  cierto("con pernos apretados, E6-1: el término entra entero", X.valor(cambia(hds, "conSep", "apretado"), "lrm_i2") >
+    X.valor(hds, "lrm_i2"));
+  comp("y si los separadores quedan muy lejos, la hoja lo dice", X.valor(cambia(hds, "aSep", 400), "topeA_i2") <
+    400 / v(hds, "rz_i2"), true);
+  const hdsSin = H.hojaDiseno({ modelo: em, interior: { an: eai.r, di: ddi.v }, fachada: null, version: "v", fecha: "x" });
+  cierto("sin el de fachada, DISENO lo dice y sigue", hdsSin.comprobacion.ok &&
+    Object.keys(hdsSin.celdas).some((k) => /todavía no corre/.test(hdsSin.celdas[k].v || "")));
+  lanza("sin acero no hay diseño", () => H.hojaDiseno({ modelo: L.nuevo({}), interior: null, fachada: null }), ["acero"]);
+
   const haSin = H.hojaAnalisis({ modelo: em, interior: eai.r, fachada: null, version: "v", fecha: "x" });
   cierto("sin el de fachada, la hoja lo dice y sigue con el interior", haSin.comprobacion.ok &&
     Object.keys(haSin.celdas).some((k) => /todavía no corre/.test(haSin.celdas[k].v || "")));

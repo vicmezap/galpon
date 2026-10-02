@@ -1652,6 +1652,20 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
       return { hoja: HOJAS.hojaAnalisis({ modelo: modelo, interior: ai.ok ? ai.r : null, fachada: af.ok ? af.r : null,
         version: BUILD, fecha: fecha }), sinAnalisis: sin };
     }
+    /* DISENO: la de cada pórtico, de la misma caché que el paso Diseño; sin ninguno, lo que falta */
+    if (id === "diseno") {
+      var dI = disenoActual("interior"), dF = disenoActual("fachada");
+      if (!dI.ok && !dF.ok) {
+        var vistos = {};
+        return { faltas: (dI.faltas || []).concat(dF.faltas || []).filter(function (f) {
+          if (vistos[f.que]) return false;
+          vistos[f.que] = true;
+          return true;
+        }) };
+      }
+      return { hoja: HOJAS.hojaDiseno({ modelo: modelo, interior: dI.ok ? { an: dI.r, di: dI.v } : null,
+        fachada: dF.ok ? { an: dF.r, di: dF.v } : null, version: BUILD, fecha: fecha }), sinAnalisis: sin };
+    }
     return null;
   }
   function celdaTexto(c, x) {
@@ -1770,7 +1784,9 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
       "lo que sale solo de ello (Ec, la presión neta).</p>" +
       '<p class="pie">ANALISIS no es Σ factor × caso: el segundo orden del Apéndice 8 no es lineal. Lo que sale de la matriz ' +
       "de rigidez va en verde, y con fórmulas el equilibrio, la nocional, Pe,story y B2 de cada combinación, y B1 y Mr de " +
-      "cada tramo de columna.</p></div>";
+      "cada tramo de columna.</p>" +
+      '<p class="pie">DISENO pone todas las barras con su ratio, y la que manda de cada clase calculada con el AISC en la ' +
+      "hoja: la columna por E3, F2, G2 y H1; las barras 2L por E3, E6 y E4, y D2 en tracción.</p></div>";
   }
   /* el panel las escribe una tras otra, en el orden en que llegan (su cola) */
   function mandaHoja(h, sinPintar) {

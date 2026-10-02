@@ -180,8 +180,10 @@
     let FeFT = null, e6 = null;
     if (ry > 0 && ro > 0 && H > 0 && L1 && L1.J_cm4 > 0 && L1.rz_cm > 0) {
       const lr0 = lon.Lcy_cm / ry;
+      /* tipo «angulos»: dos ángulos espalda con espalda, Ki = 0,50 (E6-2b, fila C.E6.Ki). Sin él tomaba el
+         0,86 de «los demás»: del lado seguro, pero no es lo que dice la norma (salió al escribir la hoja DISENO) */
       e6 = AC.esbeltezModificada({ lr0: lr0, a_cm: dz.separadores_cm, ri_cm: L1.rz_cm,
-        conexion: dz.conexionSeparadores });
+        conexion: dz.conexionSeparadores, tipo: "angulos" });
       const Fey = Math.PI * Math.PI * AC.E_ACERO / (e6.lrm * e6.lrm);
       FeFT = feFlexotorsional({ Fey_kgcm2: Fey, J_cm4: 2 * L1.J_cm4, Lcz_cm: lon.Lcz_cm,
         Ag_cm2: p.A_cm2, ro2: ro * ro, H: H });

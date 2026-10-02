@@ -141,7 +141,8 @@ cierto("y la columna no se da por buena por F2: falta F3", !vN.barras.C0.cumple 
   const bs4 = g.truss.filter((b) => b.id.split("@")[0] === "BS4")[0];
   const a = g.nudos.filter((n) => n.id === bs4.i)[0], c = g.nudos.filter((n) => n.id === bs4.j)[0];
   const Lc = Math.hypot(c.x_m - a.x_m, c.y_m - a.y_m) * 100;
-  const e6 = AC.esbeltezModificada({ lr0: Lc / p2.ry_sep38_cm, a_cm: 60, ri_cm: L1b.rz_cm, conexion: "requintado" });
+  const e6 = AC.esbeltezModificada({ lr0: Lc / p2.ry_sep38_cm, a_cm: 60, ri_cm: L1b.rz_cm, conexion: "requintado",
+    tipo: "angulos" });
   const fe = DI.feFlexotorsional({ Fey_kgcm2: Math.PI * Math.PI * AC.E_ACERO / (e6.lrm * e6.lrm),
     J_cm4: 2 * L1b.J_cm4, Lcz_cm: Lc, Ag_cm2: p2.A_cm2, ro2: p2.ro_sep38_cm * p2.ro_sep38_cm, H: p2.H_sep38 });
   cerca("el Fe flexotorsional de la brida es el de la E4-3 con los datos del catálogo",
@@ -150,6 +151,10 @@ cierto("y la columna no se da por buena por F2: falta F3", !vN.barras.C0.cumple 
   const s100 = corre(Object.assign({}, DZ, { separadores_cm: 100 }));
   cierto("separadores a 100 cm: a/ri > 40 y la esbeltez SE MODIFICA (E6-2)",
     s100.barras.BS4.E6 && s100.barras.BS4.E6.lrm > s100.barras.BS4.E6.lr0);
+  const e6b = s100.barras.BS4.E6;
+  comp("con Ki = 0,50: son dos ángulos espalda con espalda (E6-2b), no el 0,86 de «los demás»",
+    [e6b.Ki, e6b.tipo], [0.5, "angulos"]);
+  cerca("(Lc/r)m = √[(Lc/r)o² + (0,50·a/ri)²]", e6b.lrm, Math.sqrt(e6b.lr0 * e6b.lr0 + Math.pow(0.5 * e6b.ari, 2)), 1e-12);
   const s30 = corre(Object.assign({}, DZ, { separadores_cm: 30 }));
   cierto("a 30 cm no: a/ri ≤ 40 y la esbeltez se queda", s30.barras.BS4.E6 &&
     s30.barras.BS4.E6.lrm === s30.barras.BS4.E6.lr0);

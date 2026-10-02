@@ -555,10 +555,10 @@ cierto("y Comprobación oye a la zapata de LOS DOS pórticos",
     /modelo\.proyecto = m\.proyecto/.test(modeHtml));
   /* HOJAS EXCEL · E9: se ve aquí, se comprueba aquí, se escribe desde el panel */
   pulsa(M.dom, "pasos", "data-paso", "hojas");
-  cierto("en Hojas Excel, siete hojas: DATOS, GEOMETRIA, CARGAS y ANALISIS listas, y las demás dicen que todavía no",
+  cierto("en Hojas Excel, siete hojas: DATOS, GEOMETRIA, CARGAS, ANALISIS y DISENO listas, y las otras dos dicen que todavía no",
     /Cargas y combinaciones/.test(sel()) && /Geometría: por qué estas medidas/.test(sel()) && /el pórtico resuelto/.test(sel()) &&
-    (sel().match(/todavía no<\/i>/g) || []).length === 3 &&
-    ["datos", "geometria", "cargas", "analisis"].every((id) => sel().indexOf('data-hoja="' + id + '"') >= 0));
+    /Diseño de barras/.test(sel()) && (sel().match(/todavía no<\/i>/g) || []).length === 2 &&
+    ["datos", "geometria", "cargas", "analisis", "diseno"].every((id) => sel().indexOf('data-hoja="' + id + '"') >= 0));
   cierto("de entrada se ve DATOS, que se arma siempre: lo que falta sale como «—»",
     /data-hoja="datos" aria-pressed="true"/.test(sel()) && /DATOS · 0 fórmulas/.test(sel()) && /class="hx"/.test(sel()));
   cierto("y la lista dice de CARGAS cuántos datos le faltan", /faltan \d+ dato\(s\)/.test(sel()));
@@ -809,7 +809,7 @@ cierto("el panel se hornea con una lista corta y propia",
   for (const fn of M.dom.nodos.centro._ev.click) fn({ target: { id: "b-ejemplo", closest: () => null } });
   const c = pinto(M.dom, "centro").innerHTML;
   cierto("al pulsarlo, va a Hojas Excel con las tres hojas listas y sin faltas",
-    /(DATOS|GEOMETRIA|CARGAS|ANALISIS) · \d+ fórmulas/.test(c) && !/faltan \d+ dato/.test(c) && /Escribir las 4 hojas listas/.test(c));
+    /(DATOS|GEOMETRIA|CARGAS|ANALISIS|DISENO) · \d+ fórmulas/.test(c) && !/faltan \d+ dato/.test(c) && /Escribir las 5 hojas listas/.test(c));
   const ve = (id) => {
     for (const fn of M.dom.nodos.centro._ev.click) fn({ target: { closest: (q) => q === "button[data-hoja]" ?
       { getAttribute: () => id } : null } });
@@ -822,6 +822,9 @@ cierto("el panel se hornea con una lista corta y propia",
   const cA = ve("analisis");
   cierto("ANALISIS: también, con el segundo orden y las columnas", /ANALISIS · \d{3} fórmulas/.test(cA) &&
     /todas dan el número del motor/.test(cA) && /Apéndice 8/.test(cA) && /tramo por tramo/.test(cA));
+  const cD = ve("diseno");
+  cierto("DISENO: también, con la columna y las barras 2L que mandan", /DISENO · \d{3} fórmulas/.test(cD) &&
+    /todas dan el número del motor/.test(cD) && /La columna que manda/.test(cD) && /La diagonal que manda/.test(cD));
   cierto("y los datos quedan en los formularios", pinto(M.dom, "ma_acero").value === "A36" && pinto(M.dom, "ed_dist").value !== "");
   cierto("NINGÚN campo traía valor antes: el ejemplo no es un valor por omisión", /EJEMPLO\.modelo\(\)/.test(modeHtml) &&
     (modeHtml.match(/EJEMPLO\.modelo\(\)/g) || []).length === 1);

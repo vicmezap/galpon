@@ -48,7 +48,11 @@
     "D.cobertura.tabla", "D.cobertura.neta", "SV.viento.H", "S.despl", "S.deriva", "MT.no.diafragma", "MT.dos.direcciones",
     "MT.mismo.pano", "MT.continuidad", "MT.termica", "MT.deltaT", "MT.hastial", "G.peralte", "MT.alfa",
     "A.segundo.orden", "E.C2.k080", "E.C2.Ni", "E.C2.taub.alt", "A.nocional", "E.A8.RM", "E.A8.Pestory", "E.A8.B2",
-    "E.A8.Pe1", "E.A8.Pr", "E.A8.Cm", "E.A8.Cm.transv", "E.A8.B1", "E.A8.Mr", "A.Mr.max", "A.B1.tramo", "A.fachada.trib"
+    "E.A8.Pe1", "E.A8.Pr", "E.A8.Cm", "E.A8.Cm.transv", "E.A8.B1", "E.A8.Mr", "A.Mr.max", "A.B1.tramo", "A.fachada.trib",
+    "MAT.A36.Fy", "MAT.A36.Fu", "MAT.A572.Fy", "MAT.A572.Fu", "MAT.G", "C.phi", "F.phi", "T.fluencia", "T.rotura", "V.phi1",
+    "C.Fn.a", "C.Fn.b", "F.Cb", "C.E6.Ki", "C.E6.m1", "C.E6.m2", "C.E6.a", "C.E6.ri", "E.C3.K", "C.B4a", "C.B4a.c1", "C.B4a.c3",
+    "C.B4a.c5", "F.B4.c10", "F.B4.c15", "F.seleccion", "C.Fe", "C.Pn", "T.menor", "F.Lp", "F.c", "F.Lr", "F.F2.fluencia",
+    "F.F2.zonas", "V.Vn", "H.1a", "H.1b", "D.DIS.longitudes", "C.E4.2L", "C.E4.Cw", "C.E4.Fe3", "T.U.c2", "D.DIS.unicos"
   ]);
 
   function exige(c, msg) { if (!c) throw new Error("hojas: " + msg); }
@@ -1109,6 +1113,357 @@
     return cerrar(h);
   }
 
+  /* =====================================================================
+     LA HOJA DISENO · d = { modelo, interior, fachada, version, fecha }, con interior y fachada
+       = { an: el .r del análisis, di: diseno.verificaPortico() } o null
+
+     Un resumen de todas las barras con su ratio, y de cada clase la barra que manda, CALCULADA EN LA
+     HOJA con el AISC 360-22: la columna por B4.1, E3, F2, G2 y H1; las barras 2L del tijeral por E3 en el
+     plano, E6 y E4 fuera de él y D2 en tracción. Las fuerzas vienen de la hoja ANALISIS (en verde); el
+     ratio final de cada barra se compara con el del motor (fila H.coincide).
+     ===================================================================== */
+  const CLASES_TRUSS = ["brida superior", "brida inferior", "diagonal", "montante"];
+  function hojaDiseno(d) {
+    const m = d.modelo || {}, dz = m.diseno || {}, s0 = m.sitio || {};
+    const h = armador("DISENO");
+    cabeceraProyecto(h, "DISEÑO · CADA BARRA POR SU CAPÍTULO DEL AISC", Object.assign({}, d, { proyecto: m.proyecto }));
+    const art = (id) => ART[id];
+    const acero = s0.acero;
+    exige(AC.ACEROS[acero], "hojaDiseno() necesita el acero del proyecto");
+    const mat = AC.material(acero);
+    h.nota("Arriba, todas las barras del pórtico con su ratio y la combinación que lo da. Debajo, de cada clase la barra que " +
+      "manda, calculada aquí con el AISC 360-22: los datos del perfil y las fuerzas (de la hoja ANALISIS) entran como valor, " +
+      "y cada paso del capítulo es una fórmula. El ratio final se compara con el del motor.");
+    h.blanco();
+
+    /* ---- 1 · el material, los factores y los datos de diseño ---- */
+    h.seccion("1. EL MATERIAL, LOS FACTORES Y LOS DATOS DE DISEÑO");
+    h.cabeceraMagnitudes();
+    h.linea({ que: "Acero", v: acero, norma: "dato del proyecto" });
+    h.linea({ n: "Fy", que: "Fluencia Fy", v: mat.Fy, u: "kgf/cm²", estilo: "norma", fmt: "0", norma: art("MAT." + acero + ".Fy") });
+    h.linea({ n: "Fu", que: "Rotura Fu", v: mat.Fu, u: "kgf/cm²", estilo: "norma", fmt: "0", norma: art("MAT." + acero + ".Fu") });
+    h.linea({ n: "Ea", que: "Módulo de elasticidad E", v: AC.E_ACERO, u: "kgf/cm²", estilo: "norma", fmt: "#,##0", norma: art("MAT.E") });
+    h.linea({ n: "Ga", que: "Módulo de corte G", v: AC.G_ACERO, u: "kgf/cm²", estilo: "norma", fmt: "#,##0", norma: art("MAT.G") });
+    h.linea({ n: "phiC", que: "φc, compresión", v: AC.PHI_C, estilo: "norma", norma: art("C.phi") });
+    h.linea({ n: "phiB", que: "φb, flexión", v: AC.PHI_B, estilo: "norma", norma: art("F.phi") });
+    h.linea({ n: "phiTy", que: "φt, fluencia en tracción", v: AC.PHI.tFluencia, estilo: "norma", norma: art("T.fluencia") });
+    h.linea({ n: "phiTu", que: "φt, rotura en tracción", v: AC.PHI.tRotura, estilo: "norma", norma: art("T.rotura") });
+    h.linea({ n: "phiV1", que: "φv, cortante del alma de I laminada (G2.1a)", v: AC.PHI_V_ALMA, estilo: "norma", norma: art("V.phi1") });
+    h.linea({ n: "FyFe", que: "Frontera del pandeo inelástico, Fy/Fe", v: AC.FY_FE_LIMITE, estilo: "norma", norma: art("C.Fn.a") });
+    h.linea({ n: "Cb", que: "Cb", v: 1, estilo: "norma", fmt: "0.00", como: "1,0: conservador, permitido", norma: art("F.Cb") });
+    h.linea({ n: "Ki", que: "Ki, dos ángulos espalda con espalda", v: AC.KI.angulos, estilo: "norma", norma: art("C.E6.Ki") });
+    h.linea({ n: "ariLim", que: "a/ri hasta el que la esbeltez no se modifica", v: AC.A_RI_SIN_PENALIZAR, estilo: "norma", fmt: "0",
+      norma: art("C.E6.m2") });
+    h.linea({ n: "fSep", que: "Separadores: a/ri no más que esta fracción de la esbeltez", v: AC.FRACCION_COMPONENTE, estilo: "norma",
+      norma: art("C.E6.a") });
+    h.blanco();
+    h.subseccion("1.1  Los datos de diseño del proyecto");
+    h.cabeceraMagnitudes();
+    h.linea({ n: "arrInf", que: "Arriostre lateral de la brida inferior, cada", v: dz.arriostreInferior_m, u: "m", norma: "dato del proyecto" });
+    h.linea({ n: "sepLarg", que: "Separación de los largueros (columna fuera del plano)", v: dz.separacionLargueros_m, u: "m",
+      norma: "dato del proyecto" });
+    h.linea({ n: "LbCol", que: "Lb de la columna (pandeo lateral-torsional)", v: dz.LbColumna_m, u: "m", norma: "dato del proyecto" });
+    h.linea({ n: "cartela", que: "Espesor de la cartela del tijeral", v: String(dz.cartela || "—") + (dz.cartela ? "\"" : ""),
+      norma: "dato del proyecto" });
+    h.linea({ n: "aSep", que: "Separadores de los ángulos dobles, cada", v: dz.separadores_cm, u: "cm", fmt: "0", norma: "dato del proyecto" });
+    h.linea({ n: "conSep", que: "Unión de los separadores", v: dz.conexionSeparadores || "—", norma: art("C.E6.m2") });
+    const soldadas = dz.uniones === "soldadas";
+    h.linea({ que: "Uniones de las barras del tijeral", v: dz.uniones || "—", norma: "dato del proyecto" });
+    if (soldadas) h.linea({ n: "lSold", que: "Longitud de la soldadura de cada barra", v: dz.soldadura_cm, u: "cm", fmt: "0.0",
+      norma: "dato del proyecto" });
+
+    let sec = 2;
+    for (const [nom, suf, P] of [["PÓRTICO INTERIOR", "i", d.interior], ["PÓRTICO DE FACHADA", "f", d.fachada]]) {
+      h.seccion(sec + ". EL " + nom);
+      if (!P || !P.an || !P.di || !P.di.ok) {
+        h.nota(!P || !P.an ? "El análisis de este pórtico todavía no corre: lo dice la pantalla Análisis."
+          : "Faltan datos de diseño: " + ((P.di && P.di.faltan) || []).map((f) => f.que).join(" · ") + ".");
+        sec++;
+        continue;
+      }
+      const r = P.an, di = P.di;
+      const corrida = (id) => r.corridas.filter((x) => x.id === id)[0];
+
+      /* X.1 · todas las barras */
+      h.subseccion(sec + ".1  Todas las barras: el ratio y la combinación que lo da");
+      h.cabecera([["C", "Barra"], ["D", "Perfil"], ["E", "Ratio"], ["F:G", "Combinación"], ["H:I", "Veredicto"], ["J", "Estado límite que manda"]]);
+      for (const id of Object.keys(di.barras)) {
+        const b = di.barras[id], f = h.fila;
+        h.pon("C" + f, { v: id + " · " + b.clase, estilo: "etiqueta" });
+        h.pon("D" + f, { v: b.perfil, estilo: "modelo" });
+        if (typeof b.ratio === "number") {
+          h.pon("E" + f, { v: b.ratio, estilo: "analisis", fmt: "0.000" });
+          h.pon("F" + f, { v: b.combo, estilo: "como" }, "F" + f + ":G" + f);
+          if (b.faltanEsenciales) h.pon("H" + f, { v: "falta comprobar", estilo: "como" }, "H" + f + ":I" + f);
+          else h.pon("H" + f, { f: "=IF(E" + f + "<=1,\"cumple\",\"no cumple\")", debe: b.cumple ? "cumple" : "no cumple",
+            estilo: "formula", fmt: "General", que: id + " veredicto" }, "H" + f + ":I" + f);
+        } else {
+          h.pon("E" + f, { v: "—", estilo: "como" });
+          h.pon("H" + f, { v: "falta comprobar", estilo: "como" }, "H" + f + ":I" + f);
+        }
+        h.pon("J" + f, { v: b.estado || b.omitidos.map((o) => o.que).join(" · "), estilo: "fuente" });
+        h.fila++;
+      }
+
+      /* X.k · la que manda de cada clase */
+      let k = 1;
+      const orden = ["columna"].concat(CLASES_TRUSS).filter((c) => di.porClase[c]);
+      for (const clase of orden) {
+        const pc = di.porClase[clase], b = di.barras[pc.barra];
+        k++;
+        const s = suf + (k - 1);
+        const N = (x) => x + "_" + s;
+        h.blanco();
+        h.subseccion(sec + "." + k + "  La " + clase + " que manda: " + b.id + " · " + b.perfil +
+          (pc.cuantas > 1 ? " (la peor de " + pc.cuantas + ")" : ""));
+        if (typeof b.ratio !== "number") {
+          h.nota("No se pudo comprobar: " + b.omitidos.map((o) => o.que + " — " + o.motivo).join(" · "));
+          continue;
+        }
+        const p = PF.busca(b.perfil);
+        const Lbar = r.barras[b.id].L_cm;
+        if (clase === "columna") bloqueColumna(h, N, p, b, corrida(b.combo).fuerzas[b.barra], Lbar, corrida(b.combo), dz, mat, art);
+        else bloqueTruss(h, N, p, b, clase, Lbar, r, dz, mat, art, soldadas);
+      }
+      sec++;
+    }
+    return cerrar(h);
+  }
+
+  /* una línea de dato del perfil */
+  const prop = (h, N, n, que, v, u, fmt) => h.linea({ n: N(n), que: que, v: v, u: u, estilo: "modelo", fmt: fmt || "0.000",
+    norma: "AISC Shapes Database v13" });
+
+  /* ---- la columna · B4.1, E3, F2, G2, H1 ---- */
+  function bloqueColumna(h, N, p, b, fz, Lbar, cb, dz, mat, art) {
+    const E = AC.E_ACERO, Fy = mat.Fy;
+    h.nota("Combinación " + cb.id + " (" + cb.texto + "). Las fuerzas son de segundo orden: Pr, Mr y Vr de la hoja ANALISIS.");
+    h.cabeceraMagnitudes();
+    prop(h, N, "Ag", "Área Ag", p.A_cm2, "cm²");
+    prop(h, N, "rx", "Radio de giro rx", p.rx_cm, "cm");
+    prop(h, N, "ry", "Radio de giro ry", p.ry_cm, "cm");
+    prop(h, N, "Zx", "Módulo plástico Zx", p.Zx_cm3, "cm³", "0.0");
+    prop(h, N, "Sx", "Módulo elástico Sx", p.Sx_cm3, "cm³", "0.0");
+    prop(h, N, "J", "Constante de torsión J", p.J_cm4, "cm⁴");
+    prop(h, N, "ho", "Distancia entre centroides de alas ho", p.ho_cm, "cm");
+    prop(h, N, "rts", "rts", p.rts_cm, "cm");
+    prop(h, N, "dd", "Peralte d", p.d_cm, "cm");
+    prop(h, N, "tw", "Espesor del alma tw", p.tw_cm, "cm");
+    prop(h, N, "bf2tf", "bf/2tf", p.bf_2tf, "", "0.00");
+    prop(h, N, "htw", "h/tw", p.h_tw, "", "0.00");
+    h.linea({ n: N("L"), que: "Longitud del tramo", v: Lbar, u: "cm", estilo: "modelo", fmt: "0.0", norma: art("A.B1.tramo") });
+    h.linea({ n: N("Lcx"), que: "Lc en el plano (K = 1, Método Directo)", f: "=" + N("L"), debe: Lbar, u: "cm", fmt: "0.0",
+      norma: art("E.C3.K") });
+    const Lcy = Math.min(dz.separacionLargueros_m * 100, Lbar), Lb = Math.min(dz.LbColumna_m * 100, Lbar);
+    h.linea({ n: N("Lcy"), que: "Lc fuera del plano: hasta el larguero", f: "=MIN(sepLarg*100," + N("L") + ")", debe: Lcy, u: "cm",
+      fmt: "0.0", norma: "dato del proyecto" });
+    h.linea({ n: N("Lb"), que: "Lb, longitud no arriostrada del ala comprimida", f: "=MIN(LbCol*100," + N("L") + ")", debe: Lb, u: "cm",
+      fmt: "0.0", norma: "dato del proyecto" });
+    h.linea({ n: N("Pr"), que: "Axial Pr (+ tracción)", v: fz.Pr_kgf, u: "kgf", estilo: "analisis", fmt: "0.0", como: "de ANALISIS" });
+    h.linea({ n: N("Mr"), que: "Momento Mr", v: fz.Mr_kgfcm, u: "kgf·cm", estilo: "analisis", fmt: "0", como: "de ANALISIS" });
+    h.linea({ n: N("Vr"), que: "Cortante Vr", v: fz.Vr_kgf, u: "kgf", estilo: "analisis", fmt: "0.0", como: "de ANALISIS" });
+
+    /* esbeltez local */
+    const raiz = Math.sqrt(E / Fy);
+    h.linea({ n: N("lrAla"), que: "λr del ala en compresión", f: "=" + AC.B4A[1].coef + "*SQRT(Ea/Fy)", debe: AC.B4A[1].coef * raiz,
+      fmt: "0.00", norma: art("C.B4a.c1") });
+    h.linea({ n: N("lrAlma"), que: "λr del alma en compresión", f: "=" + AC.B4A[5].coef + "*SQRT(Ea/Fy)", debe: AC.B4A[5].coef * raiz,
+      fmt: "0.00", norma: art("C.B4a.c5") });
+    const noEsb = p.bf_2tf <= AC.B4A[1].coef * raiz && p.h_tw <= AC.B4A[5].coef * raiz;
+    h.linea({ que: "  ¿sección sin elementos esbeltos?", f: "=IF(AND(" + N("bf2tf") + "<=" + N("lrAla") + "," + N("htw") + "<=" +
+      N("lrAlma") + "),\"no esbelta: E3\",\"esbelta: E7\")", debe: noEsb ? "no esbelta: E3" : "esbelta: E7", norma: art("C.B4a") });
+    const b10 = AC.B4B[10], b15 = AC.B4B[15];
+    h.linea({ n: N("lpAla"), que: "λp del ala en flexión", f: "=" + b10.p + "*SQRT(Ea/Fy)", debe: b10.p * raiz, fmt: "0.00",
+      norma: art("F.B4.c10") });
+    h.linea({ n: N("lpAlma"), que: "λp del alma en flexión", f: "=" + b15.p + "*SQRT(Ea/Fy)", debe: b15.p * raiz, fmt: "0.00",
+      norma: art("F.B4.c15") });
+    const comp = p.bf_2tf <= b10.p * raiz && p.h_tw <= b15.p * raiz;
+    h.linea({ que: "  ¿sección compacta? (F2 solo vale así)", f: "=IF(AND(" + N("bf2tf") + "<=" + N("lpAla") + "," + N("htw") + "<=" +
+      N("lpAlma") + "),\"compacta\",\"no compacta\")", debe: comp ? "compacta" : "no compacta", norma: art("F.seleccion") });
+
+    /* E3 (o D si está traccionada) */
+    const lrx = Lbar / p.rx_cm, lry = Lcy / p.ry_cm, lr = Math.max(lrx, lry);
+    h.linea({ n: N("lrx"), que: "Esbeltez en el plano", f: "=" + N("Lcx") + "/" + N("rx"), debe: lrx, fmt: "0.0" });
+    h.linea({ n: N("lry"), que: "Esbeltez fuera del plano", f: "=" + N("Lcy") + "/" + N("ry"), debe: lry, fmt: "0.0" });
+    h.linea({ n: N("Fe"), que: "Fe con la mayor", f: "=PI()^2*Ea/MAX(" + N("lrx") + "," + N("lry") + ")^2",
+      debe: Math.PI * Math.PI * E / (lr * lr), u: "kgf/cm²", fmt: "0", norma: art("C.Fe") });
+    const fn = AC.Fn({ Fy_kgcm2: Fy, Fe_kgcm2: Math.PI * Math.PI * E / (lr * lr) });
+    h.linea({ n: N("Fn"), que: "Esfuerzo de pandeo Fn", f: "=IF(Fy/" + N("Fe") + "<=FyFe,0.658^(Fy/" + N("Fe") + ")*Fy,0.877*" + N("Fe") + ")",
+      debe: fn.Fn_kgcm2, u: "kgf/cm²", fmt: "0", como: "E3-2 o E3-3", norma: art(fn.razon <= AC.FY_FE_LIMITE ? "C.Fn.a" : "C.Fn.b") });
+    const capP = b.ratios.filter((x) => x.cap === "E" || x.cap === "D")[0];
+    h.linea({ n: N("Pc"), que: fz.Pr_kgf > 0 ? "Resistencia en tracción φt·Pn (D2)" : "Resistencia en compresión φc·Pn (E3)",
+      f: "=IF(" + N("Pr") + ">0,MIN(phiTy*Fy*" + N("Ag") + ",phiTu*Fu*" + N("Ag") + "),phiC*" + N("Fn") + "*" + N("Ag") + ")",
+      debe: capP.capacidad_kgf, u: "kgf", fmt: "0", como: "en tracción, soldada: An = Ag, U = 1", norma: art(fz.Pr_kgf > 0 ? "T.menor" : "C.Pn") });
+
+    /* F2 */
+    const lp = AC.Lp({ ry_cm: p.ry_cm, Fy_kgcm2: Fy }).Lp_cm;
+    const lrr = AC.Lr({ rts_cm: p.rts_cm, Fy_kgcm2: Fy, J_cm4: p.J_cm4, c: 1, Sx_cm3: p.Sx_cm3, ho_cm: p.ho_cm }).Lr_cm;
+    h.linea({ n: N("Lp"), que: "Lp", f: "=1.76*" + N("ry") + "*SQRT(Ea/Fy)", debe: lp, u: "cm", fmt: "0.0", norma: art("F.Lp") });
+    h.linea({ n: N("tL"), que: "J·c / (Sx·ho), con c = 1", f: "=" + N("J") + "*1/(" + N("Sx") + "*" + N("ho") + ")",
+      debe: p.J_cm4 / (p.Sx_cm3 * p.ho_cm), fmt: "0.00000", norma: art("F.c") });
+    h.linea({ n: N("Lr"), que: "Lr", f: "=1.95*" + N("rts") + "*(Ea/(0.7*Fy))*SQRT(" + N("tL") + "+SQRT(" + N("tL") + "^2+6.76*(0.7*Fy/Ea)^2))",
+      debe: lrr, u: "cm", fmt: "0.0", norma: art("F.Lr") });
+    h.linea({ n: N("Mp"), que: "Momento plástico Mp", f: "=Fy*" + N("Zx"), debe: Fy * p.Zx_cm3, u: "kgf·cm", fmt: "0", norma: art("F.F2.fluencia") });
+    const f2 = AC.flexionF2({ Fy_kgcm2: mat.Fy, Zx_cm3: p.Zx_cm3, Sx_cm3: p.Sx_cm3, Lb_cm: Lb, Lp_cm: lp, Lr_cm: lrr, rts_cm: p.rts_cm,
+      J_cm4: p.J_cm4, c: 1, ho_cm: p.ho_cm });
+    h.linea({ n: N("Mn"), que: "Momento nominal Mn", fmt: "0", u: "kgf·cm", debe: f2.Mn_kgfcm, norma: art("F.F2.zonas"),
+      f: "=IF(" + N("Lb") + "<=" + N("Lp") + "," + N("Mp") + ",IF(" + N("Lb") + "<=" + N("Lr") + ",MIN(" + N("Mp") + ",Cb*(" + N("Mp") +
+        "-(" + N("Mp") + "-0.7*Fy*" + N("Sx") + ")*(" + N("Lb") + "-" + N("Lp") + ")/(" + N("Lr") + "-" + N("Lp") + "))),MIN(" + N("Mp") +
+        ",Cb*PI()^2*Ea/(" + N("Lb") + "/" + N("rts") + ")^2*SQRT(1+0.078*" + N("tL") + "*(" + N("Lb") + "/" + N("rts") + ")^2)*" + N("Sx") + ")))",
+      como: f2.zona });
+    h.linea({ n: N("Mc"), que: "Resistencia a flexión φb·Mn", f: "=phiB*" + N("Mn"), debe: AC.PHI_B * f2.Mn_kgfcm, u: "kgf·cm", fmt: "0",
+      norma: art("F.phi") });
+
+    /* G2 */
+    const umb = AC.COEF_PHI_V1 * raiz;
+    h.linea({ n: N("umbV"), que: "h/tw límite del G2.1(a)", f: "=" + AC.COEF_PHI_V1 + "*SQRT(Ea/Fy)", debe: umb, fmt: "0.00",
+      norma: art("V.phi1") });
+    const vv = AC.corteAlma({ Fy_kgcm2: mat.Fy, d_cm: p.d_cm, tw_cm: p.tw_cm, h_tw: p.h_tw, fabricacion: p.fabricacion });
+    if (vv.enG21a) {
+      h.linea({ n: N("Vc"), que: "Resistencia a cortante φv·Vn, Cv1 = 1", f: "=phiV1*0.6*Fy*" + N("dd") + "*" + N("tw"), debe: vv.Vd_kgf,
+        u: "kgf", fmt: "0", como: "laminado y h/tw ≤ límite", norma: art("V.Vn") });
+    } else {
+      h.linea({ n: N("Vc"), que: "Resistencia a cortante φv·Vn", v: vv.Vd_kgf, u: "kgf", estilo: "analisis", fmt: "0",
+        como: "fuera del G2.1(a): del motor", norma: art("V.Vn") });
+    }
+    h.linea({ n: N("rV"), que: "Ratio a cortante", f: "=ABS(" + N("Vr") + ")/" + N("Vc"), debe: Math.abs(fz.Vr_kgf) / vv.Vd_kgf,
+      fmt: "0.000", como: "informativo: con axial y momento manda H1" });
+
+    /* H1 */
+    const pp = Math.abs(fz.Pr_kgf) / capP.capacidad_kgf;
+    h.linea({ n: N("pp"), que: "Pr / Pc", f: "=ABS(" + N("Pr") + ")/" + N("Pc"), debe: pp, fmt: "0.0000" });
+    h.linea({ n: N("mm"), que: "Mr / Mc", f: "=ABS(" + N("Mr") + ")/" + N("Mc"), debe: Math.abs(fz.Mr_kgfcm) / (AC.PHI_B * f2.Mn_kgfcm),
+      fmt: "0.0000" });
+    h.linea({ que: "  ecuación", f: "=IF(" + N("pp") + ">=0.2,\"H1-1a · axial dominante\",\"H1-1b · flexión dominante\")",
+      debe: pp >= 0.2 ? "H1-1a · axial dominante" : "H1-1b · flexión dominante", norma: art(pp >= 0.2 ? "H.1a" : "H.1b") });
+    h.linea({ n: N("ratio"), que: "RATIO DE LA COLUMNA", f: "=IF(" + N("pp") + ">=0.2," + N("pp") + "+8/9*" + N("mm") + "," + N("pp") +
+      "/2+" + N("mm") + ")", debe: b.ratio, fmt: "0.000", como: "el del motor, combinación por combinación", norma: art("H.1a") });
+    h.linea({ que: "  veredicto", f: SI(N("ratio") + "<=1"), debe: veredicto(b.ratio <= 1 + 1e-12) });
+  }
+
+  /* ---- una barra 2L del tijeral · E3 en el plano, E6 + E4 fuera, D2 ---- */
+  function bloqueTruss(h, N, p, b, clase, Lbar, r, dz, mat, art, soldadas) {
+    const E = AC.E_ACERO, G = AC.G_ACERO, Fy = mat.Fy;
+    /* la mayor tracción y la mayor compresión, como las elige el diseño */
+    let tmax = null, cmax = null;
+    for (const c of r.corridas) {
+      const Nn = c.fuerzas[b.barra].Pr_kgf;
+      if (Nn > 0 && (!tmax || Nn > tmax.N)) tmax = { N: Nn, combo: c.id, texto: c.texto };
+      if (Nn < 0 && (!cmax || Nn < cmax.N)) cmax = { N: Nn, combo: c.id, texto: c.texto };
+    }
+    if (p.familia !== "2L") {
+      /* otra familia: el capítulo que le tocó, con su capacidad del motor */
+      h.nota("Familia " + p.familia + ": su capítulo se escribe con la capacidad del motor (" + b.estado + ").");
+      h.cabeceraMagnitudes();
+      const cap = b.ratios.filter((x) => x.capacidad_kgf)[0];
+      const Nn = b.combo === (cmax && cmax.combo) ? cmax.N : tmax.N;
+      h.linea({ n: N("N"), que: "Axial (+ tracción)", v: Nn, u: "kgf", estilo: "analisis", fmt: "0.0", como: b.combo });
+      h.linea({ n: N("Pd"), que: "Capacidad", v: cap.capacidad_kgf, u: "kgf", estilo: "analisis", fmt: "0", norma: cap.art });
+      h.linea({ n: N("ratio"), que: "RATIO", f: "=ABS(" + N("N") + ")/" + N("Pd"), debe: b.ratio, fmt: "0.000" });
+      return;
+    }
+    const sep = { "0": "sep0", "3/8": "sep38", "3/4": "sep34" }[dz.cartela];
+    const L1 = PF.busca(String(p.id || p.nombre).replace(/^2L/, "L"));
+    h.cabeceraMagnitudes();
+    prop(h, N, "Ag", "Área del 2L", p.A_cm2, "cm²");
+    prop(h, N, "rx", "rx del 2L (en el plano)", p.rx_cm, "cm");
+    prop(h, N, "ry", "ry del 2L, con esta cartela", p["ry_" + sep + "_cm"], "cm");
+    prop(h, N, "ro", "ro del 2L, con esta cartela", p["ro_" + sep + "_cm"], "cm");
+    prop(h, N, "Hc", "H del 2L, con esta cartela", p["H_" + sep], "");
+    prop(h, N, "bt", "b/t del lado", Math.max(p.b_cm || 0, p.d_cm || 0) / p.t_cm, "", "0.00");
+    prop(h, N, "rz", "rz de UN ángulo (el ri mínimo)", L1.rz_cm, "cm");
+    prop(h, N, "J1", "J de UN ángulo", L1.J_cm4, "cm⁴", "0.0000");
+    h.linea({ n: N("L"), que: "Longitud de la barra", v: Lbar, u: "cm", estilo: "modelo", fmt: "0.0", norma: art("D.DIS.longitudes") });
+    const inf = clase === "brida inferior";
+    const Lcy = inf ? Math.max(Lbar, dz.arriostreInferior_m * 100) : Lbar;
+    h.linea({ n: N("Lcy"), que: "Lc fuera del plano", f: inf ? "=MAX(" + N("L") + ",arrInf*100)" : "=" + N("L"), debe: Lcy, u: "cm",
+      fmt: "0.0", como: inf ? "la brida inferior, hasta su arriostre" : "de nudo a nudo", norma: art("D.DIS.longitudes") });
+    let fC = null, fT = null;
+
+    if (cmax) {
+      h.subseccion("   En compresión · " + cmax.combo + " (" + cmax.texto + ")");
+      h.cabeceraMagnitudes();
+      h.linea({ n: N("Nc"), que: "Compresión", v: -cmax.N, u: "kgf", estilo: "analisis", fmt: "0.0", como: "de ANALISIS" });
+      const caso = dz.cartela === "0" ? 1 : 3, coef = AC.B4A[caso].coef;
+      const lrL = coef * Math.sqrt(E / Fy);
+      h.linea({ n: N("lrL"), que: "λr del lado del ángulo", f: "=" + coef + "*SQRT(Ea/Fy)", debe: lrL, fmt: "0.00",
+        norma: art("C.B4a.c" + caso) });
+      h.linea({ que: "  ¿lado no esbelto?", f: "=IF(" + N("bt") + "<=" + N("lrL") + ",\"no esbelto: E3\",\"esbelto: E7\")",
+        debe: (Math.max(p.b_cm || 0, p.d_cm || 0) / p.t_cm) <= lrL ? "no esbelto: E3" : "esbelto: E7", norma: art("C.B4a") });
+      const lrx = Lbar / p.rx_cm, Fex = Math.PI * Math.PI * E / (lrx * lrx);
+      h.linea({ n: N("lrx"), que: "Esbeltez en el plano Lc/rx", f: "=" + N("L") + "/" + N("rx"), debe: lrx, fmt: "0.0" });
+      h.linea({ n: N("Fex"), que: "Fe en el plano (E3)", f: "=PI()^2*Ea/" + N("lrx") + "^2", debe: Fex, u: "kgf/cm²", fmt: "0",
+        norma: art("C.Fe") });
+      const ry = p["ry_" + sep + "_cm"], ro = p["ro_" + sep + "_cm"], H = p["H_" + sep];
+      const lr0 = Lcy / ry;
+      const e6 = AC.esbeltezModificada({ lr0: lr0, a_cm: dz.separadores_cm, ri_cm: L1.rz_cm, conexion: dz.conexionSeparadores,
+        tipo: "angulos" });
+      h.linea({ n: N("lr0"), que: "Esbeltez fuera del plano (Lc/r)o", f: "=" + N("Lcy") + "/" + N("ry"), debe: lr0, fmt: "0.0" });
+      h.linea({ n: N("ari"), que: "a/ri de un ángulo", f: "=aSep/" + N("rz"), debe: e6.ari, fmt: "0.0", norma: art("C.E6.ri") });
+      h.linea({ n: N("lrm"), que: "Esbeltez modificada (Lc/r)m", fmt: "0.0", debe: e6.lrm, norma: art(dz.conexionSeparadores === "apretado" ? "C.E6.m1" : "C.E6.m2"),
+        f: "=IF(conSep=\"apretado\",SQRT(" + N("lr0") + "^2+" + N("ari") + "^2),IF(" + N("ari") + "<=ariLim," + N("lr0") +
+          ",SQRT(" + N("lr0") + "^2+(Ki*" + N("ari") + ")^2)))", como: "E6-1 o E6-2" });
+      const Fey = Math.PI * Math.PI * E / (e6.lrm * e6.lrm);
+      const fez = AC.Fez({ J_cm4: 2 * L1.J_cm4, Lcz_cm: Lcy, Ag_cm2: p.A_cm2, ro2: ro * ro }).Fez_kgcm2;
+      const ft = AC.FeSimpleSimetria({ Fey_kgcm2: Fey, Fez_kgcm2: fez, H: H }).Fe_kgcm2;
+      h.linea({ n: N("Fey"), que: "Fey, con la esbeltez modificada", f: "=PI()^2*Ea/" + N("lrm") + "^2", debe: Fey, u: "kgf/cm²", fmt: "0",
+        norma: art("C.E4.2L") });
+      h.linea({ n: N("Fez"), que: "Fez, torsional (sin Cw)", f: "=Ga*2*" + N("J1") + "/(" + N("Ag") + "*" + N("ro") + "^2)", debe: fez,
+        u: "kgf/cm²", fmt: "0", como: "J del 2L = 2·J de un ángulo", norma: art("C.E4.Cw") });
+      h.linea({ n: N("Feft"), que: "Fe flexotorsional (E4-3)", fmt: "0", u: "kgf/cm²", debe: ft, norma: art("C.E4.Fe3"),
+        f: "=(" + N("Fey") + "+" + N("Fez") + ")/(2*" + N("Hc") + ")*(1-SQRT(1-4*" + N("Fey") + "*" + N("Fez") + "*" + N("Hc") + "/(" +
+          N("Fey") + "+" + N("Fez") + ")^2))" });
+      const Fe = Math.min(Fex, ft);
+      h.linea({ n: N("Fe"), que: "Fe: el menor", f: "=MIN(" + N("Fex") + "," + N("Feft") + ")", debe: Fe, u: "kgf/cm²", fmt: "0",
+        como: Fex <= ft ? "manda el pandeo en el plano" : "manda el flexotorsional", norma: art("C.E4.2L") });
+      const fn = AC.Fn({ Fy_kgcm2: Fy, Fe_kgcm2: Fe });
+      h.linea({ n: N("Fn"), que: "Esfuerzo de pandeo Fn", f: "=IF(Fy/" + N("Fe") + "<=FyFe,0.658^(Fy/" + N("Fe") + ")*Fy,0.877*" + N("Fe") + ")",
+        debe: fn.Fn_kgcm2, u: "kgf/cm²", fmt: "0", norma: art(fn.razon <= AC.FY_FE_LIMITE ? "C.Fn.a" : "C.Fn.b") });
+      h.linea({ n: N("Pcc"), que: "φc·Pn", f: "=phiC*" + N("Fn") + "*" + N("Ag"), debe: AC.PHI_C * fn.Fn_kgcm2 * p.A_cm2, u: "kgf",
+        fmt: "0", norma: art("C.Pn") });
+      fC = -cmax.N / (AC.PHI_C * fn.Fn_kgcm2 * p.A_cm2);
+      h.linea({ n: N("rC"), que: "Ratio en compresión", f: "=" + N("Nc") + "/" + N("Pcc"), debe: fC, fmt: "0.000" });
+      const tope = AC.FRACCION_COMPONENTE * Math.max(lrx, e6.lrm);
+      h.linea({ n: N("topeA"), que: "Tope de a/ri: 3/4 de la esbeltez que gobierna", f: "=fSep*MAX(" + N("lrx") + "," + N("lrm") + ")",
+        debe: tope, fmt: "0.0", norma: art("C.E6.a") });
+      h.linea({ que: "  ¿separadores bastante juntos?", f: SI(N("ari") + "<=" + N("topeA")), debe: veredicto(e6.ari <= tope),
+        como: "si no, falta un control esencial", norma: art("C.E6.a") });
+    }
+    if (tmax) {
+      h.subseccion("   En tracción · " + tmax.combo + " (" + tmax.texto + ")");
+      h.cabeceraMagnitudes();
+      h.linea({ n: N("Nt"), que: "Tracción", v: tmax.N, u: "kgf", estilo: "analisis", fmt: "0.0", como: "de ANALISIS" });
+      h.linea({ n: N("Pty"), que: "Fluencia en el área total φt·Fy·Ag", f: "=phiTy*Fy*" + N("Ag"), debe: AC.PHI.tFluencia * Fy * p.A_cm2,
+        u: "kgf", fmt: "0", norma: art("T.fluencia") });
+      if (soldadas && L1.xbar_cm > 0) {
+        prop(h, N, "xb", "x̄ de un ángulo (excentricidad de la unión)", L1.xbar_cm, "cm");
+        const U = AC.factorU({ caso: "2", xbar_cm: L1.xbar_cm, l_cm: dz.soldadura_cm }).U;
+        h.linea({ n: N("U"), que: "U, retraso de cortante", f: "=1-" + N("xb") + "/lSold", debe: U, fmt: "0.000", como: "1 − x̄/l",
+          norma: art("T.U.c2") });
+        h.linea({ n: N("Ptu"), que: "Rotura en el área neta efectiva φt·Fu·U·An", f: "=phiTu*Fu*" + N("U") + "*" + N("Ag"),
+          debe: AC.PHI.tRotura * mat.Fu * U * p.A_cm2, u: "kgf", fmt: "0", como: "soldada: An = Ag", norma: art("T.rotura") });
+        const Pd = Math.min(AC.PHI.tFluencia * Fy * p.A_cm2, AC.PHI.tRotura * mat.Fu * U * p.A_cm2);
+        fT = tmax.N / Pd;
+        h.linea({ n: N("Pdt"), que: "φt·Pn: el menor", f: "=MIN(" + N("Pty") + "," + N("Ptu") + ")", debe: Pd, u: "kgf", fmt: "0",
+          norma: art("T.menor") });
+      } else {
+        /* empernada: An y U salen de la unión, en el motor */
+        const t = b.ratios.filter((x) => x.cap === "D")[0];
+        const Pd = t ? t.capacidad_kgf : null;
+        h.linea({ n: N("Pdt"), que: "φt·Pn (empernada: An y U de la unión)", v: Pd, u: "kgf", estilo: "analisis", fmt: "0",
+          norma: art("T.menor") });
+        fT = Pd ? tmax.N / Pd : null;
+      }
+      h.linea({ n: N("rT"), que: "Ratio en tracción", f: "=" + N("Nt") + "/" + N("Pdt"), debe: fT, fmt: "0.000" });
+    }
+    const partes = [cmax ? N("rC") : null, tmax ? N("rT") : null].filter(Boolean);
+    h.blanco();
+    h.cabeceraMagnitudes();
+    h.linea({ n: N("ratio"), que: "RATIO DE LA BARRA", f: "=MAX(" + partes.join(",") + ")", debe: b.ratio, fmt: "0.000",
+      como: "el mayor: el del motor", norma: art("D.DIS.unicos") });
+    h.linea({ que: "  veredicto", f: SI(N("ratio") + "<=1"), debe: veredicto(b.ratio <= 1 + 1e-12) });
+  }
+
   const HOJAS = [
     { id: "datos", nombre: "DATOS", titulo: "Datos del proyecto", listo: true,
       que: "el sitio, la edificación, los materiales, el suelo, el sistema y los perfiles" },
@@ -1118,10 +1473,11 @@
       que: "E.020 (muerta, viva, nieve, viento), E.030 y las combinaciones de E.090 y E.060" },
     { id: "analisis", nombre: "ANALISIS", titulo: "Análisis: el pórtico resuelto", listo: true,
       que: "reacciones por caso, el equilibrio, el segundo orden de cada combinación (B2) y las columnas paso a paso (B1, Mr)" },
-    { id: "diseno", nombre: "DISENO", titulo: "Diseño de barras", listo: false, que: "cada clase de barra por su capítulo del AISC" },
+    { id: "diseno", nombre: "DISENO", titulo: "Diseño de barras", listo: true,
+      que: "todas las barras con su ratio, y la que manda de cada clase calculada con el AISC: B4.1, E3, E4, E6, F2, G2, H1 y D2" },
     { id: "cimentacion", nombre: "CIMENTACION", titulo: "Cimentación", listo: false, que: "zapata, pedestal y placa base" },
     { id: "metrado", nombre: "METRADO", titulo: "Metrado", listo: false, que: "acero por clase de barra, concreto y armadura" }
   ];
 
-  return { ART, HOJAS, ANCHOS, nombreValido, armador, hojaCargas, hojaDatos, hojaGeometria, hojaAnalisis };
+  return { ART, HOJAS, ANCHOS, nombreValido, armador, hojaCargas, hojaDatos, hojaGeometria, hojaAnalisis, hojaDiseno };
 });
