@@ -209,7 +209,7 @@ delata, y por eso `agregaCarga()` lo rechaza.
 
 ## Estado
 
-**E0 a E6 cerradas.** El complemento calcula un galpón completo de punta a
+**E0 a E8 cerradas.** El complemento calcula un galpón completo de punta a
 punta —geometría, cargas, análisis, diseño— y además **se ve**: cuatro
 pestañas, un manifiesto de Office y una página publicable. Todo verificable en
 Node y en CI, incluida la página entera, que se ejecuta contra un DOM de
@@ -225,6 +225,6 @@ juguete en cada corrida.
 | **E5** piezas | elemento · bucle · correas · tijeral · columnas · arriostres | ✅ |
 | **E6** interfaz | generador · montaje · complemento · vistas · vista3d | ✅ |
 | **E7** conexiones | placa base · Cap. J: filetes, pernos, elementos, extremos | ✅ |
-| **E8** cimentación | pedestal · zapatas | ⬜ |
+| **E8** cimentación | pedestal · zapatas · placa base · vigas de conexión · a lo largo · correas | ✅ |
 | **E9** salida | hojas · metrado · planos | ⬜ |
 | **E10** control | puente a SAP2000 | ⬜ |
