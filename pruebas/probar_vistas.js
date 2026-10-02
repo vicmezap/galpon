@@ -492,14 +492,14 @@ comp("LOS PANELES DE GEOMETRIA —Ver y Datos— solo los lleva Geometria",
     .map((p) => p.id), ["geom"]);
 comp("y cada paso con panel a la izquierda lleva EL SUYO",
   V.PASOS.filter((p) => (p.lados || []).length).map((p) => p.id + ":" + p.lados.join("+")),
-  ["datos:datos", "geom:ver+parametros", "cargas:cargas", "analisis:analisis", "diseno:diseno", "conex:diseno", "cimen:cimen"]);
+  ["datos:datos", "geom:ver+parametros", "analisis:analisis", "diseno:diseno", "conex:diseno", "cimen:cimen"]);
 comp("Analisis lleva panel derecho sin la barra de cuatro vistas",
   [V.armazon("analisis").derecha, V.armazon("analisis").vistas], [true, false]);
 comp("Cargas no lleva panel derecho", V.armazon("cargas").derecha, false);
 comp("con sus dos lados: las capas y los parametros",
   V.armazon("geom").lados, ["ver", "parametros"]);
 comp("CARGAS NO ENSENA LA BARRA DE VISTAS", V.armazon("cargas").vistas, false);
-comp("ni los parametros del tijeral: lleva los suyos", V.armazon("cargas").lados, ["cargas"]);
+comp("ni los parametros del tijeral, ni panel propio: lo que pedia esta en Datos", V.armazon("cargas").lados, []);
 comp("ni Comprobacion", V.armazon("comprob").vistas, false);
 comp("ni Inicio", V.armazon("inicio").vistas, false);
 

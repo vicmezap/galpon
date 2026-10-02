@@ -711,7 +711,7 @@
       sub: "el galpón entero, en cuatro vistas" },
 
     { id: "cargas", grupo: "Paso 2 · Modelo", nombre: "Cargas", listo: true,
-      vistas: false, lados: ["cargas"], derecha: false,
+      vistas: false, lados: [], derecha: false,
       sub: "lo que carga el galpón, cada número con su artículo" },
 
     { id: "analisis", grupo: "Paso 3", nombre: "Análisis", listo: true,

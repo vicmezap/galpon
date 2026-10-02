@@ -400,21 +400,22 @@ cierto("y con tildes: el texto es para el proyectista, no para el compilador",
 cierto("ya no queda ni una capa de barras a la vista",
   diseno.indexOf("data-capa=") < 0);
 
-/* ───── CARGAS · su propio panel, y sin valores que nadie eligió ───── */
+/* ───── CARGAS · ya no pide nada: los datos están en Datos, y aquí se ven las cargas ───── */
 pulsa(M.dom, "pasos", "data-paso", "cargas");
-comp("en Cargas va SU panel a la izquierda", pinto(M.dom, "lado-cargas").hidden, false);
-comp("y no el de Geometría", [pinto(M.dom, "lado-ver").hidden, pinto(M.dom, "lado-parametros").hidden],
-  [true, true]);
+comp("Cargas no lleva panel: lo que pedía es dato del proyecto, y está en Datos",
+  [pinto(M.dom, "lado-cargas").hidden, pinto(M.dom, "izquierda").hidden], [true, true]);
 comp("ni panel derecho", pinto(M.dom, "derecha").hidden, true);
-const fc = pinto(M.dom, "fc").innerHTML;
-cierto("el formulario trae la cobertura, el viento, las aberturas y el acero",
-  /ca_esp/.test(fc) && /ca_v"/.test(fc) && /ca_ab_izqDer/.test(fc) && /ca_acero/.test(fc));
-cierto("las aberturas, una por dirección", /ca_ab_derIzq/.test(fc) && /ca_ab_longitudinal/.test(fc));
-cierto("NINGÚN campo trae valor: todos empiezan en «— elegir —» o vacíos",
-  !/selected/.test(fc) && !/<input[^>]*value="[^"]/.test(fc));
-cierto("cada campo con norma lleva su botón de fuente", (fc.match(/data-fte=/g) || []).length >= 6);
+const fe0 = pinto(M.dom, "fe").innerHTML, fm0 = pinto(M.dom, "fm").innerHTML, fcp0 = pinto(M.dom, "fcp").innerHTML;
+cierto("el viento y las aberturas, en Datos › Proyecto y sitio", /ed_v"/.test(fe0) && /ed_tipo/.test(fe0) &&
+  /ed_ab_izqDer/.test(fe0) && /ed_ab_derIzq/.test(fe0) && /ed_ab_longitudinal/.test(fe0) && /ed_sissis/.test(fe0));
+cierto("el acero, en Materiales; la cobertura y el techo, en Cargas permanentes", /ma_acero/.test(fm0) && /cp_esp/.test(fcp0) &&
+  /cp_nieve/.test(fcp0) && /cp_qs/.test(fcp0));
+cierto("NINGÚN campo de Datos trae valor: todos empiezan en «— elegir —» o vacíos",
+  [fe0, fm0, fcp0].every((h) => !/selected/.test(h) && !/<input[^>]*value="[^"]/.test(h)));
+cierto("cada campo con norma lleva su botón de fuente", (fe0.match(/data-fte=/g) || []).length >= 10);
 const cg = pinto(M.dom, "centro").innerHTML;
-cierto("vacío, la pantalla DICE qué falta en vez de inventarlo", /faltan \d+ dato/.test(cg));
+cierto("vacío, la pantalla DICE qué falta en vez de inventarlo, y lleva a Datos", /faltan \d+ dato/.test(cg) &&
+  /data-ir="datos"/.test(cg));
 cierto("y entre lo que falta, las aberturas por dirección", /aberturas para el viento/.test(cg));
 
 /* ───── ANÁLISIS · sin datos dice qué falta y adónde ir ───── */
@@ -452,8 +453,9 @@ pulsa(M.dom, "pasos", "data-paso", "cimen");
 comp("en Cimentación va SU panel a la izquierda", pinto(M.dom, "lado-cimen").hidden, false);
 comp("y no el de Diseño", pinto(M.dom, "lado-diseno").hidden, true);
 const fci = pinto(M.dom, "fci").innerHTML;
-cierto("el formulario pide el suelo, el concreto y el pedestal",
-  /ci_sigma/.test(fci) && /ci_neta/.test(fci) && /ci_fc/.test(fci) && /ci_grado/.test(fci) && /ci_pedb/.test(fci));
+cierto("el formulario pide el recubrimiento y el pedestal; el suelo y el concreto están en Datos › Materiales",
+  /ci_rec/.test(fci) && /ci_pedb/.test(fci) && !/ci_sigma/.test(fci) && !/ci_fc"/.test(fci) &&
+  ["ma_sigma", "ma_neta", "ma_df", "ma_gr", "ma_sc", "ma_fc", "ma_grado"].every((id) => pinto(M.dom, "fm").innerHTML.indexOf(id) >= 0));
 cierto("y el armado del pedestal, la placa, los pernos y la llave de corte",
   ["ci_pbarra", "ci_pest", "ci_prec", "ci_junta", "ci_plb", "ci_pln", "ci_plt", "ci_pf", "ci_pnf", "ci_psep",
     "ci_pd", "ci_pmat", "ci_pld", "ci_elec", "ci_lll", "ci_llh", "ci_llt", "ci_grout"].every((id) => fci.indexOf(id) >= 0));
@@ -531,14 +533,22 @@ cierto("y Comprobación oye a la zapata de LOS DOS pórticos",
     ["ed_distbus", "ed_dist", "ed_suelo", "ed_vs30"].every((id) => pinto(M.dom, "fe").innerHTML.indexOf('id="' + id + '"') >= 0));
   cierto("la zona ya no se elige a mano en Cargas: sale del distrito", pinto(M.dom, "fc").innerHTML.indexOf("ca_zona") < 0 &&
     /UBICACION\.buscar\(texto, 60\)/.test(modeHtml));
-  cierto("y en el centro, la ficha del sitio", /El sitio/.test(sel()));
+  cierto("COMO EN RETÍCULA: en la tarjeta del sitio, lo que sale del distrito y del suelo, sin escribirlo",
+    ["fx_zona", "fx_Z", "fx_S", "fx_TPTL", "fx_R0", "fx_R0L"].every((id) => pinto(M.dom, "fe").innerHTML.indexOf('id="' + id + '"') >= 0));
+  cierto("en Materiales, Fy, Fu, E, Ec = 15000·√f'c, fy y la presión neta",
+    ["fx_Fy", "fx_Fu", "fx_E", "fx_Ec", "fx_fy", "fx_sn"].every((id) => pinto(M.dom, "fm").innerHTML.indexOf('id="' + id + '"') >= 0));
+  cierto("en Cargas permanentes, el peso de la plancha, la carga muerta, la viva reducida y el peso del acero",
+    ["fx_pcob", "fx_Dsup", "fx_At", "fx_Lr", "fx_kgAcero", "fx_kgm2"].every((id) => pinto(M.dom, "fcp").innerHTML.indexOf('id="' + id + '"') >= 0));
+  cierto("y se pintan al entrar en Datos", /pintaFijos\(\);/.test(modeHtml) && /RESULTADOS\.fijosDatos\(modelo, m3, PERFILES\)/.test(modeHtml));
+  cierto("tres pestañas: Proyecto y sitio, Materiales, Cargas permanentes",
+    /data-sub="sitio"/.test(modeHtml) && /data-sub="mat"/.test(modeHtml) && /data-sub="perm"/.test(modeHtml));
   cierto("la categoría ya no se elige a mano en Cargas: sale del uso",
     pinto(M.dom, "fc").innerHTML.indexOf("ca_categoria") < 0 && pinto(M.dom, "fc").innerHTML.indexOf("ca_indus") < 0);
-  cierto("el sitio se lee de los dos formularios, para que uno no borre al otro", /function sitioDeFormularios\(\)/.test(modeHtml) &&
-    (modeHtml.match(/modelo\.sitio = sitioDeFormularios\(\)/g) || []).length === 2);
-  cierto("y en el centro, la ficha de la edificación", /La edificación/.test(sel()));
+  cierto("el sitio se lee de los TRES formularios de Datos a la vez, para que uno no borre al otro",
+    /function valoresDatos\(\)/.test(modeHtml) && (modeHtml.match(/modelo\.sitio = sitioDeFormularios\(\)/g) || []).length === 3);
+  cierto("y la cimentación, de su paso y de Materiales", (modeHtml.match(/modelo\.cimentacion = cimentacionDeFormularios\(\)/g) || []).length === 2);
   cierto("y dice lo que falta en cada paso, con el botón para ir",
-    /Lo que falta, paso por paso/.test(sel()) && /data-ir="cargas"/.test(sel()) && /espera a/.test(sel()));
+    /Lo que falta, paso por paso/.test(sel()) && /data-ir="geom"/.test(sel()) && /espera a/.test(sel()));
   cierto("a la derecha, los materiales y las normas que mandan",
     /Materiales/.test(pinto(M.dom, "derecha").innerHTML) && /AISC 360-22/.test(pinto(M.dom, "derecha").innerHTML));
   cierto("guardar y abrir llevan el proyecto", /m\.proyecto = modelo\.proyecto/.test(modeHtml) &&
@@ -547,8 +557,8 @@ cierto("y Comprobación oye a la zapata de LOS DOS pórticos",
   pulsa(M.dom, "pasos", "data-paso", "hojas");
   cierto("en Hojas Excel, las cuatro hojas: cargas lista y las demás dicen que todavía no",
     /Cargas y combinaciones/.test(sel()) && (sel().match(/todavía no<\/i>/g) || []).length === 3);
-  cierto("sin las cargas completas, dice qué falta y lleva a Cargas",
-    /la hoja de cargas todavía no se puede escribir/.test(sel()) && /data-ir="cargas"/.test(sel()));
+  cierto("sin las cargas completas, dice qué falta y lleva a Datos",
+    /la hoja de cargas todavía no se puede escribir/.test(sel()) && /data-ir="datos"/.test(sel()));
   cierto("el panel derecho explica los colores", /verde/.test(pinto(M.dom, "derecha").innerHTML) &&
     /H\.analisis/.test(pinto(M.dom, "derecha").innerHTML));
   cierto("la hoja SOLO se escribe si todas las fórmulas dan el número del motor, y fuera de Excel no se ofrece",

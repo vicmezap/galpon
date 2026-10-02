@@ -19,14 +19,15 @@
       require("./e020.js"), require("./viento.js"), require("./combinaciones.js"),
       require("./analisis.js"), require("./libro.js"), require("./e030.js"),
       require("./diseno.js"), require("./zapatas.js"), require("./pedestal.js"), require("./placabase.js"),
-      require("./conexiones.js"), require("./acero.js"), require("./longitudinal.js"), require("./ubicacion.js"));
+      require("./conexiones.js"), require("./acero.js"), require("./longitudinal.js"), require("./ubicacion.js"),
+      require("./unidades.js"));
   } else {
     raiz.RESULTADOS = definir(raiz.INVENTARIO, raiz.VISTAS, raiz.E020, raiz.VIENTO,
       raiz.COMBINACIONES, raiz.ANALISIS, raiz.LIBRO, raiz.E030, raiz.DISENO, raiz.ZAPATAS,
-      raiz.PEDESTAL, raiz.PLACABASE, raiz.CONEXIONES, raiz.ACERO, raiz.LONGITUDINAL, raiz.UBICACION);
+      raiz.PEDESTAL, raiz.PLACABASE, raiz.CONEXIONES, raiz.ACERO, raiz.LONGITUDINAL, raiz.UBICACION, raiz.UNIDADES);
   }
 })(typeof self !== "undefined" ? self : this, function (INV, V, E020, VI, CB, AN, LIBRO, E030, DI, ZA, PD, PB,
-  CX, AC, LG, UB) {
+  CX, AC, LG, UB, UN) {
   "use strict";
 
   const ART = INV.declara("resultados.js", [
@@ -37,6 +38,8 @@
     "S.vertical", "S.despl", "S.deriva", "S.deriva.industrial", "A.sismo.sistema", "A.sismo.periodo",
     "S.categoria.uso", "S.categoria.riesgo", "S.usos.combinados", "S.sistemas.categoria", "S.cobertura.liviana",
     "S.irregularidad.categoria", "S.P", "A.sismo.regular", "S.zona.distrito", "S.perfil", "S.sinVs30",
+    "C.Ec", "MAT.E", "LG.sismo.sistema", "Lr.red.Ai", "Lr.red.min40", "D.perfil.peso", "L.secciones", "Z.sigma.neta", "Z.peso",
+    "Z.As.min", "Z.bloque", "Z.deslizamiento",
     "D.DIS.longitudes", "D.DIS.cartela", "D.DIS.E5", "E.C3.arriostre", "C.E6.a", "C.E5.cond",
     "T.U.c2", "T.U.c8", "C.E4.2L",
     "Z.sigma.neta", "Z.inc30", "Z.levantamiento", "Z.deslizamiento", "Z.punzon.momento", "Z.Vc.viga",
@@ -102,16 +105,32 @@
   }
 
   const ELEGIR = ["", "— elegir —"];          /* ningún campo trae valor: se elige */
+  const ABERTURAS = [ELEGIR, ["repartidas", "repartidas · Ci ±0,3"],
+    ["barlovento", "principales a barlovento · Ci +0,8"],
+    ["sotavento", "a sotavento o en los costados · Ci −0,6"]];
 
   /* LA EDIFICACIÓN · el uso da la categoría (filas S.categoria.uso y siguientes) */
+  /* LOS VALORES QUE SALEN SOLOS, en la misma tarjeta que el dato que los da (como en Retícula).
+     tipo «fijo»: no se escribe, se calcula con fijosDatos(); el id es el de su elemento, fx_<id>. */
+  const fijo = (id, etiqueta, fuente) => ({ id: id, tipo: "fijo", etiqueta: etiqueta, fuente: fuente });
   const CAMPOS_EDIFICACION = [
-    { grupo: "Sitio", campos: [
+    { grupo: "Sitio y sismo", campos: [
       { id: "dist", clave: "distrito", etiqueta: "Distrito", tipo: "distrito", fuente: "S.zona.distrito" },
+      fijo("zona", "Zona sísmica", "S.zona.distrito"),
+      fijo("Z", "Factor de zona Z", "S.Z"),
       { id: "suelo", clave: "suelo", etiqueta: "Perfil de suelo", tipo: "opcion", fuente: "S.perfil",
         opciones: [ELEGIR, ["S0", "S0 · roca dura"], ["S1", "S1 · roca o suelo muy rígido"],
           ["S2", "S2 · suelo intermedio"], ["S3", "S3 · suelo blando"], ["S4", "S4 · excepcional"]] },
       { id: "vs30", clave: "vs30_ms", etiqueta: "V̄s30 medido (opcional)", unidad: "m/s", tipo: "numero",
-        fuente: "S.sinVs30" }] },
+        fuente: "S.sinVs30" },
+      fijo("S", "Factor de suelo S", "S.perfil"),
+      fijo("TPTL", "Períodos TP / TL", "S.perfil"),
+      { id: "sissis", clave: "sistemaSismico", etiqueta: "Sistema sísmico transversal", tipo: "opcion",
+        fuente: "S.R0", opciones: [ELEGIR, ["pendulo", "péndulo invertido · R₀ 2,5"],
+          ["OMF", "ordinario OMF · R₀ 4"], ["IMF", "intermedio IMF · R₀ 5"],
+          ["SMF", "especial SMF · R₀ 8"]] },
+      fijo("R0", "R₀ transversal", "S.R0"),
+      fijo("R0L", "R₀ a lo largo", "LG.sismo.sistema")] },
     { grupo: "Edificación", campos: [
       { id: "uso", clave: "uso", etiqueta: "Uso de la edificación", tipo: "opcion", fuente: "S.categoria.uso",
         opciones: [ELEGIR].concat(Object.keys(E030.USOS).map((k) => [k, E030.USOS[k].nombre])) },
@@ -124,7 +143,76 @@
       { id: "secpct", clave: "usoSecPct", etiqueta: "Área de ese otro uso, sin sótanos", unidad: "% del total", tipo: "numero",
         fuente: "S.usos.combinados", soloSi: "sec=A2|B|C" },
       { id: "indus", clave: "industrial", etiqueta: "¿Es de uso industrial? (deriva hasta 2× la tabla)",
-        tipo: "opcion", fuente: "S.deriva.industrial", opciones: [ELEGIR, ["no", "no"], ["si", "sí"]] }] }];
+        tipo: "opcion", fuente: "S.deriva.industrial", opciones: [ELEGIR, ["no", "no"], ["si", "sí"]] },
+      fijo("cat", "Categoría y factor U", "S.categoria.uso"),
+      fijo("peso", "Viva en el peso sísmico", "S.P"),
+      fijo("sist", "Sistemas permitidos", "S.cobertura.liviana")] },
+    { grupo: "Viento", campos: [
+      { id: "v", clave: "V_kmh", etiqueta: "Velocidad del Mapa Eólico", unidad: "km/h",
+        tipo: "numero", fuente: "W.V.mapa" },
+      fijo("Vh", "Velocidad de diseño Vh", "W.Vh"),
+      { id: "tipo", clave: "tipoEdificacion", etiqueta: "Tipo de edificación", tipo: "opcion",
+        fuente: "W.tipo", opciones: [ELEGIR, ["1", "Tipo 1"], ["2", "Tipo 2 · × 1,2"]] },
+      fijo("q", "Presión de referencia (C = 1)", "W.Ph"),
+      { id: "ab_izqDer", clave: "aberturas.izqDer", etiqueta: "Aberturas · viento izq → der",
+        tipo: "opcion", fuente: "W.C", opciones: ABERTURAS },
+      { id: "ab_derIzq", clave: "aberturas.derIzq", etiqueta: "Aberturas · viento der → izq",
+        tipo: "opcion", fuente: "W.C", opciones: ABERTURAS },
+      { id: "ab_longitudinal", clave: "aberturas.longitudinal", etiqueta: "Aberturas · viento longitudinal",
+        tipo: "opcion", fuente: "W.C", opciones: ABERTURAS }] }];
+
+  /* MATERIALES · el acero de los perfiles, el concreto y la armadura, y el suelo */
+  const CAMPOS_MATERIALES = [
+    { grupo: "Acero estructural", campos: [
+      { id: "acero", clave: "acero", etiqueta: "Acero de los perfiles", tipo: "opcion",
+        fuente: "A.acero.Pns", opciones: [ELEGIR, ["A36", "A36"], ["A572", "A572 Gr. 50"]] },
+      fijo("Fy", "Fluencia Fy", "A.acero.Pns"),
+      fijo("Fu", "Rotura Fu", "A.acero.Pns"),
+      fijo("E", "Módulo de elasticidad E", "MAT.E")] },
+    { grupo: "Concreto y armadura", campos: [
+      { id: "fc", clave: "fc_kgcm2", etiqueta: "f'c del concreto", tipo: "opcion", fuente: "Z.bloque",
+        opciones: [ELEGIR, ["210", "210 kgf/cm²"], ["280", "280 kgf/cm²"], ["350", "350 kgf/cm²"]] },
+      fijo("Ec", "Ec = 15 000·√f'c", "C.Ec"),
+      { id: "grado", clave: "grado", etiqueta: "Acero de refuerzo", tipo: "opcion", fuente: "Z.As.min",
+        opciones: [ELEGIR, ["60", "Grado 60 · fy 420 MPa"], ["40", "Grado 40 · fy 280 MPa"]] },
+      fijo("fy", "Fluencia fy", "Z.As.min")] },
+    { grupo: "Suelo", campos: [
+      { id: "sigma", clave: "sigmaAdm_kgfcm2", etiqueta: "Presión admisible del estudio de suelos",
+        unidad: "kgf/cm²", tipo: "numero", fuente: "Z.sigma.neta" },
+      { id: "neta", clave: "esNeta", etiqueta: "Esa presión es", tipo: "opcion", fuente: "Z.sigma.neta",
+        opciones: [ELEGIR, ["bruta", "bruta: se descuenta el relleno y la sobrecarga"], ["neta", "neta: ya descontada"]] },
+      { id: "df", clave: "Df_cm", etiqueta: "Profundidad de desplante", unidad: "cm", tipo: "numero",
+        fuente: "Z.sigma.neta" },
+      { id: "gr", clave: "gammaRelleno_kgfm3", etiqueta: "Peso específico del relleno", unidad: "kgf/m³",
+        tipo: "numero", fuente: "Z.peso" },
+      { id: "sc", clave: "sc_kgfm2", etiqueta: "Sobrecarga sobre el piso", unidad: "kgf/m²", tipo: "numero",
+        fuente: "Z.sigma.neta" },
+      fijo("sn", "Presión neta σn", "Z.sigma.neta"),
+      { id: "mu", clave: "mu", etiqueta: "Coeficiente de rozamiento μ (opcional)", tipo: "numero",
+        fuente: "Z.deslizamiento" }] }];
+
+  /* CARGAS PERMANENTES · la cobertura, la viva de techo y el peso del acero */
+  const CAMPOS_PERMANENTES = [
+    { grupo: "Cobertura", campos: [
+      { id: "esp", clave: "espesorCobertura_mm", etiqueta: "Espesor de la plancha TR-4", unidad: "mm",
+        tipo: "opcion", fuente: "D.cobertura.peso",
+        opciones: [ELEGIR, ["0.40", "0,35 a 0,40"], ["0.50", "0,45 a 0,50"],
+          ["0.60", "0,55 a 0,60"], ["0.80", "0,75 a 0,80"]] },
+      fijo("pcob", "Peso de la plancha", "D.cobertura.peso"),
+      { id: "dotras", clave: "Dotras_kgfm2", etiqueta: "Otras cargas muertas (instalaciones, luminarias…)", unidad: "kgf/m²",
+        tipo: "numero" },
+      fijo("Dsup", "Carga muerta sobre la cobertura", "D.cobertura.peso")] },
+    { grupo: "Viva de techo", campos: [
+      { id: "nieve", clave: "hayNieve", etiqueta: "¿Puede acumularse nieve?", tipo: "opcion",
+        fuente: "Lr.liviana", opciones: [ELEGIR, ["no", "no"], ["si", "sí"]] },
+      { id: "qs", clave: "Qs_kgfm2", etiqueta: "Nieve básica del sitio Qs", unidad: "kgf/m²",
+        tipo: "numero", fuente: "N.Qs.min", soloSi: "nieve=si" },
+      fijo("At", "Área tributaria de un pórtico", "Lr.red.Ai"),
+      fijo("Lr", "Carga viva de techo", "Lr.red.formula")] },
+    { grupo: "Peso de la estructura", campos: [
+      fijo("kgAcero", "Acero de la estructura", "D.perfil.peso"),
+      fijo("kgm2", "Por m² de planta", "D.perfil.peso"),
+      fijo("sinPerf", "Clases sin perfil", "L.secciones")] }];
   function leeEdificacion(val) {
     const s = {};
     if (val.uso && E030.USOS[val.uso]) s.uso = val.uso;
@@ -168,6 +256,102 @@
       return { falta: { campo: "ed_uso", paso: "datos", que: e.message.split("\n")[0].replace(/^e030: /, "") } };
     }
   }
+  /* LOS VALORES QUE SALEN SOLOS en Datos · { id: { v, nota } } para los campos «fijo».
+     Lo que todavía no se puede calcular dice qué le falta, en vez de inventar. */
+  function fijosDatos(modelo, m3, perfiles) {
+    const s = (modelo && modelo.sitio) || {}, c = (modelo && modelo.cimentacion) || {};
+    const F = {};
+    const pon = (id, v, nota) => { F[id] = { v: v, nota: nota || "" }; };
+    const miles = (x) => String(Math.round(x)).replace(/\B(?=(\d{3})+(?!\d))/g, " ");   /* 2 039 000 */
+    const falta = (id, que) => pon(id, "—", "falta " + que);
+    /* sitio y sismo */
+    const z = zonaDe(s);
+    if (z) { pon("zona", z.replace("Z", ""), "del distrito, Anexo II"); pon("Z", n2(E030.Z[z], 2), "Tabla N° 1"); }
+    else { falta("zona", "el distrito"); falta("Z", "el distrito"); }
+    if (z && s.suelo) {
+      try {
+        const st = E030.sitio({ zona: z, suelo: s.suelo, vs30_ms: s.vs30_ms });
+        pon("S", n2(st.S, 3), st.sinVs30 ? "sin V̄s30: el extremo blando del intervalo" : "Tabla N° 4");
+        pon("TPTL", n2(st.TP, 2) + " / " + n2(st.TL, 2) + " s", "Tabla N° 5");
+      } catch (e) { pon("S", "NO HAY", e.message.split("\n")[0].replace(/^e030: /, "")); pon("TPTL", "—", ""); }
+    } else { falta("S", z ? "el perfil de suelo" : "el distrito"); falta("TPTL", z ? "el perfil de suelo" : "el distrito"); }
+    if (s.sistemaSismico) {
+      const r0 = s.sistemaSismico === "pendulo" ? E030.R0_PENDULO : E030.R0[s.sistemaSismico];
+      pon("R0", n2(r0, 1), "estructura regular: R = R₀ (Ia = Ip = 1)");
+    } else falta("R0", "el sistema transversal");
+    pon("R0L", "OCBF · " + n2(E030.R0.OCBF, 1), "arriostres concéntricos ordinarios, a lo largo");
+    /* edificación */
+    const cl = clasificacion(s);
+    if (cl.c) {
+      pon("cat", cl.c.sub + " · U = " + n2(cl.c.U, 1), cl.c.combinado && cl.c.combinado.manda ? "por el otro uso (Art. 19.2)" : "Tabla N° 7");
+      pon("peso", n2(100 * cl.c.pctVivaTecho, 0) + " % de la de techo", "Art. 31 d); con entrepiso, " + n2(100 * cl.c.pctVivaPiso, 0) + " % de la de piso");
+      pon("sist", "cualquiera", z && cl.c.sistemas && cl.c.sistemas.lista ? "cobertura liviana (Art. 21.2); la Tabla N° 9 pediría " +
+        cl.c.sistemas.lista.join(", ") : "cobertura liviana (Art. 21.2)");
+    } else { falta("cat", "el uso"); falta("peso", "el uso"); falta("sist", "el uso"); }
+    /* viento */
+    if (s.V_kmh > 0 && m3) {
+      const vel = VI.velocidadDiseno({ V_kmh: s.V_kmh, h_m: forma(m3).hCumbre_m });
+      pon("Vh", n2(vel.Vh_kmh, 2) + " km/h", vel.enMinimo ? "manda el mínimo de 75 km/h" : "V·(h/10)^0,22 con h = " + n2(forma(m3).hCumbre_m, 2) + " m");
+      const ft = VI.TIPO_FACTOR[s.tipoEdificacion];
+      pon("q", n2(VI.K_PRESION * vel.Vh_kmh * vel.Vh_kmh * (ft || 1), 2) + " kgf/m²", ft ? "0,005·Vh²" + (ft !== 1 ? " × " + n2(ft, 1) : "") : "falta el tipo");
+    } else { falta("Vh", s.V_kmh > 0 ? "el galpón" : "la velocidad del mapa"); falta("q", "la velocidad del mapa"); }
+    /* materiales */
+    if (ACEROS.indexOf(s.acero) >= 0) {
+      const m = AC.material(s.acero);
+      pon("Fy", miles(m.Fy) + " kgf/cm²", s.acero === "A36" ? "ASTM A36" : "ASTM A572 Gr. 50");
+      pon("Fu", miles(m.Fu) + " kgf/cm²", "");
+    } else { falta("Fy", "el acero"); falta("Fu", "el acero"); }
+    pon("E", miles(INV.num("MAT.E")) + " kgf/cm²", "200 000 MPa");
+    if (c.fc_kgcm2 > 0) pon("Ec", miles(15000 * Math.sqrt(c.fc_kgcm2)) + " kgf/cm²", "E.060 ec. 8-3");
+    else falta("Ec", "el f'c");
+    if (ZA.GRADOS[c.grado]) pon("fy", miles(UN.mpa_a_kgcm2(ZA.GRADOS[c.grado])) + " kgf/cm²", ZA.GRADOS[c.grado] + " MPa");
+    else falta("fy", "el grado");
+    if (c.sigmaAdm_kgfcm2 > 0 && typeof c.esNeta === "boolean") {
+      if (c.esNeta) pon("sn", n2(c.sigmaAdm_kgfcm2, 2) + " kgf/cm²", "el estudio ya la da neta");
+      else if (c.Df_cm > 0 && c.gammaRelleno_kgfm3 > 0 && c.sc_kgfm2 >= 0) {
+        const sn0 = c.sigmaAdm_kgfcm2 - c.gammaRelleno_kgfm3 / 1e6 * c.Df_cm - c.sc_kgfm2 / 1e4;
+        pon("sn", "≥ " + n2(sn0, 2) + " kgf/cm²", "σt − s/c − γ·(Df − h): con h = 0, lo más bajo; el peralte de la zapata la sube");
+      } else falta("sn", "Df, γ y s/c");
+    } else falta("sn", "la presión y si es neta");
+    /* cargas permanentes */
+    if (s.espesorCobertura_mm > 0) {
+      try {
+        const pc = E020.pesoCobertura(s.espesorCobertura_mm).peso_kgfm2;
+        pon("pcob", n2(pc, 2) + " kgf/m²", "TR-4 de " + n2(s.espesorCobertura_mm, 2) + " mm");
+        pon("Dsup", n2(pc + (s.Dotras_kgfm2 || 0), 2) + " kgf/m²", "plancha + otras; el peso de los perfiles lo suma el análisis");
+      } catch (e) { pon("pcob", "NO HAY", e.message.split("\n")[0]); falta("Dsup", "el peso de la plancha"); }
+    } else { falta("pcob", "el espesor"); falta("Dsup", "el espesor"); }
+    if (m3) {
+      const f = forma(m3), At = f.luz_m * f.sep_m;
+      pon("At", n2(At, 1) + " m²", "luz × separación");
+      if (s.hayNieve === false) {
+        const lo = E020.vivaTecho({ tipo: "liviana", hayNieve: false }).Lo_kgfm2;
+        const rd = E020.reduceViva({ Lo_kgfm2: lo, At_m2: At });
+        pon("Lr", n2(rd.Lr_kgfm2, 2) + " kgf/m²", rd.reducido ? "Lo = " + lo + " reducida por el área" : rd.motivo);
+      } else if (s.hayNieve === true && s.Qs_kgfm2 >= 0) {
+        const qt = E020.nieveQt({ Qs_kgfm2: s.Qs_kgfm2, theta_grad: f.theta_grad });
+        pon("Lr", n2(qt.Qt_kgfm2, 2) + " kgf/m² de nieve", "Qt, " + qt.caso + "; manda sobre la viva de techo");
+      } else falta("Lr", "si hay nieve");
+      /* el peso del acero: la longitud de cada clase por el peso de su perfil */
+      const pos = {};
+      for (const n of m3.nudos) pos[n.id] = n;
+      const sec = seccionDesde(modelo, perfiles);
+      let kg = 0;
+      const sinP = {};
+      for (const b of m3.barras) {
+        const p = sec(b);
+        if (!p) { sinP[b.clase] = true; continue; }
+        const a = pos[b.i], d = pos[b.j];
+        kg += p.peso_kgfm * Math.sqrt(Math.pow(d.x_m - a.x_m, 2) + Math.pow(d.y_m - a.y_m, 2) + Math.pow(d.z_m - a.z_m, 2));
+      }
+      const area = m3.luz_m * m3.ejes.largo_m, faltan = Object.keys(sinP);
+      pon("kgAcero", n2(kg / 1000, 2) + " t", faltan.length ? "sin las clases que no tienen perfil" : "todas las barras, sin conexiones");
+      pon("kgm2", n2(kg / area, 1) + " kg/m²", "sobre " + n2(area, 0) + " m² de planta");
+      pon("sinPerf", faltan.length ? String(faltan.length) : "ninguna", faltan.length ? faltan.join(", ") + " (Geometría)" : "");
+    } else { falta("At", "el galpón"); falta("Lr", "el galpón"); falta("kgAcero", "el galpón"); falta("kgm2", "el galpón"); falta("sinPerf", "el galpón"); }
+    return F;
+  }
+
   /* EL SITIO · del distrito a Z, S, TP y TL, con su tabla al lado */
   function fichaSitio(sitio) {
     const s = sitio || {};
@@ -247,10 +431,10 @@
     const L = [];
     if (ACEROS.indexOf(s.acero) >= 0) {
       const m = AC.material(s.acero);
-      L.push({ que: "Acero estructural", v: s.acero + " · Fy " + n2(m.Fy, 0) + " · Fu " + n2(m.Fu, 0) + " kgf/cm²", paso: "cargas" });
-    } else L.push({ que: "Acero estructural", v: null, paso: "cargas" });
-    L.push({ que: "Concreto", v: c.fc_kgcm2 > 0 ? "f'c " + n2(c.fc_kgcm2, 0) + " kgf/cm²" : null, paso: "cimen" });
-    L.push({ que: "Acero de refuerzo", v: c.grado ? "grado " + c.grado : null, paso: "cimen" });
+      L.push({ que: "Acero estructural", v: s.acero + " · Fy " + n2(m.Fy, 0) + " · Fu " + n2(m.Fu, 0) + " kgf/cm²", paso: "datos" });
+    } else L.push({ que: "Acero estructural", v: null, paso: "datos" });
+    L.push({ que: "Concreto", v: c.fc_kgcm2 > 0 ? "f'c " + n2(c.fc_kgcm2, 0) + " kgf/cm²" : null, paso: "datos" });
+    L.push({ que: "Acero de refuerzo", v: c.grado ? "grado " + c.grado : null, paso: "datos" });
     L.push({ que: "Electrodo de las uniones", v: d.electrodo || null, paso: "conex" });
     L.push({ que: "Pernos de anclaje", v: c.pernoMat ? c.pernoMat + (c.pernoD ? " · Ø" + c.pernoD + "\"" : "") : null, paso: "cimen" });
     return L;
@@ -275,8 +459,8 @@
       if (sinPerfil.length) pon("geom", { que: "el perfil de " + sinPerfil.join(", ") });
       const c = cargas(o.m3, modelo.sitio || {});
       for (const f of c.faltan) pon(f.paso || "cargas", f);
-      if (ACEROS.indexOf((modelo.sitio || {}).acero) < 0) pon("cargas", { que: "el acero del proyecto (A36 ó A572)", campo: "ca_acero" });
-      if (!c.completo) P.hojas.espera.push(P.cargas.faltas.length ? "cargas" : "datos");
+      if (ACEROS.indexOf((modelo.sitio || {}).acero) < 0) pon("datos", { que: "el acero del proyecto, A36 ó A572 (en Datos › Materiales)", campo: "ma_acero" });
+      if (!c.completo) { P.hojas.espera.push("datos"); if (!P.cargas.faltas.length) P.cargas.espera.push("datos"); }
       const a = o.analisis || analisis(o.m3, modelo, o.perfiles, "interior");
       if (!modelo.sistema) pon("analisis", { que: "el sistema estructural: la base y la unión columna–tijeral" });
       if (!a.ok) {
@@ -284,7 +468,7 @@
           if (f.paso === "geom") { if (!sinPerfil.length) pon("geom", f); }
           else if (f.paso === "analisis") pon("analisis", f);
         }
-        if (P.cargas.faltas.length) P.analisis.espera.push("cargas");
+        if (P.cargas.faltas.length || P.datos.faltas.length) P.analisis.espera.push(P.cargas.faltas.length ? "cargas" : "datos");
         if (P.geom.faltas.length) P.analisis.espera.push("geom");
         for (const k of ["diseno", "conex", "cimen"]) P[k].espera.push("analisis");
       }
@@ -297,7 +481,7 @@
       }
       for (const f of DI.faltanCorreas(dz)) pon("diseno", f);
       for (const f of faltanUniones(dz)) pon("conex", f);
-      for (const f of faltanCimentacion(modelo.cimentacion || {})) pon("cimen", f);
+      for (const f of faltanCimentacion(modelo.cimentacion || {})) pon(f.paso || "cimen", f);
     }
     return Object.keys(NOMBRE_PASO).map((k) => Object.assign(P[k], {
       completo: !P[k].faltas.length && !P[k].espera.length,
@@ -321,7 +505,7 @@
     ];
     let D = null;
     if (!(s.espesorCobertura_mm > 0)) {
-      faltan.push({ campo: "ca_esp", que: "el espesor de la cobertura" });
+      faltan.push({ campo: "cp_esp", paso: "datos", que: "el espesor de la cobertura (en Datos › Cargas permanentes)" });
     } else {
       try {
         const cob = E020.pesoCobertura(s.espesorCobertura_mm);
@@ -334,13 +518,13 @@
         L1.push(ln("Carga muerta sobre la cobertura", n2(D, 2) + " kgf/m²", "medido",
           { nota: "sobre la superficie inclinada; el peso propio de los perfiles se suma en el análisis" }));
       } catch (e) {
-        faltan.push({ campo: "ca_esp", que: e.message.split("\n")[0].replace(/^e020: /, "") });
+        faltan.push({ campo: "cp_esp", paso: "datos", que: e.message.split("\n")[0].replace(/^e020: /, "") });
       }
     }
 
     let Lr = null, S = null;
     if (typeof s.hayNieve !== "boolean") {
-      faltan.push({ campo: "ca_nieve", que: "si en el sitio puede acumularse nieve (E.020 Art. 7.1 d)" });
+      faltan.push({ campo: "cp_nieve", paso: "datos", que: "si en el sitio puede acumularse nieve (E.020 Art. 7.1 d) (en Datos › Cargas permanentes)" });
     } else if (!s.hayNieve) {
       const vt = E020.vivaTecho({ tipo: "liviana", hayNieve: false });
       const At = f.luz_m * f.sep_m;
@@ -354,7 +538,7 @@
         { fuente: "Lr.red.formula", nota: rd.reducido ? null : rd.motivo }));
     } else {
       if (!(s.Qs_kgfm2 >= 0)) {
-        faltan.push({ campo: "ca_qs", que: "la carga básica de nieve del sitio, Qs" });
+        faltan.push({ campo: "cp_qs", paso: "datos", que: "la carga básica de nieve del sitio, Qs (en Datos › Cargas permanentes)" });
       } else {
         const qs = E020.nieveQs(s.Qs_kgfm2);
         const qt = E020.nieveQt({ Qs_kgfm2: qs.Qs_kgfm2, theta_grad: f.theta_grad });
@@ -377,13 +561,13 @@
     /* ---- viento ---- */
     const L2 = [];
     let viento = null;
-    if (!(s.V_kmh > 0)) faltan.push({ campo: "ca_v", que: "la velocidad del viento del Mapa Eólico" });
+    if (!(s.V_kmh > 0)) faltan.push({ campo: "ed_v", paso: "datos", que: "la velocidad del viento del Mapa Eólico (en Datos)" });
     if (s.tipoEdificacion !== 1 && s.tipoEdificacion !== 2) {
-      faltan.push({ campo: "ca_tipo", que: "el tipo de edificación para el viento (Tipo 1 ó 2)" });
+      faltan.push({ campo: "ed_tipo", paso: "datos", que: "el tipo de edificación para el viento, Tipo 1 ó 2 (en Datos)" });
     }
     const ab = s.aberturas || {};
     for (const [k, nom] of DIRECCIONES) {
-      if (!ab[k]) faltan.push({ campo: "ca_ab_" + k, que: "las aberturas para el viento " + nom });
+      if (!ab[k]) faltan.push({ campo: "ed_ab_" + k, paso: "datos", que: "las aberturas para el viento " + nom + " (en Datos)" });
     }
     const tablaViento = [];
     if (s.V_kmh > 0 && (s.tipoEdificacion === 1 || s.tipoEdificacion === 2)) {
@@ -427,7 +611,7 @@
     const zona = zonaDe(s);
     if (!zona) faltan.push({ campo: "ed_dist", paso: "datos", que: "el distrito del proyecto, que da la zona sísmica (en Datos)" });
     if (!s.suelo) faltan.push({ campo: "ed_suelo", paso: "datos", que: "el perfil de suelo (en Datos)" });
-    if (!s.sistemaSismico) faltan.push({ campo: "ca_sissis", que: "el sistema sísmico de la dirección transversal" });
+    if (!s.sistemaSismico) faltan.push({ campo: "ed_sissis", paso: "datos", que: "el sistema sísmico de la dirección transversal (en Datos)" });
     const cl = clasificacion(s);
     if (cl.falta) faltan.push(cl.falta);
     if (typeof s.industrial !== "boolean") {
@@ -519,7 +703,7 @@
       faltas.push({ paso: "cargas", que: "faltan datos de carga: " + c.faltan.map((x) => x.que).join(" · ") });
     }
     if (ACEROS.indexOf(sitio.acero) < 0) {
-      faltas.push({ paso: "cargas", que: "falta el acero del proyecto (A36 ó A572)", fuente: "A.acero.Pns" });
+      faltas.push({ paso: "datos", que: "falta el acero del proyecto, A36 ó A572 (en Datos › Materiales)", fuente: "A.acero.Pns" });
     }
     let g = null;
     const seccion = seccionDesde(modelo, perfiles);
@@ -670,42 +854,9 @@
   /* =====================================================================
      LOS FORMULARIOS, como datos · cada campo dice a qué clave del modelo va
      ===================================================================== */
-  const ABERTURAS = [ELEGIR, ["repartidas", "repartidas · Ci ±0,3"],
-    ["barlovento", "principales a barlovento · Ci +0,8"],
-    ["sotavento", "a sotavento o en los costados · Ci −0,6"]];
-  const CAMPOS_CARGAS = [
-    { grupo: "Cobertura", campos: [
-      { id: "esp", clave: "espesorCobertura_mm", etiqueta: "Espesor de la plancha", unidad: "mm",
-        tipo: "opcion", fuente: "D.cobertura.peso",
-        opciones: [ELEGIR, ["0.40", "0,35 a 0,40"], ["0.50", "0,45 a 0,50"],
-          ["0.60", "0,55 a 0,60"], ["0.80", "0,75 a 0,80"]] },
-      { id: "dotras", clave: "Dotras_kgfm2", etiqueta: "Otras cargas muertas", unidad: "kgf/m²",
-        tipo: "numero" }] },
-    { grupo: "Techo", campos: [
-      { id: "nieve", clave: "hayNieve", etiqueta: "¿Puede acumularse nieve?", tipo: "opcion",
-        fuente: "Lr.liviana", opciones: [ELEGIR, ["no", "no"], ["si", "sí"]] },
-      { id: "qs", clave: "Qs_kgfm2", etiqueta: "Nieve básica del sitio Qs", unidad: "kgf/m²",
-        tipo: "numero", fuente: "N.Qs.min", soloSi: "nieve=si" }] },
-    { grupo: "Viento", campos: [
-      { id: "v", clave: "V_kmh", etiqueta: "Velocidad del Mapa Eólico", unidad: "km/h",
-        tipo: "numero", fuente: "W.V.mapa" },
-      { id: "tipo", clave: "tipoEdificacion", etiqueta: "Tipo de edificación", tipo: "opcion",
-        fuente: "W.tipo", opciones: [ELEGIR, ["1", "Tipo 1"], ["2", "Tipo 2 · × 1,2"]] },
-      { id: "ab_izqDer", clave: "aberturas.izqDer", etiqueta: "Aberturas · viento izq → der",
-        tipo: "opcion", fuente: "W.C", opciones: ABERTURAS },
-      { id: "ab_derIzq", clave: "aberturas.derIzq", etiqueta: "Aberturas · viento der → izq",
-        tipo: "opcion", fuente: "W.C", opciones: ABERTURAS },
-      { id: "ab_longitudinal", clave: "aberturas.longitudinal", etiqueta: "Aberturas · viento longitudinal",
-        tipo: "opcion", fuente: "W.C", opciones: ABERTURAS }] },
-    { grupo: "Sismo", campos: [
-      { id: "sissis", clave: "sistemaSismico", etiqueta: "Sistema sísmico transversal", tipo: "opcion",
-        fuente: "S.R0", opciones: [ELEGIR, ["pendulo", "péndulo invertido · R₀ 2,5"],
-          ["OMF", "ordinario OMF · R₀ 4"], ["IMF", "intermedio IMF · R₀ 5"],
-          ["SMF", "especial SMF · R₀ 8"]] }] },
-    { grupo: "Material", campos: [
-      { id: "acero", clave: "acero", etiqueta: "Acero de los perfiles", tipo: "opcion",
-        fuente: "A.acero.Pns", opciones: [ELEGIR, ["A36", "A36"], ["A572", "A572 Gr. 50"]] }] }
-  ];
+  /* Cargas ya no pide nada: lo que pedía es dato del proyecto y está en Datos (el viento y el sistema en
+     «Proyecto y sitio», el acero en «Materiales», la cobertura y el techo en «Cargas permanentes»). */
+  const CAMPOS_CARGAS = [];
   const CAMPOS_ANALISIS = [
     { grupo: "Sistema estructural", campos: [
       { id: "base", clave: "base", etiqueta: "Base de las columnas", tipo: "opcion", fuente: "A.sistema",
@@ -1001,24 +1152,8 @@
      EL PASO CIMENTACIÓN · E8
      ===================================================================== */
   const CAMPOS_CIMENTACION = [
-    { grupo: "Suelo", campos: [
-      { id: "sigma", clave: "sigmaAdm_kgfcm2", etiqueta: "Presión admisible del estudio de suelos",
-        unidad: "kgf/cm²", tipo: "numero", fuente: "Z.sigma.neta" },
-      { id: "neta", clave: "esNeta", etiqueta: "Esa presión es", tipo: "opcion", fuente: "Z.sigma.neta",
-        opciones: [ELEGIR, ["bruta", "bruta: se descuenta el relleno y la sobrecarga"], ["neta", "neta: ya descontada"]] },
-      { id: "df", clave: "Df_cm", etiqueta: "Profundidad de desplante", unidad: "cm", tipo: "numero",
-        fuente: "Z.sigma.neta" },
-      { id: "gr", clave: "gammaRelleno_kgfm3", etiqueta: "Peso específico del relleno", unidad: "kgf/m³",
-        tipo: "numero", fuente: "Z.peso" },
-      { id: "sc", clave: "sc_kgfm2", etiqueta: "Sobrecarga sobre el piso", unidad: "kgf/m²", tipo: "numero",
-        fuente: "Z.sigma.neta" },
-      { id: "mu", clave: "mu", etiqueta: "Coeficiente de rozamiento μ (opcional)", tipo: "numero",
-        fuente: "Z.deslizamiento" }] },
-    { grupo: "Concreto y acero", campos: [
-      { id: "fc", clave: "fc_kgcm2", etiqueta: "f'c del concreto", tipo: "opcion", fuente: "Z.bloque",
-        opciones: [ELEGIR, ["210", "210 kgf/cm²"], ["280", "280 kgf/cm²"], ["350", "350 kgf/cm²"]] },
-      { id: "grado", clave: "grado", etiqueta: "Acero de refuerzo", tipo: "opcion", fuente: "Z.As.min",
-        opciones: [ELEGIR, ["60", "Grado 60 · fy 420 MPa"], ["40", "Grado 40 · fy 280 MPa"]] },
+    /* el suelo, el f'c y el grado se piden en Datos › Materiales */
+    { grupo: "Recubrimiento y parrilla", campos: [
       { id: "rec", clave: "rec_cm", etiqueta: "Recubrimiento (mín. 7 cm)", unidad: "cm", tipo: "numero",
         fuente: "Z.rec" },
       { id: "barra", clave: "barra", etiqueta: "Barra de la parrilla", tipo: "opcion", fuente: "Z.s.max",
@@ -1242,13 +1377,17 @@
       estribo: c.pedEstribo, rec_cm: c.pedRec_cm, junta: c.junta };
   }
   /* lo que falta de la zapata, el pedestal y la placa, junto y sin repetir · no necesita el análisis */
+  const MOVIDOS_A_DATOS = ["sigma", "neta", "df", "gr", "sc", "mu", "fc", "grado"];
   function faltanCimentacion(c) {
     const vistos = {}, faltas = [];
     for (const f of ZA.faltan(datosZapata(c, null)).concat(PD.faltan(datosPedestal(c)), faltanPlaca(c))) {
       const campo = f.campo === "ci_ped" ? "ci_pedb" : f.campo;    /* el pedestal tiene dos campos */
       if (vistos[campo]) continue;
       vistos[campo] = true;
-      faltas.push({ que: f.que, campo: campo });
+      /* el suelo, el f'c y el grado están en Datos › Materiales */
+      const id = campo.replace(/^ci_/, "");
+      if (MOVIDOS_A_DATOS.indexOf(id) >= 0) faltas.push({ que: f.que + " (en Datos › Materiales)", campo: "ma_" + id, paso: "datos" });
+      else faltas.push({ que: f.que, campo: campo });
     }
     return faltas;
   }
@@ -1279,7 +1418,7 @@
     const d = datosZapata(c, casosZ);
     const pdDatos = datosPedestal(c);
     const faltas = faltanCimentacion(c);
-    if (faltas.length) return { ok: false, faltas: faltas.map((f) => Object.assign({ paso: "cimen" }, f)) };
+    if (faltas.length) return { ok: false, faltas: faltas.map((f) => Object.assign({ paso: "cimen" }, f)) };  /* el paso propio gana */
 
     /* EL PERALTE QUE VUELVE · fila PD.anclaje.zapata.  La zapata da su peralte, el
        pedestal sale de ahí (su altura es Df − h + lo que sobresale) y sus barras piden
@@ -1964,7 +2103,7 @@
     TIPOS_ZAPATA, CAMPOS_CIMENTACION, leeCimentacion, casosZapata, valoresDeCimentacion, cimentacion, fichasCimentacion, dibujoCimentacion,
     leeSitio, valoresDeSitio, leeSistema, leeDiseno, valoresDeDiseno,
     CAMPOS_PROYECTO, leeProyecto, valoresDeProyecto, CAMPOS_EDIFICACION, leeEdificacion, valoresDeEdificacion,
-    clasificacion, fichaEdificacion, fichaSitio, zonaDe, NORMAS, materiales, pendientes, faltanCimentacion,
+    clasificacion, fichaEdificacion, fichaSitio, zonaDe, CAMPOS_MATERIALES, CAMPOS_PERMANENTES, fijosDatos, NORMAS, materiales, pendientes, faltanCimentacion,
     diseno, fichasDiseno, dibujoDiseno, tablaDiseno, lineasDiseno, nivelRatio,
     forma, cargas, seccionDesde, analisis, fichasAnalisis, tablaReacciones, dibujo, lineasFuerzas
   };

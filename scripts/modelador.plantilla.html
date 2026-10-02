@@ -107,10 +107,20 @@ nav.vistas button[aria-selected="true"] { color:var(--tinta); border-bottom-colo
 .obra.banda > aside.izq form { display:grid; gap:4px 14px; align-items:start;
   grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); }
 .obra.banda > aside.izq h3.sec { display:none; }
-/* en Datos hay dos formularios (proyecto, y sitio + edificación): una sola rejilla */
-.obra.banda #lado-datos:not([hidden]) { display:grid; gap:4px 14px; align-items:start;
-  grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); }
+/* DATOS, como en Retícula: pestañas, y en cada tarjeta el dato con lo que sale de él */
+.obra.banda #lado-datos .subd:not([hidden]) { display:grid; gap:4px 14px; align-items:start;
+  grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); }
 .obra.banda #lado-datos form { display:contents; }
+.obra.banda.en-datos > aside.izq { max-height:74vh; }
+nav.subdatos { display:flex; gap:2px; border-bottom:1px solid var(--linea); margin:0 0 10px; }
+nav.subdatos button { font-family:var(--disp); font-size:12px; font-weight:600; background:none; border:none;
+  border-bottom:2px solid transparent; color:var(--suave); padding:5px 12px; cursor:pointer; }
+nav.subdatos button[aria-pressed="true"] { color:var(--acero); border-bottom-color:var(--acero); }
+.par.fijo { display:grid; grid-template-columns:1fr auto; gap:0 8px; align-items:baseline;
+  border-top:1px dashed var(--papel-2); padding-top:3px; }
+.par.fijo .et { font-size:11.5px; color:var(--tinta-2); }
+.par.fijo b { font-family:var(--cifra); font-size:12.5px; color:var(--acero); text-align:right; }
+.par.fijo small { grid-column:1 / -1; font-size:10px; color:var(--suave); text-align:right; }
 .obra.banda.plegada > aside.izq { max-height:none; overflow:hidden; }
 .obra.banda.plegada > aside.izq > div:not(.banda-cab) { display:none; }
 .banda-cab { display:none; }
@@ -454,8 +464,17 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     </div>
     <div id="lado-datos">
       <h3 class="sec">Datos del proyecto</h3>
-      <form id="fp" autocomplete="off" onsubmit="return false"></form>
-      <form id="fe" autocomplete="off" onsubmit="return false"></form>
+      <nav class="subdatos" id="subdatos" role="tablist">
+        <button type="button" data-sub="sitio" aria-pressed="true">Proyecto y sitio</button>
+        <button type="button" data-sub="mat" aria-pressed="false">Materiales</button>
+        <button type="button" data-sub="perm" aria-pressed="false">Cargas permanentes</button>
+      </nav>
+      <div class="subd" id="sub-sitio">
+        <form id="fp" autocomplete="off" onsubmit="return false"></form>
+        <form id="fe" autocomplete="off" onsubmit="return false"></form>
+      </div>
+      <div class="subd" id="sub-mat" hidden><form id="fm" autocomplete="off" onsubmit="return false"></form></div>
+      <div class="subd" id="sub-perm" hidden><form id="fcp" autocomplete="off" onsubmit="return false"></form></div>
     </div>
     <div id="lado-cargas">
       <h3 class="sec">Cargas</h3>
@@ -581,7 +600,8 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     /* los formularios, en franja arriba; Geometría (ver y parámetros), en columna */
     var banda = a.lados.length && !ver && !par;
     $("obra").className = "obra" + (a.lados.length ? "" : " sin-izq") +
-      (a.derecha ? "" : " sin-der") + (banda ? " banda" + (plegada ? " plegada" : "") : "");
+      (a.derecha ? "" : " sin-der") + (banda ? " banda" + (plegada ? " plegada" : "") : "") +
+      (pasoActivo === "datos" ? " en-datos" : "");
     if (banda) {
       $("banda-tit").textContent = "Datos de " + VISTAS.paso(pasoActivo).nombre.toLowerCase();
       $("plegar").textContent = plegada ? "mostrar los datos" : "ocultar los datos";
@@ -689,6 +709,11 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
           return '<option value="' + o[0] + '">' + esc(o[1]) + "</option>";
         }).join("") + "</select></div>";
     }
+    /* LO QUE SALE SOLO: no se escribe; fijosDatos() lo calcula y pintaFijos() lo pone */
+    if (c.tipo === "fijo") {
+      return '<div class="par fijo"><span class="et">' + et + '</span><b id="fx_' + c.id + '">—</b>' +
+        '<small id="fxn_' + c.id + '"></small></div>';
+    }
     /* EL DISTRITO: se busca por palabras y se elige; la zona sale de él · fila S.zona.distrito */
     if (c.tipo === "distrito") {
       return envol + '<label for="' + cid + '">' + et + '</label>' +
@@ -710,7 +735,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
   function valoresForm(grupos, pref) {
     var v = {};
     grupos.forEach(function (g) {
-      g.campos.forEach(function (c) { var el = $(pref + c.id); v[c.id] = el ? el.value : ""; });
+      g.campos.forEach(function (c) { if (c.tipo === "fijo") return; var el = $(pref + c.id); v[c.id] = el ? el.value : ""; });
     });
     return v;
   }
@@ -725,6 +750,8 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
   pintaForm("fp", RESULTADOS.CAMPOS_PROYECTO, "pr_");
   pintaForm("fe", RESULTADOS.CAMPOS_EDIFICACION, "ed_");
   pintaForm("fc", RESULTADOS.CAMPOS_CARGAS, "ca_");
+  pintaForm("fm", RESULTADOS.CAMPOS_MATERIALES, "ma_");
+  pintaForm("fcp", RESULTADOS.CAMPOS_PERMANENTES, "cp_");
   pintaForm("fa", RESULTADOS.CAMPOS_ANALISIS, "an_");
   pintaForm("fd", RESULTADOS.CAMPOS_DISENO, "di_");
   pintaForm("fci", RESULTADOS.CAMPOS_CIMENTACION, "ci_");
@@ -732,7 +759,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
   /* LOS CAMPOS QUE DEPENDEN DE OTRO · soloSi: "campo=valor".  El de la nieve
      básica solo con nieve; el de la soldadura solo con uniones soldadas. */
   function actualizaSolos() {
-    var pref = { fc: "ca_", fd: "di_", fe: "ed_" };
+    var pref = { fd: "di_", fe: "ed_", fcp: "cp_" };
     for (var f in pref) {
       var form = $(f);
       if (!form || !form.querySelectorAll) continue;
@@ -752,14 +779,55 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     modelo.proyecto = RESULTADOS.leeProyecto(valoresForm(RESULTADOS.CAMPOS_PROYECTO, "pr_"));
     recalcula();
   });
+  /* EL SITIO se lee de los tres formularios de Datos (sitio, materiales, cargas permanentes), y LA
+     CIMENTACIÓN de su paso y de Materiales: los datos viven donde se piden, y se guardan donde siempre */
+  function valoresDatos() {
+    return Object.assign({}, valoresForm(RESULTADOS.CAMPOS_EDIFICACION, "ed_"),
+      valoresForm(RESULTADOS.CAMPOS_MATERIALES, "ma_"), valoresForm(RESULTADOS.CAMPOS_PERMANENTES, "cp_"));
+  }
+  function sitioDeFormularios() {
+    var v = valoresDatos();
+    return Object.assign(RESULTADOS.leeSitio(v), RESULTADOS.leeEdificacion(v));
+  }
+  function cimentacionDeFormularios() {
+    return RESULTADOS.leeCimentacion(Object.assign({}, valoresForm(RESULTADOS.CAMPOS_CIMENTACION, "ci_"),
+      valoresForm(RESULTADOS.CAMPOS_MATERIALES, "ma_")));
+  }
   $("fci").addEventListener("change", function () {
-    modelo.cimentacion = RESULTADOS.leeCimentacion(valoresForm(RESULTADOS.CAMPOS_CIMENTACION, "ci_"));
+    modelo.cimentacion = cimentacionDeFormularios();
     recalcula();
   });
-  /* el sitio se lee de DOS formularios: Cargas y la Edificación de Datos */
-  function sitioDeFormularios() {
-    return Object.assign(RESULTADOS.leeSitio(valoresForm(RESULTADOS.CAMPOS_CARGAS, "ca_")),
-      RESULTADOS.leeEdificacion(valoresForm(RESULTADOS.CAMPOS_EDIFICACION, "ed_")));
+  $("fm").addEventListener("change", function () {
+    modelo.sitio = sitioDeFormularios();
+    modelo.cimentacion = cimentacionDeFormularios();
+    recalcula();
+  });
+  $("fcp").addEventListener("change", function () {
+    modelo.sitio = sitioDeFormularios();
+    actualizaSolos();
+    recalcula();
+  });
+  /* las pestañas de Datos: solo enseñan otra tarjeta, no recalculan */
+  var subDatos = "sitio";
+  function ponSubDatos(k) {
+    subDatos = k;
+    ["sitio", "mat", "perm"].forEach(function (x) {
+      $("sub-" + x).hidden = x !== k;
+    });
+    var bs = $("subdatos").querySelectorAll ? $("subdatos").querySelectorAll("button[data-sub]") : [];
+    Array.prototype.forEach.call(bs, function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-sub") === k)); });
+  }
+  $("subdatos").addEventListener("click", function (ev) {
+    var b = ev.target.closest ? ev.target.closest("button[data-sub]") : null;
+    if (b) ponSubDatos(b.getAttribute("data-sub"));
+  });
+  /* los valores que salen solos */
+  function pintaFijos() {
+    var F = RESULTADOS.fijosDatos(modelo, m3, PERFILES);
+    for (var k in F) {
+      if ($("fx_" + k)) $("fx_" + k).textContent = F[k].v;
+      if ($("fxn_" + k)) $("fxn_" + k).textContent = F[k].nota;
+    }
   }
   /* el buscador de distritos rehace solo las opciones, sin repintar el panel */
   function opcionesDistrito(texto) {
@@ -783,20 +851,18 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     actualizaSolos();
     recalcula();
   });
-  $("fc").addEventListener("change", function () {
-    modelo.sitio = sitioDeFormularios();
-    actualizaSolos();
-    recalcula();
-  });
+
   $("fa").addEventListener("change", function () {
     modelo.sistema = RESULTADOS.leeSistema(valoresForm(RESULTADOS.CAMPOS_ANALISIS, "an_"));
     recalcula();
   });
   function ponSitioEnFormularios() {
     ponValores(RESULTADOS.CAMPOS_PROYECTO, "pr_", RESULTADOS.valoresDeProyecto(modelo.proyecto));
-    ponValores(RESULTADOS.CAMPOS_CARGAS, "ca_", RESULTADOS.valoresDeSitio(modelo.sitio));
     opcionesDistrito("");
-    ponValores(RESULTADOS.CAMPOS_EDIFICACION, "ed_", RESULTADOS.valoresDeEdificacion(modelo.sitio));
+    var vs = RESULTADOS.valoresDeSitio(modelo.sitio);
+    ponValores(RESULTADOS.CAMPOS_EDIFICACION, "ed_", Object.assign({}, vs, RESULTADOS.valoresDeEdificacion(modelo.sitio)));
+    ponValores(RESULTADOS.CAMPOS_MATERIALES, "ma_", Object.assign({}, vs, RESULTADOS.valoresDeCimentacion(modelo.cimentacion)));
+    ponValores(RESULTADOS.CAMPOS_PERMANENTES, "cp_", vs);
     ponValores(RESULTADOS.CAMPOS_ANALISIS, "an_", modelo.sistema || {});
     ponValores(RESULTADOS.CAMPOS_DISENO, "di_", RESULTADOS.valoresDeDiseno(modelo.diseno));
     ponValores(RESULTADOS.CAMPOS_CIMENTACION, "ci_", RESULTADOS.valoresDeCimentacion(modelo.cimentacion));
@@ -1522,9 +1588,9 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     }).join("");
     $("centro").innerHTML = '<div class="hoja"><h2>Datos</h2><p class="lead">' +
       esc((modelo.proyecto && modelo.proyecto.nombre) || "proyecto sin nombre") + " · " + hechos + " de " + est.length +
-      " pasos completos</p><h3>El sitio y la edificación</h3><div class=\"rejilla\">" +
-      RESULTADOS.fichaSitio(modelo.sitio).concat(RESULTADOS.fichaEdificacion(modelo.sitio)).map(pintaFicha).join("") + "</div>" +
+      " pasos completos · los datos, arriba, en tres pestañas; lo que sale de ellos, en la misma tarjeta</p>" +
       "<h3>Lo que falta, paso por paso</h3><div class=\"rejilla\">" + filas + "</div></div>";
+    pintaFijos();
     var mat = RESULTADOS.materiales(modelo).map(function (x) {
       return '<div class="ln"><span class="q">' + esc(x.que) + '</span><span class="v">' +
         (x.v ? esc(x.v) : "se elige en " + esc(VISTAS.paso(x.paso).nombre)) + "</span></div>";

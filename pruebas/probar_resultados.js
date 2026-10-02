@@ -38,11 +38,12 @@ const vac = R.cargas(m3, {});
 comp("vacío no está completo", vac.completo, false);
 const campos = vac.faltan.map((f) => f.campo).sort();
 comp("y pide cada dato de proyecto, sin rellenar ninguno",
-  campos, ["ca_ab_derIzq", "ca_ab_izqDer", "ca_ab_longitudinal", "ca_esp", "ca_nieve", "ca_sissis",
-    "ca_tipo", "ca_v", "ed_dist", "ed_indus", "ed_suelo", "ed_uso"]);
-comp("cada falta apunta a un campo que existe: los de Cargas en Cargas, los de la edificación en Datos",
-  vac.faltan.filter((f) => !(R.CAMPOS_CARGAS.some((g) => g.campos.some((c) => "ca_" + c.id === f.campo)) ||
-    (f.paso === "datos" && R.CAMPOS_EDIFICACION.some((g) => g.campos.some((c) => "ed_" + c.id === f.campo))))), []);
+  campos, ["cp_esp", "cp_nieve", "ed_ab_derIzq", "ed_ab_izqDer", "ed_ab_longitudinal", "ed_dist", "ed_indus", "ed_sissis",
+    "ed_suelo", "ed_tipo", "ed_uso", "ed_v"]);
+const enDatos = (f) => [["ed_", R.CAMPOS_EDIFICACION], ["ma_", R.CAMPOS_MATERIALES], ["cp_", R.CAMPOS_PERMANENTES]]
+  .some(([pre, G]) => G.some((g) => g.campos.some((c) => c.tipo !== "fijo" && pre + c.id === f.campo)));
+comp("TODO lo que falta de las cargas se pide en Datos, y cada falta lleva a un campo que existe",
+  vac.faltan.filter((f) => !(f.paso === "datos" && enDatos(f))), []);
 comp("sin cargas no hay nada que pasarle al análisis", vac.cargas, null);
 
 /* ---- completo ---- */
@@ -73,7 +74,7 @@ comp("NI UNA línea de Cargas sin procedencia válida",
 
 /* ---- con nieve: S en vez de Lr ---- */
 const cn = R.cargas(m3, Object.assign({}, SITIO, { hayNieve: true }));
-cierto("con nieve y sin Qs, pide Qs", cn.faltan.some((f) => f.campo === "ca_qs"));
+cierto("con nieve y sin Qs, pide Qs", cn.faltan.some((f) => f.campo === "cp_qs"));
 const cs = R.cargas(m3, Object.assign({}, SITIO, { hayNieve: true, Qs_kgfm2: 10 }));
 cerca("con Qs = 10 sube al mínimo de 40 (N.Qs.min)", cs.cargas.S.Qt_kgfm2, 40, 1e-12);
 comp("y no hay Lr", cs.cargas.Lr_kgfm2, null);
@@ -87,12 +88,13 @@ comp("del sitio a los campos —Cargas y la edificación de Datos— y de vuelta
   ordena(Object.assign(R.leeSitio(val), R.leeEdificacion(R.valoresDeEdificacion(SITIO)))), ordena(SITIO));
 comp("un campo vacío NO se guarda como cero", R.leeSitio({ esp: "", v: "", dotras: "" }), {});
 comp("cada dato de sitio que guarda el libro tiene su campo",
-  L.SITIO.filter((k) => !R.CAMPOS_CARGAS.concat(R.CAMPOS_EDIFICACION).some((g) => g.campos.some((c2) => c2.clave.split(".")[0] === k))),
+  L.SITIO.filter((k) => !R.CAMPOS_CARGAS.concat(R.CAMPOS_EDIFICACION, R.CAMPOS_MATERIALES, R.CAMPOS_PERMANENTES)
+    .some((g) => g.campos.some((c2) => c2.clave && c2.clave.split(".")[0] === k))),
   ["categoria", "zona"]);
 comp("(la categoría y la zona ya no tienen campo: salen del uso y del distrito, y el libro solo las acepta de modelos viejos)",
   R.CAMPOS_CARGAS.some((g) => g.campos.some((c2) => c2.clave === "categoria")), false);
 comp("ningún campo trae valor de partida",
-  R.CAMPOS_CARGAS.concat(R.CAMPOS_ANALISIS, R.CAMPOS_EDIFICACION).reduce((a, g) => a.concat(g.campos), [])
+  R.CAMPOS_CARGAS.concat(R.CAMPOS_ANALISIS, R.CAMPOS_EDIFICACION, R.CAMPOS_MATERIALES, R.CAMPOS_PERMANENTES).reduce((a, g) => a.concat(g.campos), [])
     .filter((c2) => c2.tipo === "opcion" && c2.opciones[0][0] !== "").map((c2) => c2.id), []);
 comp("el sistema solo se lee entero", [R.leeSistema({ base: "empotrada", union: "" }),
   R.leeSistema({ base: "empotrada", union: "rigida" })], [null, { base: "empotrada", union: "rigida" }]);
@@ -102,8 +104,8 @@ comp("el sistema solo se lee entero", [R.leeSistema({ base: "empotrada", union: 
    ================================================================ */
 const a0 = R.analisis(m3, L.nuevo({}), P);
 comp("vacío no corre", a0.ok, false);
-comp("y manda a donde toca: el sistema aquí, las cargas y el acero a Cargas",
-  a0.faltas.map((f) => f.paso), ["analisis", "cargas", "cargas"]);
+comp("y manda a donde toca: el sistema aquí, las cargas a Cargas (que espera a Datos) y el acero a Datos",
+  a0.faltas.map((f) => f.paso), ["analisis", "cargas", "datos"]);
 const m1 = Object.assign(L.nuevo({}), { sitio: SITIO, sistema: { base: "empotrada", union: "rigida" } });
 const a1 = R.analisis(m3, m1, P);
 comp("con cargas y sistema pero sin perfiles, manda a Geometría", a1.faltas.map((f) => f.paso), ["geom"]);
@@ -213,8 +215,8 @@ const CZ = { sigmaAdm_kgfcm2: 1.5, esNeta: false, Df_cm: 150, gammaRelleno_kgfm3
 comp("de los datos a los campos y de vuelta, idéntico",
   R.leeCimentacion(R.valoresDeCimentacion(CZ)), CZ);
 comp("un campo vacío NO se guarda como cero", R.leeCimentacion({ sigma: "", df: "", neta: "" }), {});
-comp("cada dato de cimentación que guarda el libro tiene su campo",
-  L.CIMENTACION.filter((k) => !R.CAMPOS_CIMENTACION.some((g) => g.campos.some((c2) => c2.clave === k))), []);
+comp("cada dato de cimentación que guarda el libro tiene su campo, en Cimentación o en Datos › Materiales",
+  L.CIMENTACION.filter((k) => !R.CAMPOS_CIMENTACION.concat(R.CAMPOS_MATERIALES).some((g) => g.campos.some((c2) => c2.clave === k))), []);
 comp("y cada campo, su dato en el libro",
   R.CAMPOS_CIMENTACION.reduce((a, g) => a.concat(g.campos), []).filter((c2) => L.CIMENTACION.indexOf(c2.clave) < 0)
     .map((c2) => c2.id), []);
@@ -224,9 +226,10 @@ comp("ningún campo de cimentación trae valor de partida",
 const cz0 = R.cimentacion(m3, L.nuevo({}), P);
 comp("sin análisis no corre, y manda primero al análisis", [cz0.ok, cz0.faltas[0].paso], [false, "analisis"]);
 const cz1 = R.cimentacion(m3, mok, P);
-comp("con análisis y sin datos, todo lo que falta es del paso Cimentación",
-  cz1.faltas.every((f) => f.paso === "cimen"), true);
-const idsCz = R.CAMPOS_CIMENTACION.reduce((a, g) => a.concat(g.campos), []).map((c2) => "ci_" + c2.id);
+comp("con análisis y sin datos, lo que falta es de Cimentación, o de Datos si es el suelo o el concreto",
+  cz1.faltas.every((f) => f.paso === "cimen" || (f.paso === "datos" && /^ma_/.test(f.campo))), true);
+const idsCz = R.CAMPOS_CIMENTACION.reduce((a, g) => a.concat(g.campos), []).map((c2) => "ci_" + c2.id)
+  .concat(R.CAMPOS_MATERIALES.reduce((a, g) => a.concat(g.campos), []).filter((c2) => c2.tipo !== "fijo").map((c2) => "ma_" + c2.id));
 comp("y cada falta lleva a un campo que existe", cz1.faltas.filter((f) => idsCz.indexOf(f.campo) < 0)
   .map((f) => f.campo), []);
 const mcz = Object.assign({}, mok, { cimentacion: CZ });
@@ -539,24 +542,26 @@ comp("NI UNA línea de Cimentación sin procedencia válida",
     de(vacio, "geom").faltas.some((f) => /el perfil de .*columna/.test(f.que)));
   comp("con perfiles en todo, Geometría queda completa", de(R.pendientes({ m3: m3, modelo: mok, perfiles: P, analisis: ok }),
     "geom").completo, !require("../src/vistas.js").tablaPerfiles(m3, mok).sinPerfil);
-  comp("Cargas pide cada dato una vez, con su campo", de(vacio, "cargas").faltas.map((f) => f.campo).sort(),
-    R.cargas(m3, {}).faltan.filter((f) => !f.paso).map((f) => f.campo).concat(["ca_acero"]).sort());
-  comp("y los de la edificación, en Datos", de(vacio, "datos").faltas.map((f) => f.campo).sort(), ["ed_dist", "ed_indus", "ed_suelo", "ed_uso", "pr_nom"]);
+  comp("Cargas ya no pide nada: espera a Datos", [de(vacio, "cargas").faltas, de(vacio, "cargas").espera.map((x) => x.paso)],
+    [[], ["datos"]]);
+  comp("y Datos pide cada dato una vez, con su campo", de(vacio, "datos").faltas.map((f) => f.campo).sort(),
+    R.cargas(m3, {}).faltan.map((f) => f.campo).concat(["pr_nom", "ma_acero"]).concat(R.faltanCimentacion({})
+      .filter((f) => f.paso === "datos").map((f) => f.campo)).sort());
   comp("Diseño, Conexiones y Cimentación esperan al análisis", ["diseno", "conex", "cimen"].map((k) => de(vacio, k).espera
     .map((x) => x.paso)), [["analisis"], ["analisis"], ["analisis"]]);
   cierto("pero ya dicen sus propios datos, sin esperar", de(vacio, "conex").faltas.length > 0 &&
-    de(vacio, "cimen").faltas.some((f) => f.campo === "ci_sigma"));
-  comp("Hojas Excel espera a Cargas", de(vacio, "hojas").espera.map((x) => x.paso), ["cargas"]);
+    de(vacio, "cimen").faltas.some((f) => f.campo === "ci_pedb"));
+  comp("Hojas Excel espera a Datos", de(vacio, "hojas").espera.map((x) => x.paso), ["datos"]);
   const lleno = R.pendientes({ m3: m3, modelo: Object.assign({}, mok, { proyecto: { nombre: "x" }, diseno: Object.assign({}, DZ,
     { filete_mm: 4, electrodo: "E70", tensores: 1, panelTramos: 3, clipCorreas: true }), cimentacion: {} }), perfiles: P, analisis: ok });
-  comp("con todo menos la cimentación y los perfiles de los arriostres, faltan Geometría y Cimentación",
-    lleno.filter((x) => !x.completo).map((x) => x.paso), ["geom", "cimen"]);
+  comp("con todo menos la cimentación y los perfiles de los arriostres, faltan Datos (el suelo y el concreto), Geometría y Cimentación",
+    lleno.filter((x) => !x.completo).map((x) => x.paso), ["datos", "geom", "cimen"]);
   cierto("(Geometría dice cuáles: los arriostres de techo y de fachada)",
     /arriostre de techo/.test(de(lleno, "geom").faltas[0].que) && /arriostre de fachada/.test(de(lleno, "geom").faltas[0].que));
   comp("sin galpón, todo espera a Geometría", R.pendientes({ m3: null, fallo: { titulo: "no hay arriostre" }, modelo: {}, perfiles: P })
     .filter((x) => x.paso === "cargas")[0].espera.map((x) => x.paso), ["geom"]);
   comp("los materiales dicen dónde se eligen los que faltan", R.materiales({ sitio: { acero: "A36" } }).map((x) => [x.que, !!x.v, x.paso]),
-    [["Acero estructural", true, "cargas"], ["Concreto", false, "cimen"], ["Acero de refuerzo", false, "cimen"],
+    [["Acero estructural", true, "datos"], ["Concreto", false, "datos"], ["Acero de refuerzo", false, "datos"],
       ["Electrodo de las uniones", false, "conex"], ["Pernos de anclaje", false, "cimen"]]);
   comp("el libro guarda el proyecto", L.deserializa(L.serializa(Object.assign(L.nuevo({}), { proyecto: { nombre: "A", ubicacion: "B" } })))
     .modelo.proyecto, { nombre: "A", ubicacion: "B" });
@@ -613,6 +618,43 @@ comp("NI UNA línea de Cimentación sin procedencia válida",
     .lineas.filter((l) => /suelo S/.test(l.q))[0].v, "NO HAY");
   comp("el libro guarda el distrito", L.deserializa(L.serializa(Object.assign(L.nuevo({}), { sitio: { distrito: "LIMA › LIMA · MIRAFLORES" } })))
     .modelo.sitio.distrito, "LIMA › LIMA · MIRAFLORES");
+}
+
+
+/* DATOS · LO QUE SALE SOLO, como en Retícula: cada valor con su fórmula */
+{
+  const UN = require("../src/unidades.js"), E020 = require("../src/e020.js"), VI = require("../src/viento.js");
+  const mD = Object.assign({}, mok, { cimentacion: { fc_kgcm2: 210, grado: "60", sigmaAdm_kgfcm2: 1.5, esNeta: false, Df_cm: 150,
+    gammaRelleno_kgfm3: 1800, sc_kgfm2: 500 } });
+  const F = R.fijosDatos(mD, m3, P);
+  const num = (t) => +String(t).replace(/[^\d,.-]/g, "").replace(/\s/g, "").replace(",", ".");
+  comp("cada campo «fijo» de Datos tiene su valor", [R.CAMPOS_EDIFICACION, R.CAMPOS_MATERIALES, R.CAMPOS_PERMANENTES]
+    .reduce((a, G) => a.concat(G.reduce((b, g) => b.concat(g.campos), [])), []).filter((c) => c.tipo === "fijo" && !F[c.id])
+    .map((c) => c.id), []);
+  comp("del distrito y el suelo: zona 4, Z 0,45, S 1,100, TP/TL 0,60/2,00", [F.zona.v, F.Z.v, F.S.v, F.TPTL.v],
+    ["4", "0,45", "1,100", "0,60 / 2,00 s"]);
+  comp("R₀ del OMF, 4; a lo largo, el OCBF del sistema longitudinal", [F.R0.v, F.R0L.v], ["4,0", "OCBF · 4,0"]);
+  comp("del uso: C con U = 1,0", F.cat.v, "C · U = 1,0");
+  comp("Ec = 15 000·√210 = 217 371 kgf/cm² (E.060 ec. 8-3)", F.Ec.v, "217 371 kgf/cm²");
+  cerca("fy del grado 60: 420 MPa", num(F.fy.v), Math.round(UN.mpa_a_kgcm2(420)), 0);
+  cerca("σn con h = 0: σt − γ·Df − s/c", num(F.sn.v.replace("≥", "")), 1.5 - 1800e-6 * 150 - 500 / 1e4, 0.006);
+  cierto("y dice que es lo más bajo, antes del peralte", /h = 0/.test(F.sn.nota));
+  comp("Fy y Fu del A36", [F.Fy.v, F.Fu.v], ["2 530 kgf/cm²", "4 080 kgf/cm²"]);
+  cerca("la viva reducida, la de las cargas", num(F.Lr.v), R.cargas(m3, SITIO).cargas.Lr_kgfm2, 0.006);
+  comp("la plancha de 0,40 y la carga muerta", [F.pcob.v, F.Dsup.v], ["3,35 kgf/m²", "8,35 kgf/m²"]);
+  const vel = VI.velocidadDiseno({ V_kmh: 75, h_m: R.forma(m3).hCumbre_m });
+  comp("Vh, con el mínimo de 75", F.Vh.v, "75,00 km/h");
+  /* el peso del acero: la longitud de cada barra por el peso de su perfil */
+  const MON2 = require("../src/montaje.js"), met = MON2.metrado(m3);
+  let kg = 0;
+  for (const cl of Object.keys(NOMBRES)) kg += met.porClase_m[cl] * P.busca(NOMBRES[cl]).peso_kgfm;
+  cerca("el acero: Σ longitud × peso del perfil, sobre las clases con perfil", num(F.kgAcero.v) * 1000, kg, 10);
+  cierto("y dice cuántas clases no tienen perfil, y cuáles", F.sinPerf.v !== "ninguna" && /arriostre de techo/.test(F.sinPerf.nota));
+  const vacio = R.fijosDatos(L.nuevo({}), m3, P);
+  comp("SIN DATOS NO INVENTA: dice qué le falta", [vacio.zona.v, vacio.zona.nota, vacio.Ec.v, vacio.Fy.nota],
+    ["—", "falta el distrito", "—", "falta el acero"]);
+  comp("sin galpón, lo que depende de él también lo dice", R.fijosDatos(L.nuevo({}), null, P).kgAcero.nota, "falta el galpón");
+  cierto("Ec cita su fila del inventario (E.060 §8.5.2)", require("../src/inventario.js").existe("C.Ec"));
 }
 
 fin();
