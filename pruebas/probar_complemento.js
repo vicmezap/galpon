@@ -500,6 +500,19 @@ cierto("y Comprobación oye a la zapata de LOS DOS pórticos",
     [pinto(M.dom, "lado-diseno").hidden, pinto(M.dom, "derecha").hidden], [false, false]);
   cierto("y sin las fuerzas o sin los datos de las uniones, dice qué falta",
     /todavía no se pueden verificar las uniones/.test(sel()));
+  /* DATOS · el proyecto y lo que falta, paso por paso */
+  pulsa(M.dom, "pasos", "data-paso", "datos");
+  comp("en Datos va su formulario a la izquierda, y nada de Geometría",
+    [pinto(M.dom, "lado-datos").hidden, pinto(M.dom, "lado-parametros").hidden, pinto(M.dom, "derecha").hidden], [false, true, false]);
+  cierto("pide el nombre, la ubicación, el propietario y el proyectista, sin valor",
+    ["pr_nom", "pr_ubi", "pr_pro", "pr_ing"].every((id) => pinto(M.dom, "fp").innerHTML.indexOf(id) >= 0) &&
+    !/<input[^>]*value="[^"]/.test(pinto(M.dom, "fp").innerHTML));
+  cierto("y dice lo que falta en cada paso, con el botón para ir",
+    /Lo que falta, paso por paso/.test(sel()) && /data-ir="cargas"/.test(sel()) && /espera a/.test(sel()));
+  cierto("a la derecha, los materiales y las normas que mandan",
+    /Materiales/.test(pinto(M.dom, "derecha").innerHTML) && /AISC 360-22/.test(pinto(M.dom, "derecha").innerHTML));
+  cierto("guardar y abrir llevan el proyecto", /m\.proyecto = modelo\.proyecto/.test(modeHtml) &&
+    /modelo\.proyecto = m\.proyecto/.test(modeHtml));
   /* HOJAS EXCEL · E9: se ve aquí, se comprueba aquí, se escribe desde el panel */
   pulsa(M.dom, "pasos", "data-paso", "hojas");
   cierto("en Hojas Excel, las cuatro hojas: cargas lista y las demás dicen que todavía no",
@@ -574,6 +587,7 @@ for (const pp of M.win.VISTAS.PASOS) {
     izquierda: !a.lados.length,
     "lado-ver": a.lados.indexOf("ver") < 0,
     "lado-parametros": a.lados.indexOf("parametros") < 0,
+    "lado-datos": a.lados.indexOf("datos") < 0,
     "lado-cargas": a.lados.indexOf("cargas") < 0,
     "lado-analisis": a.lados.indexOf("analisis") < 0,
     "lado-diseno": a.lados.indexOf("diseno") < 0,

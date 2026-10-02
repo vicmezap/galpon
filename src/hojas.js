@@ -139,7 +139,10 @@
       (cg.faltan || []).map((x) => x.que).join(", "));
     const f = cg.forma, c = cg.cargas;
     const h = armador("CARGAS");
+    const pr = d.proyecto || {};
     h.titulo("GALPÓN · CARGAS Y COMBINACIONES", [
+      "Proyecto: " + (pr.nombre || "sin nombre") + (pr.ubicacion ? " · " + pr.ubicacion : "") +
+        (pr.propietario ? " · propietario: " + pr.propietario : "") + (pr.proyectista ? " · proyectista: " + pr.proyectista : ""),
       (d.fecha ? "Escrita el " + d.fecha + " con " : "Escrita con ") + "Galpón " + (d.version || "") +
         ". Azul: dato del proyecto · morado: valor de la norma · negro: fórmula viva · verde: sale del análisis.",
       "Las fórmulas se comprobaron contra el motor antes de escribirse (" + fte("H.coincide") + ")."

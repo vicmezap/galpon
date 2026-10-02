@@ -517,4 +517,43 @@ comp("NI UNA línea de Cimentación sin procedencia válida",
     /^Pórtico de fachada/.test(R.avisosConexiones(cf)[0].que));
 }
 
+
+/* EL PASO DATOS · el proyecto, y lo que falta paso por paso */
+{
+  comp("el proyecto, de los campos y de vuelta", R.leeProyecto(R.valoresDeProyecto({ nombre: "Almacén Ica", ubicacion: "Ica" })),
+    { nombre: "Almacén Ica", ubicacion: "Ica" });
+  comp("un campo en blanco no se guarda", R.leeProyecto({ nom: "  ", ubi: "Ica" }), { ubicacion: "Ica" });
+  const vacio = R.pendientes({ m3: m3, modelo: L.nuevo({}), perfiles: P });
+  const de = (lista, k) => lista.filter((x) => x.paso === k)[0];
+  comp("con el modelo vacío, los ocho pasos, ninguno completo",
+    vacio.map((x) => [x.paso, x.completo]), [["datos", false], ["geom", false], ["cargas", false], ["analisis", false],
+      ["diseno", false], ["conex", false], ["cimen", false], ["hojas", false]]);
+  cierto("Geometría pide los perfiles AUNQUE no haya sistema estructural (el análisis no llega a mirarlos)",
+    de(vacio, "geom").faltas.some((f) => /el perfil de .*columna/.test(f.que)));
+  comp("con perfiles en todo, Geometría queda completa", de(R.pendientes({ m3: m3, modelo: mok, perfiles: P, analisis: ok }),
+    "geom").completo, !require("../src/vistas.js").tablaPerfiles(m3, mok).sinPerfil);
+  comp("Cargas pide cada dato una vez, con su campo", de(vacio, "cargas").faltas.map((f) => f.campo).sort(),
+    R.cargas(m3, {}).faltan.map((f) => f.campo).concat(["ca_acero"]).sort());
+  comp("Diseño, Conexiones y Cimentación esperan al análisis", ["diseno", "conex", "cimen"].map((k) => de(vacio, k).espera
+    .map((x) => x.paso)), [["analisis"], ["analisis"], ["analisis"]]);
+  cierto("pero ya dicen sus propios datos, sin esperar", de(vacio, "conex").faltas.length > 0 &&
+    de(vacio, "cimen").faltas.some((f) => f.campo === "ci_sigma"));
+  comp("Hojas Excel espera a Cargas", de(vacio, "hojas").espera.map((x) => x.paso), ["cargas"]);
+  const lleno = R.pendientes({ m3: m3, modelo: Object.assign({}, mok, { proyecto: { nombre: "x" }, diseno: Object.assign({}, DZ,
+    { filete_mm: 4, electrodo: "E70", tensores: 1, panelTramos: 3, clipCorreas: true }), cimentacion: {} }), perfiles: P, analisis: ok });
+  comp("con todo menos la cimentación y los perfiles de los arriostres, faltan Geometría y Cimentación",
+    lleno.filter((x) => !x.completo).map((x) => x.paso), ["geom", "cimen"]);
+  cierto("(Geometría dice cuáles: los arriostres de techo y de fachada)",
+    /arriostre de techo/.test(de(lleno, "geom").faltas[0].que) && /arriostre de fachada/.test(de(lleno, "geom").faltas[0].que));
+  comp("sin galpón, todo espera a Geometría", R.pendientes({ m3: null, fallo: { titulo: "no hay arriostre" }, modelo: {}, perfiles: P })
+    .filter((x) => x.paso === "cargas")[0].espera.map((x) => x.paso), ["geom"]);
+  comp("los materiales dicen dónde se eligen los que faltan", R.materiales({ sitio: { acero: "A36" } }).map((x) => [x.que, !!x.v, x.paso]),
+    [["Acero estructural", true, "cargas"], ["Concreto", false, "cimen"], ["Acero de refuerzo", false, "cimen"],
+      ["Electrodo de las uniones", false, "conex"], ["Pernos de anclaje", false, "cimen"]]);
+  comp("el libro guarda el proyecto", L.deserializa(L.serializa(Object.assign(L.nuevo({}), { proyecto: { nombre: "A", ubicacion: "B" } })))
+    .modelo.proyecto, { nombre: "A", ubicacion: "B" });
+  lanza("y no guarda en silencio lo que no conoce", () => L.serializa(Object.assign(L.nuevo({}), { proyecto: { telefono: "1" } })),
+    ["datos de proyecto desconocidos"]);
+}
+
 fin();

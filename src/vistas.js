@@ -702,11 +702,9 @@
       vistas: false, lados: [],
       sub: "qué hay en este libro y qué falta" },
 
-    { id: "datos", grupo: "Paso 1", nombre: "Datos", listo: false,
-      vistas: false, lados: [],
-      hara: "una pantalla de datos del proyecto",
-      motor: "proyecto.js y el inventario entero, escritos",
-      que: "nombre y ubicación, normas que mandan, materiales y f'c" },
+    { id: "datos", grupo: "Paso 1", nombre: "Datos", listo: true,
+      vistas: false, lados: ["datos"], derecha: true,
+      sub: "el proyecto, y lo que falta en cada paso para terminarlo" },
 
     { id: "geom", grupo: "Paso 2 · Modelo", nombre: "Geometría", listo: true,
       vistas: true, lados: ["ver", "parametros"],

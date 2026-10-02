@@ -113,7 +113,10 @@
 
   /* ---------- LO QUE SE GUARDA, Y NADA MÁS · fila L.solo.entradas ------ */
   const CLAVES = ["formato", "nombre", "parametros", "secciones", "ediciones",
-    "sitio", "sistema", "diseno", "cimentacion", "vista", "guardado"];
+    "proyecto", "sitio", "sistema", "diseno", "cimentacion", "vista", "guardado"];
+
+  /* Los datos del proyecto · paso 1.  Texto, para la cabecera de las hojas y los planos. */
+  const PROYECTO = ["nombre", "ubicacion", "propietario", "proyectista"];
 
   /* Los datos de la cimentación · misma regla. */
   const CIMENTACION = ["sigmaAdm_kgfcm2", "esNeta", "Df_cm", "gammaRelleno_kgfm3", "sc_kgfm2", "mu",
@@ -166,6 +169,7 @@
       secciones: o.secciones || { porClase: {}, porBarra: {} },
       /* las capas geométricas · fila L.suelto */
       ediciones: o.ediciones ? o.ediciones.slice() : [],
+      proyecto: o.proyecto || {},
       sitio: o.sitio || {},
       sistema: o.sistema || null,
       diseno: o.diseno || {},
@@ -403,6 +407,11 @@
         "libro: datos de sitio desconocidos: " + sobranS.join(", ") + "\n" +
         "  Añádelos a SITIO si son de verdad datos del sitio o de las cargas.");
     }
+    const sobranPr = Object.keys(modelo.proyecto || {}).filter((k) => PROYECTO.indexOf(k) < 0);
+    if (sobranPr.length) {
+      throw new Error("libro: datos de proyecto desconocidos: " + sobranPr.join(", ") +
+        ". Añádelos a PROYECTO si son de verdad datos del proyecto.");
+    }
     const sobranD = Object.keys(modelo.diseno || {}).filter((k) => DISENO.indexOf(k) < 0);
     if (sobranD.length) {
       throw new Error("libro: datos de diseño desconocidos: " + sobranD.join(", ") +
@@ -550,7 +559,7 @@
   return {
     ART, HOJA_MODELO, HOJA_RESULTADOS, HOJAS, VISIBILIDAD,
     TROZO, MAX_FILAS, TROZO_MSG, RANGO, MARCA, FORMATO,
-    CLAVES, PARAMETROS, TIPOS, SITIO, SISTEMA, DISENO, CIMENTACION,
+    CLAVES, PARAMETROS, TIPOS, PROYECTO, SITIO, SISTEMA, DISENO, CIMENTACION,
     nuevo, valida, clona, edita, validaEdicion, aplica, olvidaEdiciones,
     parametrosEditables, asignaPerfil, perfilDe, perfilesHuerfanos,
     paraGuardar, serializa, deserializa,

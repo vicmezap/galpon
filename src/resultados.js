@@ -77,6 +77,101 @@
   }
 
   /* =====================================================================
+     EL PASO DATOS · el proyecto, y lo que falta en cada paso
+     ===================================================================== */
+  const CAMPOS_PROYECTO = [
+    { grupo: "Proyecto", campos: [
+      { id: "nom", clave: "nombre", etiqueta: "Nombre del proyecto", tipo: "texto" },
+      { id: "ubi", clave: "ubicacion", etiqueta: "Ubicación", tipo: "texto" },
+      { id: "pro", clave: "propietario", etiqueta: "Propietario", tipo: "texto" },
+      { id: "ing", clave: "proyectista", etiqueta: "Proyectista", tipo: "texto" }] }];
+  function leeProyecto(val) {
+    const p = {};
+    for (const c of CAMPOS_PROYECTO[0].campos) {
+      const t = String(val[c.id] === undefined || val[c.id] === null ? "" : val[c.id]).trim();
+      if (t) p[c.clave] = t;
+    }
+    return p;
+  }
+  function valoresDeProyecto(p) {
+    const v = {};
+    for (const c of CAMPOS_PROYECTO[0].campos) if (p && p[c.clave] !== undefined) v[c.id] = p[c.clave];
+    return v;
+  }
+
+  /* Las normas que mandan, y para qué · cada número que sale de ellas tiene su fila */
+  const NORMAS = [
+    ["E.020", "Cargas: muerta, viva de techo, nieve y viento"],
+    ["E.030-2026", "Diseño sismorresistente"],
+    ["E.090", "Estructuras metálicas: combinaciones y lo que remite al AISC"],
+    ["AISC 360-22", "Specification for Structural Steel Buildings: barras y uniones"],
+    ["E.060", "Concreto armado: zapata, pedestal y sus combinaciones"],
+    ["ACI 318", "Anclajes en concreto, donde la E.060 no llega"]];
+
+  /* Los materiales del proyecto, de donde se eligieron */
+  function materiales(modelo) {
+    const s = (modelo && modelo.sitio) || {}, c = (modelo && modelo.cimentacion) || {}, d = (modelo && modelo.diseno) || {};
+    const L = [];
+    if (ACEROS.indexOf(s.acero) >= 0) {
+      const m = AC.material(s.acero);
+      L.push({ que: "Acero estructural", v: s.acero + " · Fy " + n2(m.Fy, 0) + " · Fu " + n2(m.Fu, 0) + " kgf/cm²", paso: "cargas" });
+    } else L.push({ que: "Acero estructural", v: null, paso: "cargas" });
+    L.push({ que: "Concreto", v: c.fc_kgcm2 > 0 ? "f'c " + n2(c.fc_kgcm2, 0) + " kgf/cm²" : null, paso: "cimen" });
+    L.push({ que: "Acero de refuerzo", v: c.grado ? "grado " + c.grado : null, paso: "cimen" });
+    L.push({ que: "Electrodo de las uniones", v: d.electrodo || null, paso: "conex" });
+    L.push({ que: "Pernos de anclaje", v: c.pernoMat ? c.pernoMat + (c.pernoD ? " · Ø" + c.pernoD + "\"" : "") : null, paso: "cimen" });
+    return L;
+  }
+
+  /* LO QUE FALTA, PASO POR PASO.  Cada dato aparece UNA vez, en el paso donde
+     se pide; un paso que depende de otro sin terminar lo dice como «espera».
+     o = { m3, fallo, modelo, perfiles, analisis (el del pórtico interior, si ya está) } */
+  const NOMBRE_PASO = { datos: "Datos", geom: "Geometría", cargas: "Cargas", analisis: "Análisis", diseno: "Diseño",
+    conex: "Conexiones", cimen: "Cimentación", hojas: "Hojas Excel" };
+  function pendientes(o) {
+    const modelo = o.modelo || {}, P = {};
+    for (const k of Object.keys(NOMBRE_PASO)) P[k] = { paso: k, nombre: NOMBRE_PASO[k], faltas: [], espera: [] };
+    const pon = (k, f) => { if (!P[k].faltas.some((x) => x.que === f.que)) P[k].faltas.push({ que: f.que, campo: f.campo || null }); };
+    if (!(modelo.proyecto && modelo.proyecto.nombre)) pon("datos", { que: "el nombre del proyecto", campo: "pr_nom" });
+    if (!o.m3) {
+      pon("geom", { que: o.fallo ? o.fallo.titulo : "el galpón no se puede montar" });
+      for (const k of ["cargas", "analisis", "diseno", "conex", "cimen", "hojas"]) P[k].espera.push("geom");
+    } else {
+      /* los perfiles, de la tabla de Geometría: no esperan al sistema estructural */
+      const sinPerfil = V.tablaPerfiles(o.m3, modelo).filas.filter((f) => f.sinPerfil).map((f) => f.clase);
+      if (sinPerfil.length) pon("geom", { que: "el perfil de " + sinPerfil.join(", ") });
+      const c = cargas(o.m3, modelo.sitio || {});
+      for (const f of c.faltan) pon("cargas", f);
+      if (ACEROS.indexOf((modelo.sitio || {}).acero) < 0) pon("cargas", { que: "el acero del proyecto (A36 ó A572)", campo: "ca_acero" });
+      if (!c.completo || P.cargas.faltas.length) P.hojas.espera.push("cargas");
+      const a = o.analisis || analisis(o.m3, modelo, o.perfiles, "interior");
+      if (!modelo.sistema) pon("analisis", { que: "el sistema estructural: la base y la unión columna–tijeral" });
+      if (!a.ok) {
+        for (const f of a.faltas) {
+          if (f.paso === "geom") { if (!sinPerfil.length) pon("geom", f); }
+          else if (f.paso === "analisis") pon("analisis", f);
+        }
+        if (P.cargas.faltas.length) P.analisis.espera.push("cargas");
+        if (P.geom.faltas.length) P.analisis.espera.push("geom");
+        for (const k of ["diseno", "conex", "cimen"]) P[k].espera.push("analisis");
+      }
+      /* los datos propios de cada paso, que no necesitan el análisis para saber que faltan */
+      const dz = modelo.diseno || {};
+      if (modelo.sistema) {
+        try {
+          for (const f of DI.faltan(AN.geometria(o.m3, modelo.sistema), seccionDesde(modelo, o.perfiles), dz)) pon("diseno", f);
+        } catch (e) { /* lo dice el análisis */ }
+      }
+      for (const f of DI.faltanCorreas(dz)) pon("diseno", f);
+      for (const f of faltanUniones(dz)) pon("conex", f);
+      for (const f of faltanCimentacion(modelo.cimentacion || {})) pon("cimen", f);
+    }
+    return Object.keys(NOMBRE_PASO).map((k) => Object.assign(P[k], {
+      completo: !P[k].faltas.length && !P[k].espera.length,
+      espera: P[k].espera.map((x) => ({ paso: x, nombre: NOMBRE_PASO[x] })) }));
+  }
+
+  /* =====================================================================
      EL PASO CARGAS
      ===================================================================== */
   function cargas(m3, sitio) {
@@ -1022,6 +1117,31 @@
     return out;
   }
 
+  /* los datos de la zapata y del pedestal, como los piden zapatas.js y pedestal.js */
+  function datosZapata(c, casos) {
+    return { casos: casos,
+      suelo: { sigmaAdm_kgfcm2: c.sigmaAdm_kgfcm2, esNeta: c.esNeta, Df_cm: c.Df_cm,
+        gammaRelleno_kgfm3: c.gammaRelleno_kgfm3, sc_kgfm2: c.sc_kgfm2, mu: c.mu },
+      concreto: { fc_kgcm2: c.fc_kgcm2, grado: c.grado, rec_cm: c.rec_cm, barra: c.barra },
+      pedestal: { b_cm: c.pedB_cm, l_cm: c.pedL_cm, sobreTerreno_cm: c.sobreTerreno_cm },
+      zapata: (c.B_cm > 0 && c.L_cm > 0 && c.h_cm > 0) ? { B_cm: c.B_cm, L_cm: c.L_cm, h_cm: c.h_cm } : null };
+  }
+  function datosPedestal(c) {
+    return { b_cm: c.pedB_cm, l_cm: c.pedL_cm, fc_kgcm2: c.fc_kgcm2, grado: c.grado, barra: c.pedBarra,
+      estribo: c.pedEstribo, rec_cm: c.pedRec_cm, junta: c.junta };
+  }
+  /* lo que falta de la zapata, el pedestal y la placa, junto y sin repetir · no necesita el análisis */
+  function faltanCimentacion(c) {
+    const vistos = {}, faltas = [];
+    for (const f of ZA.faltan(datosZapata(c, null)).concat(PD.faltan(datosPedestal(c)), faltanPlaca(c))) {
+      const campo = f.campo === "ci_ped" ? "ci_pedb" : f.campo;    /* el pedestal tiene dos campos */
+      if (vistos[campo]) continue;
+      vistos[campo] = true;
+      faltas.push({ que: f.que, campo: campo });
+    }
+    return faltas;
+  }
+
   function cimentacion(m3, modelo, perfiles, an, portico, lo) {
     const tipo = portico || "interior";
     exige(TIPOS_ZAPATA.indexOf(tipo) >= 0, "la zapata es " + TIPOS_ZAPATA.join(" ó ") + ", no «" + tipo + "»");
@@ -1045,23 +1165,10 @@
     } else {
       casosZ = casosZapata("interior", a, null, m3, modelo, perfiles, null);
     }
-    const d = { casos: casosZ,
-      suelo: { sigmaAdm_kgfcm2: c.sigmaAdm_kgfcm2, esNeta: c.esNeta, Df_cm: c.Df_cm,
-        gammaRelleno_kgfm3: c.gammaRelleno_kgfm3, sc_kgfm2: c.sc_kgfm2, mu: c.mu },
-      concreto: { fc_kgcm2: c.fc_kgcm2, grado: c.grado, rec_cm: c.rec_cm, barra: c.barra },
-      pedestal: { b_cm: c.pedB_cm, l_cm: c.pedL_cm, sobreTerreno_cm: c.sobreTerreno_cm },
-      zapata: (c.B_cm > 0 && c.L_cm > 0 && c.h_cm > 0) ? { B_cm: c.B_cm, L_cm: c.L_cm, h_cm: c.h_cm } : null };
-    const pdDatos = { b_cm: c.pedB_cm, l_cm: c.pedL_cm, fc_kgcm2: c.fc_kgcm2, grado: c.grado, barra: c.pedBarra,
-      estribo: c.pedEstribo, rec_cm: c.pedRec_cm, junta: c.junta };
-    /* lo que falta de los tres, junto y sin repetir */
-    const vistos = {}, faltas = [];
-    for (const f of ZA.faltan(d).concat(PD.faltan(pdDatos), faltanPlaca(c))) {
-      const campo = f.campo === "ci_ped" ? "ci_pedb" : f.campo;    /* el pedestal tiene dos campos */
-      if (vistos[campo]) continue;
-      vistos[campo] = true;
-      faltas.push({ paso: "cimen", que: f.que, campo: campo });
-    }
-    if (faltas.length) return { ok: false, faltas: faltas };
+    const d = datosZapata(c, casosZ);
+    const pdDatos = datosPedestal(c);
+    const faltas = faltanCimentacion(c);
+    if (faltas.length) return { ok: false, faltas: faltas.map((f) => Object.assign({ paso: "cimen" }, f)) };
 
     /* EL PERALTE QUE VUELVE · fila PD.anclaje.zapata.  La zapata da su peralte, el
        pedestal sale de ahí (su altura es Df − h + lo que sobresale) y sus barras piden
@@ -1745,6 +1852,7 @@
     correas, fichasCorreas, avisosCorreas, conexiones, fichasConexiones, avisosConexiones, faltanUniones, CAMPOS_CARGAS, CAMPOS_ANALISIS, CAMPOS_DISENO, avisosResultados,
     TIPOS_ZAPATA, CAMPOS_CIMENTACION, leeCimentacion, casosZapata, valoresDeCimentacion, cimentacion, fichasCimentacion, dibujoCimentacion,
     leeSitio, valoresDeSitio, leeSistema, leeDiseno, valoresDeDiseno,
+    CAMPOS_PROYECTO, leeProyecto, valoresDeProyecto, NORMAS, materiales, pendientes, faltanCimentacion,
     diseno, fichasDiseno, dibujoDiseno, tablaDiseno, lineasDiseno, nivelRatio,
     forma, cargas, seccionDesde, analisis, fichasAnalisis, tablaReacciones, dibujo, lineasFuerzas
   };

@@ -337,6 +337,9 @@ table.hx td.h-analisis { color:#3fb26b; font-family:var(--cifra); text-align:rig
 table.hx td.h-nota, table.hx td.h-como, table.hx td.h-fuente { color:var(--suave); font-style:italic; }
 .h-dato { color:#4f8fe8; } .h-norma { color:#a77bd6; } .h-analisis { color:#3fb26b; }
 ul.hojas-l li.falta { color:var(--suave); }
+.paso-est ul { margin:4px 0 6px 16px; padding:0; font-size:12px; }
+.tarj.paso-est.ok { border-left-color:var(--ok); }
+.nor { font-size:12px; padding:5px 0; border-bottom:1px solid var(--papel-2); line-height:1.4; }
 .st-escrita { color:var(--ok); } .st-mal { color:var(--alerta); } .st-mandada { color:var(--aviso); }
 svg.zp .placa.planta { fill:none; stroke-dasharray:6 4; }
 svg.zp .perno { stroke:var(--tinta); stroke-width:2.2; }
@@ -395,6 +398,10 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     <div id="lado-parametros">
       <h3 class="sec">Datos</h3>
       <form id="f" autocomplete="off" onsubmit="return false"></form>
+    </div>
+    <div id="lado-datos">
+      <h3 class="sec">Datos del proyecto</h3>
+      <form id="fp" autocomplete="off" onsubmit="return false"></form>
     </div>
     <div id="lado-cargas">
       <h3 class="sec">Cargas</h3>
@@ -507,6 +514,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     var par = a.lados.indexOf("parametros") >= 0;
     $("lado-ver").hidden = !ver;
     $("lado-parametros").hidden = !par;
+    $("lado-datos").hidden = a.lados.indexOf("datos") < 0;
     $("lado-cargas").hidden = a.lados.indexOf("cargas") < 0;
     $("lado-analisis").hidden = a.lados.indexOf("analisis") < 0;
     $("lado-diseno").hidden = a.lados.indexOf("diseno") < 0;
@@ -618,6 +626,9 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
           return '<option value="' + o[0] + '">' + esc(o[1]) + "</option>";
         }).join("") + "</select></div>";
     }
+    if (c.tipo === "texto") {
+      return envol + '<label for="' + cid + '">' + et + '</label><input type="text" id="' + cid + '" value=""></div>';
+    }
     return envol + '<label for="' + cid + '">' + et + '</label><input type="number" id="' +
       cid + '" step="any" value=""></div>';
   }
@@ -642,6 +653,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
       });
     });
   }
+  pintaForm("fp", RESULTADOS.CAMPOS_PROYECTO, "pr_");
   pintaForm("fc", RESULTADOS.CAMPOS_CARGAS, "ca_");
   pintaForm("fa", RESULTADOS.CAMPOS_ANALISIS, "an_");
   pintaForm("fd", RESULTADOS.CAMPOS_DISENO, "di_");
@@ -666,6 +678,10 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     actualizaSolos();
     recalcula();
   });
+  $("fp").addEventListener("change", function () {
+    modelo.proyecto = RESULTADOS.leeProyecto(valoresForm(RESULTADOS.CAMPOS_PROYECTO, "pr_"));
+    recalcula();
+  });
   $("fci").addEventListener("change", function () {
     modelo.cimentacion = RESULTADOS.leeCimentacion(valoresForm(RESULTADOS.CAMPOS_CIMENTACION, "ci_"));
     recalcula();
@@ -680,6 +696,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     recalcula();
   });
   function ponSitioEnFormularios() {
+    ponValores(RESULTADOS.CAMPOS_PROYECTO, "pr_", RESULTADOS.valoresDeProyecto(modelo.proyecto));
     ponValores(RESULTADOS.CAMPOS_CARGAS, "ca_", RESULTADOS.valoresDeSitio(modelo.sitio));
     ponValores(RESULTADOS.CAMPOS_ANALISIS, "an_", modelo.sistema || {});
     ponValores(RESULTADOS.CAMPOS_DISENO, "di_", RESULTADOS.valoresDeDiseno(modelo.diseno));
@@ -1389,6 +1406,36 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     $("derecha").innerHTML = cx.fichas.map(pintaFicha).join("");
   }
 
+  /* ---------- DATOS · el proyecto, y lo que falta en cada paso ----------
+     Cada dato que falta aparece UNA vez, en el paso donde se pide, con el
+     botón para ir allí. Un paso que depende de otro sin terminar dice a cuál espera. */
+  function pintaDatos(fallo) {
+    var est = RESULTADOS.pendientes({ m3: m3, fallo: fallo, modelo: modelo, perfiles: PERFILES,
+      analisis: m3 ? analisisActual("interior") : null });
+    var hechos = est.filter(function (p) { return p.completo; }).length;
+    var filas = est.map(function (p) {
+      var cuerpo = p.completo ? '<span class="st-escrita">completo</span>'
+        : (p.faltas.length ? "<ul>" + p.faltas.map(function (f) { return "<li>falta " + esc(f.que) + "</li>"; }).join("") + "</ul>" : "") +
+          (p.espera.length ? '<p class="pie">espera a ' + p.espera.map(function (x) { return esc(x.nombre); }).join(" y ") + "</p>" : "");
+      return '<div class="tarj paso-est' + (p.completo ? " ok" : "") + '"><h4>' + esc(p.nombre) + "</h4>" + cuerpo +
+        (!p.completo && p.paso !== "datos" ? '<button class="ir" data-ir="' + p.paso + '">ir a ' + esc(p.nombre) + "</button>" : "") +
+        "</div>";
+    }).join("");
+    $("centro").innerHTML = '<div class="hoja"><h2>Datos</h2><p class="lead">' +
+      esc((modelo.proyecto && modelo.proyecto.nombre) || "proyecto sin nombre") + " · " + hechos + " de " + est.length +
+      " pasos completos</p><h3>Lo que falta, paso por paso</h3><div class=\"rejilla\">" + filas + "</div></div>";
+    var mat = RESULTADOS.materiales(modelo).map(function (x) {
+      return '<div class="ln"><span class="q">' + esc(x.que) + '</span><span class="v">' +
+        (x.v ? esc(x.v) : "se elige en " + esc(VISTAS.paso(x.paso).nombre)) + "</span></div>";
+    }).join("");
+    var nor = RESULTADOS.NORMAS.map(function (x) {
+      return '<div class="nor"><b>' + esc(x[0]) + "</b> · " + esc(x[1]) + "</div>";
+    }).join("");
+    $("derecha").innerHTML = '<div class="tarj"><h4>Materiales</h4>' + mat + "</div>" +
+      '<div class="tarj"><h4>Las normas que mandan</h4>' + nor +
+      '<p class="pie">Cada número que sale de ellas tiene su fila en el inventario, con el artículo.</p></div>';
+  }
+
   /* ---------- HOJAS EXCEL · E9 ----------
      La hoja se arma aquí, se comprueba fórmula a fórmula contra el motor
      (fila H.coincide) y la escribe el panel, que es quien tiene Excel.run. */
@@ -1400,7 +1447,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     var cg = RESULTADOS.cargas(m3, modelo.sitio || {});
     if (!cg.completo) return { faltas: cg.faltan.map(function (f) { return { paso: "cargas", que: f.que, campo: f.campo }; }) };
     var ai = analisisActual("interior"), af = analisisActual("fachada");
-    return { hoja: HOJAS.hojaCargas({ cargas: cg, sitio: modelo.sitio, interior: ai.ok ? ai.r : null,
+    return { hoja: HOJAS.hojaCargas({ cargas: cg, sitio: modelo.sitio, proyecto: modelo.proyecto, interior: ai.ok ? ai.r : null,
       fachada: af.ok ? af.r : null, version: BUILD, fecha: new Date().toISOString().slice(0, 10) }),
       sinAnalisis: !ai.ok || !af.ok };
   }
@@ -1967,6 +2014,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     if (pasoActivo === "cimen") { pintaCimentacion(fallo); return; }
     if (pasoActivo === "conex") { pintaConexiones(fallo); return; }
     if (pasoActivo === "hojas") { pintaHojas(fallo); return; }
+    if (pasoActivo === "datos") { pintaDatos(fallo); return; }
 
     if (fallo) {
       $("metricas").innerHTML = "";
@@ -2273,12 +2321,13 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
   }
   function modeloActual() {
     var d = datos();
-    var m = LIBRO.nuevo(Object.assign({ nombre: "galpón" },
+    var m = LIBRO.nuevo(Object.assign({ nombre: (modelo.proyecto && modelo.proyecto.nombre) || "galpón" },
       paraElMotor(VISTAS.datosModelo(d))));
     m.vista = VISTAS.datosVista(d);
     m.secciones = modelo.secciones;   /* los perfiles asignados viajan */
     m.ediciones = modelo.ediciones;
     /* y las cargas y el sistema: sin esto se perdían al guardar y cerrar */
+    m.proyecto = modelo.proyecto || {};
     m.sitio = modelo.sitio || {};
     m.sistema = modelo.sistema || null;
     m.diseno = modelo.diseno || {};
@@ -2338,6 +2387,7 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
     }
     if (m.secciones) modelo.secciones = m.secciones;
     if (m.ediciones) modelo.ediciones = m.ediciones;
+    if (m.proyecto) modelo.proyecto = m.proyecto;
     if (m.sitio) modelo.sitio = m.sitio;
     if (m.sistema) modelo.sistema = m.sistema;
     if (m.diseno) modelo.diseno = m.diseno;
