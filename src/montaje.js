@@ -66,7 +66,7 @@
   const ART = INV.declara("montaje.js", [
     "MT.ejes", "MT.dos.direcciones", "MT.continuidad", "MT.no.diafragma",
     "MT.plano.solver", "MT.hastial", "MT.mismo.pano", "MT.termica", "MT.deltaT",
-    "MT.alfa"
+    "MT.alfa", "LG.vertical"
   ]);
 
   /* Los tres planos en los que un galpón resiste, y el cuarto que no
@@ -75,6 +75,7 @@
     transversal: "plano (x,y) · el pórtico · resiste la transversal",
     techo: "plano (x,z) · la armadura horizontal · reparte la longitudinal",
     fachada: "plano (y,z) · el arriostre de fachada · la baja al suelo",
+    vertical: "plano (y,z) en la línea de una columna hastial · sube su reacción al techo",
     longitudinal: "barras a lo largo · correas y vigas de alero · amarran y puntalean"
   };
 
@@ -278,6 +279,26 @@
         apoyos.push({ nudo: bid, ux: true, uy: true, uz: true });
         une("CH" + q + "@" + k, bid, idN(destino.id, k), "columna hastial",
           "transversal", { eje: k, hastial: true });
+
+        /* EL ARRIOSTRE VERTICAL · fila LG.vertical.  La columna remata en la brida
+           inferior y el arriostre de techo está en la superior: la fuerza sube por una
+           cruz en el plano vertical x = cte, entre este pórtico y el vecino, con un
+           puntal en la brida inferior para que trabaje la diagonal que tracciona. */
+        const arriba = tij.nudos.find((n) => n.clase === "superior" && Math.abs(n.x_m - destino.x_m) < 0.01);
+        if (!arriba) {
+          throw new Error(
+            "montaje: la columna hastial en x = " + x + " m no tiene un nudo de brida superior\n" +
+            "  encima, y el arriostre vertical que sube su reacción al plano del techo tiene que\n" +
+            "  ir en un plano vertical (fila LG.vertical).  Con alma Warren las dos bridas\n" +
+            "  no tienen nudos en la misma x: usa Howe o Pratt, o quita las columnas hastiales.");
+        }
+        const kv = k === 0 ? 1 : k - 1;          /* el pórtico vecino, hacia dentro */
+        une("AV" + q + "a@" + k, idN(destino.id, k), idN(arriba.id, kv), "arriostre vertical",
+          "vertical", { eje: k, pano: Math.min(k, kv), soloTraccion: true });
+        une("AV" + q + "b@" + k, idN(arriba.id, k), idN(destino.id, kv), "arriostre vertical",
+          "vertical", { eje: k, pano: Math.min(k, kv), soloTraccion: true });
+        une("PI" + q + "@" + k, idN(destino.id, k), idN(destino.id, kv), "puntal inferior",
+          "longitudinal", { eje: k, pano: Math.min(k, kv) });
       }
     }
 

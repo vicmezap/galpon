@@ -330,8 +330,8 @@ comp("la 3D no se acota: una isométrica acotada no es una isométrica",
    7c · LAS TABLAS · la de perfiles es la que faltaba para trabajar
    ================================================================ */
 const tp0 = V.tablaPerfiles(m3, null);
-comp("hay una fila por clase de barra del modelo", tp0.clases, 10);
-comp("y sin modelo, ninguna tiene perfil", tp0.sinPerfil, 10);
+comp("hay una fila por clase de barra del modelo (12, con el arriostre vertical y su puntal)", tp0.clases, 12);
+comp("y sin modelo, ninguna tiene perfil", tp0.sinPerfil, 12);
 cierto("ordenadas por número de barras, que es por donde se empieza",
   tp0.filas[0].barras >= tp0.filas[tp0.filas.length - 1].barras);
 cierto("y se dice lo que significa no tenerlos",
@@ -341,7 +341,7 @@ const LIBRO = require("../src/libro.js");
 let mod = LIBRO.nuevo({ luz_m: 20 });
 mod = LIBRO.asignaPerfil(mod, { clase: "diagonal" }, "L2½x2½x¼").modelo;
 const tp1 = V.tablaPerfiles(m3, mod);
-comp("asignando uno, queda una clase menos sin perfil", tp1.sinPerfil, 9);
+comp("asignando uno, queda una clase menos sin perfil", tp1.sinPerfil, 11);
 comp("y la diagonal lo enseña",
   tp1.filas.filter((f) => f.clase === "diagonal")[0].perfil, "L2½x2½x¼");
 cierto("las demás siguen marcadas como sin asignar",
@@ -376,14 +376,14 @@ cierto("y la nota da los metros de alero a axial",
    falta no es dibujar: es poder mirar un modelo de 733 barras.
    ================================================================ */
 const cp = V.capas(m3, {});
-comp("una capa por clase de barra", cp.filas.length, 10);
-comp("y con todo encendido se ven las 733", cp.barrasVisibles, 733);
+comp("una capa por clase de barra", cp.filas.length, 12);
+comp("y con todo encendido se ven las 751", cp.barrasVisibles, 751);
 cierto("ordenadas por número de barras", cp.filas[0].barras >= cp.filas[9].barras);
 cierto("cada capa sabe en qué plano vive",
   cp.filas.every((f) => typeof f.plano === "string"));
 
 const apag = V.capas(m3, { apagadas: { correa: true, "viga de alero": true } });
-comp("apagando correas y vigas de alero quedan 583", apag.barrasVisibles, 583);
+comp("apagando correas y vigas de alero quedan 601", apag.barrasVisibles, 601);
 comp("y se dice cuántas clases se ocultaron", apag.nota, "ocultas 2 clase(s)");
 cierto("las apagadas se marcan como no visibles",
   apag.filas.filter((f) => f.clase === "correa")[0].visible === false);
@@ -392,10 +392,10 @@ const ais = V.capas(m3, { aislada: "diagonal" });
 comp("aislando las diagonales quedan 132", ais.barrasVisibles, 132);
 comp("y una sola clase visible", ais.clasesVisibles, 1);
 cierto("LO DEMÁS SIGUE EN EL MODELO, solo no se dibuja",
-  /sigue en el modelo/.test(ais.nota) && ais.barrasTotales === 733);
+  /sigue en el modelo/.test(ais.nota) && ais.barrasTotales === 751);
 comp("filtra() devuelve justo esas barras",
   V.filtra(m3.barras, { aislada: "diagonal" }).length, 132);
-comp("y sin estado, todas", V.filtra(m3.barras, {}).length, 733);
+comp("y sin estado, todas", V.filtra(m3.barras, {}).length, 751);
 
 /* ================================================================
    7e · LA SELECCIÓN · el panel contextual
@@ -577,7 +577,7 @@ comp("el que manda a un paso, manda a uno que existe",
 comp("avisa de las clases sin perfil, que es lo que bloquea el analisis",
   cmp.lista.filter((a) => /sin perfil asignado/.test(a.que)).length, 1);
 comp("y enumera CUALES, en vez de decir «hay 10»",
-  (uno(cmp.lista.filter((a) => a.cuales), "cuales") || []).length, 10);
+  (uno(cmp.lista.filter((a) => a.cuales), "cuales") || []).length, 12);
 
 /* EL ALERO A AXIAL · el aviso que el galpon alineado NO tiene que dar */
 cierto("con techo y fachada en el mismo pano, el alero solo amarra",

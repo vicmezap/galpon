@@ -236,7 +236,7 @@ cierto("el panel derecho trae fichas", /class="tarj/.test(der));
 /* ───── LAS TABLAS · sin la de perfiles no se puede trabajar ───── */
 comp("hay dos tablas", (der.match(/<table class="t"/g) || []).length, 2);
 comp("una fila de perfil por clase de barra",
-  (der.match(/data-perfil=/g) || []).length, 10);
+  (der.match(/data-perfil=/g) || []).length, 12);
 cierto("con el catálogo detrás para escribir el nombre",
   /list="catalogo"/.test(der));
 cierto("y las que no tienen perfil se marcan",
@@ -267,12 +267,12 @@ comp("todo botón de fuente apunta a una fila que existe",
 cierto("YA NO HAY PALETA DE DIBUJO", !/data-h=/.test(modeHtml));
 const capas = pinto(M.dom, "capas").innerHTML;
 comp("hay una capa por clase de barra",
-  (capas.match(/data-capa=/g) || []).length, 10);
+  (capas.match(/data-capa=/g) || []).length, 12);
 comp("cada una con su botón de aislar",
-  (capas.match(/data-ais=/g) || []).length, 10);
-comp("y su casilla de ver", (capas.match(/data-ver=/g) || []).length, 10);
+  (capas.match(/data-ais=/g) || []).length, 12);
+comp("y su casilla de ver", (capas.match(/data-ver=/g) || []).length, 12);
 cierto("con el resumen de cuántas barras se ven",
-  /733/.test(pinto(M.dom, "resumen").innerHTML));
+  /751/.test(pinto(M.dom, "resumen").innerHTML));
 cierto("el código explica por qué no es una paleta",
   /error de\s+método/.test(modeHtml) && /NO HAY NADA LIBRE/.test(modeHtml));
 

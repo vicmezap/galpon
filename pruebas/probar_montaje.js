@@ -62,7 +62,7 @@ lanza("una separación mayor que el largo PARA",
    2 · EL MONTAJE
    ================================================================ */
 comp("el galpón de 60 × 20 tiene 314 nudos", centro.conteo.nudos, 314);
-comp("y 733 barras", centro.conteo.barras, 733);
+comp("y 751 barras: 733 del pórtico y el techo, y 18 del arriostre vertical", centro.conteo.barras, 751);
 
 /* El reparto cuadra pieza por pieza, y cada número sale de la geometría. */
 const pc = centro.conteo.porClase;
@@ -76,11 +76,23 @@ comp("tres columnas hastiales en cada uno de los dos hastiales",
 comp("y solo en los hastiales: no las hay en los pórticos interiores",
   centro.barras.filter((b) => b.hastial).map((b) => b.eje).sort((a, b) => a - b),
   [0, 0, 0, 10, 10, 10]);
+/* EL ARRIOSTRE VERTICAL · fila LG.vertical: por cada columna hastial, dos diagonales y un puntal */
+comp("dos diagonales del arriostre vertical por columna hastial", pc["arriostre vertical"], 2 * 3 * 2);
+comp("y un puntal en la brida inferior", pc["puntal inferior"], 3 * 2);
+{
+  const av = centro.barras.filter((b) => b.id === "AV1a@0")[0], pi = centro.barras.filter((b) => b.id === "PI1@0")[0];
+  comp("la diagonal va de la brida inferior del pórtico extremo a la superior del vecino", [av.i, av.j], ["I6@0", "S6@1"]);
+  comp("y el puntal, de brida inferior a brida inferior", [pi.i, pi.j], ["I6@0", "I6@1"]);
+  comp("solo a tracción", av.soloTraccion, true);
+  comp("en el hastial del final, hacia el pórtico 9", centro.barras.filter((b) => b.id === "PI1@10")[0].j, "I6@9");
+}
+lanza("con alma Warren las bridas no tienen nudos en la misma x: no hay arriostre vertical posible",
+  () => monta({ alma: "warren", cuerdas: "dos_aguas", columnasHastiales: [10], panosArriostradosTecho: [5] }), "Warren");
 
 const pp = centro.conteo.porPlano;
-comp("los cuatro planos están poblados", Object.keys(pp).sort(),
-  ["fachada", "longitudinal", "techo", "transversal"]);
-comp("y las barras suman", pp.transversal + pp.longitudinal + pp.techo + pp.fachada, 733);
+comp("los cinco planos están poblados", Object.keys(pp).sort(),
+  ["fachada", "longitudinal", "techo", "transversal", "vertical"]);
+comp("y las barras suman", pp.transversal + pp.longitudinal + pp.techo + pp.fachada + pp.vertical, 751);
 
 /* La armadura de cada pórtico la hace el generador: una sola definición. */
 comp("el tijeral de cada pórtico sale de generador.js",
@@ -279,7 +291,11 @@ lanza("pedir un eje que no existe PARA", () => MT.planoTransversal(centro, 99), 
    8 · METRADO
    ================================================================ */
 const me = MT.metrado(centro);
-cerca("el galpón son 2309 m de barra", me.total_m, 2309.370, 1e-5);
+/* el arriostre vertical suma, por hastial: diagonales de √(36 + peralte²) con peralte 2,2 · 3,2 · 2,2
+   y tres puntales de 6 m; por dos hastiales */
+const avL = 2 * (2 * Math.sqrt(36 + 2.2 * 2.2) * 2 + 2 * Math.sqrt(36 + 3.2 * 3.2) + 3 * 6);
+cerca("el galpón son 2309 m de barra, más los " + avL.toFixed(1) + " del arriostre vertical", me.total_m,
+  2309.370 + avL, 1e-5);
 cerca("las correas son el tramo más largo: 780 m", me.porClase_m["correa"], 780, 1e-9);
 cerca("132 m de columna", me.porClase_m["columna"], 2 * 11 * 6, 1e-9);
 cerca("220 m de brida inferior", me.porClase_m["brida inferior"], 220, 1e-9);
