@@ -26,12 +26,13 @@
   "use strict";
   if (typeof module === "object" && module.exports) {
     module.exports = definir(require("./inventario.js"), require("./excel.js"), require("./e020.js"),
-      require("./viento.js"), require("./e030.js"), require("./combinaciones.js"), require("./analisis.js"));
+      require("./viento.js"), require("./e030.js"), require("./combinaciones.js"), require("./analisis.js"),
+      require("./acero.js"), require("./perfiles.js"), require("./ubicacion.js"), require("./zapatas.js"), require("./unidades.js"));
   } else {
     raiz.HOJAS = definir(raiz.INVENTARIO, raiz.EXCEL, raiz.E020, raiz.VIENTO, raiz.E030, raiz.COMBINACIONES,
-      raiz.ANALISIS);
+      raiz.ANALISIS, raiz.ACERO, raiz.PERFILES, raiz.UBICACION, raiz.ZAPATAS, raiz.UNIDADES);
   }
-})(typeof self !== "undefined" ? self : this, function (INV, EX, E020, VI, E030, CB, AN) {
+})(typeof self !== "undefined" ? self : this, function (INV, EX, E020, VI, E030, CB, AN, AC, PF, UB, ZA, UN) {
   "use strict";
 
   const ART = INV.declara("hojas.js", [
@@ -40,7 +41,11 @@
     "N.Qs.min", "N.Qt.a", "N.Qt.b", "N.Qt.c", "N.desbal.corto", "N.desbal.largo",
     "W.Vh", "W.V.min", "W.Ph", "W.tipo", "W.T4", "W.T4.paralelas", "W.T5.repartidas", "W.C", "W.simultaneo",
     "S.Z", "S.U", "S.categoria.uso", "S.zona.distrito", "S.perfil", "S.sinVs30", "S.interp", "S.R0", "S.pendulo", "S.C.estatico", "S.CR", "S.V",
-    "S.vertical", "A.sismo.periodo", "S.T.rayleigh", "S.P", "A.sismo.regular", "J.costura", "A.portico.tipico"
+    "S.vertical", "A.sismo.periodo", "S.T.rayleigh", "S.P", "A.sismo.regular", "J.costura", "A.portico.tipico",
+    "S.categoria.riesgo", "S.usos.combinados", "S.deriva.industrial", "A.sistema", "MAT.E", "C.Ec", "Z.As.min",
+    "Z.sigma.neta", "MT.ejes", "D.cobertura.pendmin", "G.correa.inclinada", "G.correa.sep", "SV.correa.Ld", "SV.deflex",
+    "D.cobertura.tabla", "D.cobertura.neta", "SV.viento.H", "S.despl", "S.deriva", "MT.no.diafragma", "MT.dos.direcciones",
+    "MT.mismo.pano", "MT.continuidad", "MT.termica", "MT.deltaT", "MT.hastial", "G.peralte", "MT.alfa"
   ]);
 
   function exige(c, msg) { if (!c) throw new Error("hojas: " + msg); }
@@ -67,6 +72,17 @@
     return w;
   };
 
+  /* UN NOMBRE DE EXCEL no puede parecer una celda, ni en A1 (VS30 es una celda) ni en la notación F1C1 de
+     NINGÚN idioma: «fc» lo rechazó el Excel en español, donde F es fila y C columna, y «Z» o «S» los rechazaría
+     el alemán (Z1S1). Las letras de fila y columna: inglés e italiano R/C, español F/C, alemán Z/S, francés y
+     portugués L/C, holandés y sueco R/K, polaco W/K. */
+  const R1C1 = [["R", "C"], ["F", "C"], ["Z", "S"], ["L", "C"], ["R", "K"], ["W", "K"]];
+  function nombreValido(n) {
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(n)) return false;
+    if (/^[A-Za-z]{1,3}\d+$/.test(n)) return false;
+    const N = n.toUpperCase();
+    return !R1C1.some(([f, c]) => new RegExp("^(" + f + "\\d*)?(" + c + "\\d*)?$").test(N));
+  }
   function armador(nombre) {
     const h = { nombre: nombre, celdas: {}, nombres: {}, fila: 2, anchos: Object.assign({}, ANCHOS),
       combinar: [], bordes: [], alturas: {}, anexo: [], tablaDesde: null };
@@ -88,8 +104,7 @@
       }
     };
     h.nombra = function (n, dir) {
-      exige(/^[A-Za-z_][A-Za-z0-9_]*$/.test(n) && !/^[A-Za-z]{1,3}\d+$/.test(n) && !/^[RrCc]$/.test(n) &&
-        !/^[Rr]\d/.test(n), "«" + n + "» no puede ser un nombre de Excel");
+      exige(nombreValido(n), "«" + n + "» no puede ser un nombre de Excel");
       exige(!h.nombres[n], "el nombre " + n + " se usa dos veces");
       h.nombres[n] = dir;
     };
@@ -428,7 +443,7 @@
     h.blanco();
     h.subseccion("4.2  Los factores de la fuerza sísmica");
     h.cabeceraMagnitudes();
-    h.linea({ n: "Z", que: "Factor de zona Z", f: "=INDEX(tZ_v,MATCH(zona,tZ_k,0))", debe: st.Z, como: "de la tabla 6.5",
+    h.linea({ n: "Zf", que: "Factor de zona Z", f: "=INDEX(tZ_v,MATCH(zona,tZ_k,0))", debe: st.Z, como: "de la tabla 6.5",
       norma: art("S.Z") });
     h.linea({ n: "U", que: "Factor de uso U", f: "=INDEX(tU_v,MATCH(categoria,tU_k,0))", debe: E030.factorU(cat).U,
       como: "de la tabla 6.6", norma: art("S.U") });
@@ -437,7 +452,7 @@
       f: "=IF(OR(vsMed=\"\"," + look("rig") + "=" + look("bla") + "),1,MAX(0,MIN(1,(INDEX(tVs_max,MATCH(suelo,tVs_k,0))-vsMed)/" +
         "(INDEX(tVs_max,MATCH(suelo,tVs_k,0))-INDEX(tVs_min,MATCH(suelo,tVs_k,0))))))",
       como: "sin V̄s30: el extremo blando, del lado seguro; con él, interpolado", norma: art("S.sinVs30") });
-    h.linea({ n: "S", que: "Factor de suelo S", fmt: "0.000", debe: st.S,
+    h.linea({ n: "Sf", que: "Factor de suelo S", fmt: "0.000", debe: st.S,
       f: "=" + look("rig") + "+uVs*(" + look("bla") + "-" + look("rig") + ")", como: "de la tabla 6.7", norma: art("S.perfil") });
     const lp = (col) => "INDEX(tP_" + col + ",MATCH(suelo,tP_k,0))";
     h.linea({ n: "TP", que: "Período TP", u: "s", debe: st.TP, f: "=" + lp("TPr") + "+uVs*(" + lp("TPb") + "-" + lp("TPr") + ")",
@@ -452,7 +467,7 @@
     h.linea({ n: "CRmin", que: "Mínimo de C/R", v: E030.CR_MIN, estilo: "norma", norma: art("S.CR") });
     h.linea({ n: "fV", que: "Fracción de la vertical", v: AN.FRACCION_VERTICAL, estilo: "norma", fmt: "0.000",
       norma: art("S.vertical") });
-    h.linea({ n: "Evf", que: "Sismo vertical, fracción del peso", fmt: "0.000", f: "=fV*Z*U*S",
+    h.linea({ n: "Evf", que: "Sismo vertical, fracción del peso", fmt: "0.000", f: "=fV*Zf*U*Sf",
       debe: AN.FRACCION_VERTICAL * st.Z * E030.factorU(cat).U * st.S, como: "2/3·Z·U·S, sin dividir por R",
       norma: art("S.vertical") });
     h.linea({ n: "fT", que: "Factor del período por los elementos no estructurales", v: AN.FACTOR_T_NO_ESTRUCTURAL,
@@ -480,7 +495,7 @@
       h.linea({ n: "CR_" + suf, que: "C/R", fmt: "0.0000", f: "=Cs_" + suf + "/Rs", debe: z.CR });
       h.linea({ n: "CRu_" + suf, que: "C/R que se usa", fmt: "0.0000", f: "=MAX(CRmin,CR_" + suf + ")", debe: z.CR_usado,
         como: "no menos de 0,11", norma: art("S.CR") });
-      h.linea({ n: "V_" + suf, que: "Cortante basal V", u: "kgf", fmt: "0", f: "=Z*U*CRu_" + suf + "*S*P_" + suf, debe: z.V_kgf,
+      h.linea({ n: "V_" + suf, que: "Cortante basal V", u: "kgf", fmt: "0", f: "=Zf*U*CRu_" + suf + "*Sf*P_" + suf, debe: z.V_kgf,
         como: "Z·U·(C/R)·S·P", norma: art("S.V") });
       h.linea({ n: "Ev_" + suf, que: "Sismo vertical", u: "kgf", fmt: "0", f: "=Evf*P_" + suf, debe: z.Ev_kgf,
         como: "fracción × P", norma: art("S.vertical") });
@@ -522,8 +537,332 @@
       comprobacion: chk, filasViento: filasW, art: ART["H.formulas"] };
   }
 
+  /* una verificación: la fórmula da «cumple» o «no cumple», y el motor dice cuál debe dar */
+  const veredicto = (ok) => (ok ? "cumple" : "no cumple");
+  const SI = (cond) => "=IF(" + cond + ",\"cumple\",\"no cumple\")";
+  function cabeceraProyecto(h, titulo, d) {
+    const pr = d.proyecto || {};
+    h.titulo(titulo,
+      "Proyecto: " + (pr.nombre || "sin nombre") + (pr.ubicacion ? " · " + pr.ubicacion : "") +
+        (pr.propietario ? " · propietario: " + pr.propietario : "") + (pr.proyectista ? " · proyectista: " + pr.proyectista : "") +
+        "  ·  " + (d.fecha ? "escrita el " + d.fecha + " con " : "escrita con ") + "Galpón " + (d.version || ""),
+      "Azul: dato del proyecto  ·  morado: valor de la norma  ·  negro: fórmula viva  ·  verde: sale del análisis.  " +
+        "Cada fórmula se comprobó contra el motor antes de escribirse.");
+  }
+  const cerrar = (h, extra) => {
+    h.cierra();
+    const chk = EX.comprueba(h);
+    return Object.assign({ nombre: h.nombre, celdas: h.celdas, nombres: h.nombres, anchos: h.anchos, combinar: h.combinar,
+      bordes: h.bordes, alturas: h.alturas, marco: h.marco, ultima: h.ultima, filas: h.ultima, comprobacion: chk,
+      art: ART["H.formulas"] }, extra || {});
+  };
+
+  /* =====================================================================
+     LA HOJA DATOS · las especificaciones del proyecto: todo lo que se eligió,
+     y lo que sale solo de ello (como en Datos del modelador).
+     d = { modelo, version, fecha }
+     ===================================================================== */
+  function hojaDatos(d) {
+    const m = d.modelo || {}, s = m.sitio || {}, c = m.cimentacion || {}, dz = m.diseno || {}, sis = m.sistema || {};
+    const h = armador("DATOS");
+    cabeceraProyecto(h, "DATOS DEL PROYECTO", Object.assign({}, d, { proyecto: m.proyecto }));
+    const art = (id) => ART[id];
+    const tx = (x) => (x === undefined || x === null || x === "" ? "—" : String(x));
+    const pr = m.proyecto || {};
+
+    h.seccion("1. EL PROYECTO");
+    h.cabeceraMagnitudes();
+    h.linea({ que: "Nombre", v: tx(pr.nombre), norma: "dato del proyecto" });
+    h.linea({ que: "Ubicación", v: tx(pr.ubicacion), norma: "dato del proyecto" });
+    h.linea({ que: "Propietario", v: tx(pr.propietario), norma: "dato del proyecto" });
+    h.linea({ que: "Proyectista", v: tx(pr.proyectista), norma: "dato del proyecto" });
+
+    h.seccion("2. EL SITIO Y LA EDIFICACIÓN  ·  E.030-2026");
+    h.subseccion("2.1  El sitio");
+    h.cabeceraMagnitudes();
+    const p = s.distrito ? UB.partes(s.distrito) : null;
+    h.linea({ que: "Distrito", v: p ? p.distrito + " · " + p.provincia + " · " + p.departamento : "—", norma: "dato del proyecto" });
+    h.linea({ que: "Zona sísmica, por el distrito", v: p ? p.zona : "—", estilo: "norma", norma: art("S.zona.distrito") });
+    h.linea({ que: "Perfil de suelo", v: tx(s.suelo), norma: "dato del proyecto (estudio de suelos)" });
+    h.linea({ que: "V̄s30 medido", v: typeof s.vs30_ms === "number" ? s.vs30_ms : "no se midió", u: typeof s.vs30_ms === "number" ? "m/s" : null,
+      fmt: "0", norma: art("S.sinVs30") });
+    h.linea({ que: "Velocidad del viento del Mapa Eólico", v: s.V_kmh, u: "km/h", fmt: "0", norma: "dato del proyecto · E.020 Anexo 2" });
+    h.blanco();
+    h.subseccion("2.2  La edificación");
+    h.cabeceraMagnitudes();
+    h.linea({ que: "Uso", v: s.uso && E030.USOS[s.uso] ? E030.USOS[s.uso].nombre : "—", norma: art("S.categoria.uso") });
+    if (s.uso && E030.USOS[s.uso] && E030.USOS[s.uso].conRiesgo) {
+      h.linea({ que: "¿Su falla acarrea incendio o fuga de contaminantes?", v: s.riesgoAdicional ? "sí" : "no", norma: art("S.categoria.riesgo") });
+    }
+    h.linea({ que: "Otra parte con otro uso", v: s.usoSecCat && s.usoSecCat !== "no" ? s.usoSecCat + " en el " + s.usoSecPct + " % del área" : "no",
+      norma: art("S.usos.combinados") });
+    h.linea({ que: "Uso industrial (límite de la deriva)", v: s.industrial ? "sí" : "no", norma: art("S.deriva.industrial") });
+    h.linea({ que: "Tipo de edificación para el viento", v: s.tipoEdificacion, fmt: "0", norma: art("W.tipo") });
+    for (const [k, nom] of [["izqDer", "izquierda → derecha"], ["derIzq", "derecha → izquierda"], ["longitudinal", "longitudinal"]]) {
+      h.linea({ que: "Aberturas, viento " + nom, v: tx((s.aberturas || {})[k]), norma: art("W.T5.repartidas") });
+    }
+    h.linea({ que: "Sistema sísmico transversal", v: tx(s.sistemaSismico), norma: art("S.R0") });
+
+    h.seccion("3. LOS MATERIALES");
+    h.subseccion("3.1  Acero de los perfiles");
+    h.cabeceraMagnitudes();
+    h.linea({ n: "acero", que: "Acero", v: tx(s.acero), norma: "dato del proyecto" });
+    if (AC.ACEROS[s.acero]) {
+      const mt = AC.material(s.acero);
+      h.linea({ n: "Fy", que: "Fluencia Fy", v: mt.Fy, u: "kgf/cm²", estilo: "norma", fmt: "0", norma: mt.art });
+      h.linea({ n: "Fu", que: "Rotura Fu", v: mt.Fu, u: "kgf/cm²", estilo: "norma", fmt: "0", norma: mt.art });
+    }
+    h.linea({ n: "Eacero", que: "Módulo de elasticidad E", v: INV.num("MAT.E"), u: "kgf/cm²", estilo: "norma", fmt: "#,##0",
+      norma: art("MAT.E") });
+    h.blanco();
+    h.subseccion("3.2  Concreto y armadura");
+    h.cabeceraMagnitudes();
+    h.linea({ n: "fpc", que: "f'c del concreto", v: c.fc_kgcm2, u: "kgf/cm²", fmt: "0", norma: "dato del proyecto" });
+    if (c.fc_kgcm2 > 0) {
+      h.linea({ n: "Ec", que: "Módulo de elasticidad Ec", f: "=15000*SQRT(fpc)", debe: 15000 * Math.sqrt(c.fc_kgcm2), u: "kgf/cm²",
+        fmt: "#,##0", como: "15 000·√f'c", norma: art("C.Ec") });
+    }
+    h.linea({ que: "Acero de refuerzo", v: c.grado ? "grado " + c.grado : "—", norma: "dato del proyecto" });
+    if (ZA.GRADOS[c.grado]) {
+      h.linea({ n: "fyr", que: "Fluencia fy", v: UN.mpa_a_kgcm2(ZA.GRADOS[c.grado]), u: "kgf/cm²", estilo: "norma", fmt: "0",
+        como: ZA.GRADOS[c.grado] + " MPa", norma: art("Z.As.min") });
+    }
+    h.linea({ que: "Electrodo de las uniones del tijeral", v: tx(dz.electrodo), norma: "dato del proyecto" });
+    h.linea({ que: "Pernos de anclaje", v: c.pernoMat ? c.pernoMat + " · Ø" + c.pernoD + "\"" : "—", norma: "dato del proyecto" });
+    h.blanco();
+    h.subseccion("3.3  El suelo");
+    h.cabeceraMagnitudes();
+    h.linea({ n: "sigmaT", que: "Presión admisible del estudio de suelos", v: c.sigmaAdm_kgfcm2, u: "kgf/cm²", norma: "dato del proyecto" });
+    h.linea({ que: "Esa presión es", v: c.esNeta === true ? "neta" : (c.esNeta === false ? "bruta" : "—"), norma: art("Z.sigma.neta") });
+    h.linea({ n: "Df", que: "Profundidad de desplante", v: c.Df_cm, u: "cm", fmt: "0", norma: "dato del proyecto" });
+    h.linea({ n: "gamaR", que: "Peso específico del relleno", v: c.gammaRelleno_kgfm3, u: "kgf/m³", fmt: "0", norma: "dato del proyecto" });
+    h.linea({ n: "scPiso", que: "Sobrecarga sobre el piso", v: c.sc_kgfm2, u: "kgf/m²", fmt: "0", norma: "dato del proyecto" });
+    if (c.sigmaAdm_kgfcm2 > 0 && c.esNeta === false && c.Df_cm > 0 && c.gammaRelleno_kgfm3 > 0 && c.sc_kgfm2 >= 0) {
+      h.linea({ n: "snMin", que: "Presión neta con h = 0 (la más baja)", f: "=sigmaT-gamaR/1000000*Df-scPiso/10000",
+        debe: c.sigmaAdm_kgfcm2 - c.gammaRelleno_kgfm3 / 1e6 * c.Df_cm - c.sc_kgfm2 / 1e4, u: "kgf/cm²",
+        como: "σt − γ·Df − s/c; el peralte de la zapata la sube", norma: art("Z.sigma.neta") });
+    }
+    h.linea({ que: "Coeficiente de rozamiento μ", v: c.mu === undefined ? "—" : c.mu, norma: "dato del proyecto" });
+
+    h.seccion("4. EL SISTEMA Y EL DISEÑO");
+    h.cabeceraMagnitudes();
+    h.linea({ que: "Base de las columnas", v: tx(sis.base), norma: art("A.sistema") });
+    h.linea({ que: "Unión columna–tijeral", v: tx(sis.union), norma: art("A.sistema") });
+    h.linea({ que: "Arriostre lateral de la brida inferior cada", v: dz.arriostreInferior_m, u: "m", norma: "dato del proyecto" });
+    h.linea({ que: "Separación de los largueros", v: dz.separacionLargueros_m, u: "m", norma: "dato del proyecto" });
+    h.linea({ que: "Lb de la columna", v: dz.LbColumna_m, u: "m", norma: "dato del proyecto" });
+    h.linea({ que: "Ángulos dobles: separación", v: dz.cartela ? "cartela de " + dz.cartela + "\"" : "—", norma: "dato del proyecto" });
+    h.linea({ que: "Uniones de las barras del tijeral", v: dz.uniones === "soldadas" ? "soldadas · filetes de " + dz.filete_mm +
+      " mm × " + dz.soldadura_cm + " cm" : tx(dz.uniones), norma: "dato del proyecto" });
+    h.linea({ que: "Tensores por correa en cada paño", v: dz.tensores, fmt: "0", norma: "dato del proyecto" });
+
+    h.seccion("5. LOS PERFILES");
+    h.cabecera([["C", "Clase de barra"], ["D", "Perfil"], ["E", "Peso"], ["F", "Unidad"], ["G:I", "Familia"], ["J", "Catálogo"]]);
+    const porClase = (m.secciones && m.secciones.porClase) || {};
+    for (const clase of Object.keys(porClase)) {
+      const r = h.fila;
+      let p2 = null;
+      try { p2 = PF.busca(porClase[clase]); } catch (e) { p2 = null; }
+      h.pon("C" + r, { v: clase, estilo: "etiqueta" });
+      h.pon("D" + r, { v: porClase[clase], estilo: "dato" });
+      if (p2) {
+        h.pon("E" + r, { v: p2.peso_kgfm, estilo: "norma", fmt: "0.00" });
+        h.pon("F" + r, { v: "kg/m", estilo: "unidad" });
+        h.pon("G" + r, { v: p2.familia + " · " + p2.fabricacion, estilo: "como" }, "G" + r + ":I" + r);
+        h.pon("J" + r, { v: p2.catalogo, estilo: "fuente" });
+      } else h.combinar.push("G" + r + ":I" + r);
+      h.fila++;
+    }
+    return cerrar(h);
+  }
+
+  /* =====================================================================
+     LA HOJA GEOMETRÍA · por qué esta altura, esta separación, este peralte.
+     Cada medida la decide el proyectista; aquí se dice QUÉ LA VERIFICA, con su
+     fórmula, y donde la norma no da criterio se dice (fila G.peralte).
+     d = { modelo, m3, forma, interior, fachada (los .r), correas, largo (lo), version, fecha }
+     ===================================================================== */
+  function hojaGeometria(d) {
+    const m = d.modelo || {}, m3 = d.m3, f = d.forma, s = m.sitio || {};
+    exige(m3 && f, "hojaGeometria() necesita el galpón montado");
+    const P0 = m.parametros || {};
+    const h = armador("GEOMETRIA");
+    cabeceraProyecto(h, "GEOMETRÍA · POR QUÉ ESTAS MEDIDAS", Object.assign({}, d, { proyecto: m.proyecto }));
+    const art = (id) => ART[id];
+    h.nota("La luz, el largo y la altura los fija el uso del galpón, y son del proyectista. Lo que esta hoja dice es qué " +
+      "verifica cada medida: la separación de pórticos, la correa y el panel de la cobertura; la pendiente, la cobertura; " +
+      "la altura, la deriva; el peralte, el diseño del tijeral.");
+    h.blanco();
+
+    /* 1 · la nave */
+    h.seccion("1. LA NAVE");
+    h.cabeceraMagnitudes();
+    h.linea({ n: "luz", que: "Luz del pórtico", v: f.luz_m, u: "m", estilo: "modelo", norma: "dato del proyecto" });
+    h.linea({ n: "largo", que: "Largo de la nave", v: m3.ejes.largo_m, u: "m", estilo: "modelo", norma: "dato del proyecto" });
+    h.linea({ n: "sepPed", que: "Separación de pórticos pedida", v: m3.ejes.sepPedida_m, u: "m", estilo: "modelo", norma: "dato del proyecto" });
+    h.linea({ n: "nPan", que: "Número de paños", f: "=ROUND(largo/sepPed,0)", debe: m3.ejes.panos, fmt: "0",
+      como: "largo / separación, redondeado", norma: art("MT.ejes") });
+    h.linea({ n: "sep", que: "Separación real de pórticos", f: "=largo/nPan", debe: m3.ejes.sepPorticos_m, u: "m", fmt: "0.000",
+      como: m3.ejes.ajustada ? "ajustada para que quepa entera" : "cabe entera", norma: art("MT.ejes") });
+    h.linea({ n: "nPort", que: "Número de pórticos", f: "=nPan+1", debe: m3.ejes.porticos, fmt: "0", como: "paños + 1" });
+    h.linea({ n: "area", que: "Área en planta", f: "=luz*largo", debe: f.luz_m * m3.ejes.largo_m, u: "m²", fmt: "0.0" });
+    h.linea({ n: "hcol", que: "Altura de columna", v: P0.alturaColumna_m, u: "m", estilo: "modelo", norma: "dato del proyecto" });
+    h.linea({ n: "hApoyo", que: "Peralte del tijeral en el apoyo", v: P0.peralteApoyo_m, u: "m", estilo: "modelo", norma: "dato del proyecto" });
+    h.linea({ n: "pendPct", que: "Pendiente del techo", v: 100 * P0.pendiente, u: "%", estilo: "modelo", fmt: "0.0",
+      norma: "dato del proyecto" });
+    if (m3.tijeral.cuerdas === "dos_aguas") {
+      h.linea({ n: "hc", que: "Altura a la cumbre", f: "=hcol+hApoyo+pendPct/100*luz/2", debe: f.hCumbre_m, u: "m", fmt: "0.000",
+        como: "columna + peralte en el apoyo + pendiente × media luz" });
+    } else {
+      h.linea({ n: "hc", que: "Altura a la cumbre", v: f.hCumbre_m, u: "m", estilo: "modelo", fmt: "0.000", norma: "del modelo" });
+    }
+
+    /* 2 · el tijeral */
+    h.seccion("2. EL TIJERAL: PENDIENTE, PANELES Y PERALTE");
+    h.subseccion("2.1  La pendiente, contra la cobertura");
+    h.cabeceraMagnitudes();
+    h.linea({ n: "theta", que: "Ángulo del techo", f: "=DEGREES(ATAN(pendPct/100))", debe: f.theta_grad, u: "°", fmt: "0.00",
+      como: "atan(pendiente)" });
+    for (const [n, que, min] of [["pCosta", "costa", 5], ["pSierra", "sierra", 20], ["pSelva", "selva", 25]]) {
+      h.linea({ n: n, que: "Pendiente recomendable de la TR-4 en la " + que, v: min, u: "%", estilo: "norma", fmt: "0",
+        norma: art("D.cobertura.pendmin") });
+      h.linea({ que: "  ¿la pendiente basta en la " + que + "?", f: SI("pendPct>=" + n), debe: veredicto(100 * P0.pendiente >= min - 1e-9),
+        como: "pendiente ≥ la recomendable", norma: art("D.cobertura.pendmin") });
+    }
+    h.blanco();
+    h.subseccion("2.2  Los paneles: cada nudo de la brida superior lleva una correa");
+    h.cabeceraMagnitudes();
+    h.linea({ n: "pan", que: "Paneles por media luz", v: P0.paneles, estilo: "modelo", fmt: "0", norma: "dato del proyecto" });
+    h.linea({ n: "paso", que: "Paso de panel, en planta", f: "=luz/2/pan", debe: m3.tijeral.paso_m, u: "m", fmt: "0.000",
+      como: "media luz / paneles" });
+    h.linea({ n: "pasoI", que: "Separación de correas, sobre la pendiente", f: "=paso*SQRT(1+(pendPct/100)^2)",
+      debe: m3.tijeral.paso_m * Math.sqrt(1 + P0.pendiente * P0.pendiente), u: "m", fmt: "0.000",
+      como: "paso·√(1 + s²): la luz del panel se mide sobre el techo", norma: art("G.correa.inclinada") });
+    h.linea({ n: "sepMin", que: "Separación habitual de correas, desde", v: 0.61, u: "m", estilo: "norma", norma: art("G.correa.sep") });
+    h.linea({ n: "sepMax", que: "Separación habitual de correas, hasta", v: 1.83, u: "m", estilo: "norma", norma: art("G.correa.sep") });
+    const pasoI = m3.tijeral.paso_m * Math.sqrt(1 + P0.pendiente * P0.pendiente);
+    h.linea({ que: "  ¿en el rango habitual?", f: "=IF(AND(pasoI>=sepMin,pasoI<=sepMax),\"dentro\",\"fuera\")",
+      debe: pasoI >= 0.61 - 1e-9 && pasoI <= 1.83 + 1e-9 ? "dentro" : "fuera", como: "es costumbre, no norma: lo que manda es el panel (3.2)",
+      norma: art("G.correa.sep") });
+    h.blanco();
+    h.subseccion("2.3  El peralte");
+    h.cabeceraMagnitudes();
+    h.linea({ n: "hCum", que: "Peralte del tijeral en la cumbre", v: m3.tijeral.peralteCumbre_m, u: "m", estilo: "modelo", fmt: "0.000",
+      norma: "del modelo" });
+    h.linea({ n: "LhApoyo", que: "Luz / peralte en el apoyo", f: "=luz/hApoyo", debe: f.luz_m / P0.peralteApoyo_m, fmt: "0.0" });
+    h.linea({ n: "LhCumbre", que: "Luz / peralte en la cumbre", f: "=luz/hCum", debe: f.luz_m / m3.tijeral.peralteCumbre_m, fmt: "0.0" });
+    h.nota("No hay una relación luz/peralte con fuente leída (fila G.peralte, pendiente: no está en McCormac, Zapata, Neufert ni " +
+      "la E.090). El peralte se justifica por lo que verifica: la resistencia de cada barra del tijeral en la hoja DISEÑO, " +
+      "y la rigidez del pórtico en la deriva (sección 4).");
+
+    /* 3 · correas y cobertura */
+    const cr = d.correas;
+    h.seccion("3. LA SEPARACIÓN DE PÓRTICOS: LA CORREA Y EL PANEL");
+    if (cr && cr.ok && !cr.omitida) {
+      const pc = PF.busca(cr.perfil);
+      h.subseccion("3.1  La correa salva la separación de pórticos");
+      h.cabeceraMagnitudes();
+      h.linea({ que: "Perfil de la correa", v: cr.perfil, norma: "dato del proyecto" });
+      h.linea({ n: "dCor", que: "Peralte de la correa", v: pc.d_cm, u: "cm", estilo: "norma", norma: pc.catalogo });
+      h.linea({ n: "LdCor", que: "Esbeltez L/d", f: "=sep*100/dCor", debe: cr.Ld.Ld, fmt: "0.0", como: "separación / peralte" });
+      h.linea({ n: "FyCor", que: "Fy del acero", v: AC.material(s.acero).Fy, u: "kgf/cm²", estilo: "norma", fmt: "0" });
+      h.linea({ n: "LdMax", que: "L/d máximo", f: "=70450/FyCor", debe: cr.Ld.limite, fmt: "0.0", como: "70 450 / Fy", norma: art("SV.correa.Ld") });
+      h.linea({ que: "  ¿esbeltez aceptable?", f: SI("LdCor<=LdMax"), debe: veredicto(cr.Ld.pasa), como: "criterio adoptado, no norma",
+        norma: art("SV.correa.Ld") });
+      h.linea({ n: "flCor", que: "Flecha de la correa con 0,5·Lr", v: cr.deflexion.delta_cm, u: "cm", estilo: "analisis", fmt: "0.000",
+        como: "del cálculo de la correa", norma: art("SV.deflex") });
+      h.linea({ n: "flMax", que: "Flecha admisible L/240", f: "=sep*100/240", debe: cr.deflexion.limite_cm, u: "cm", fmt: "0.000",
+        norma: art("SV.deflex") });
+      h.linea({ que: "  ¿flecha aceptable?", f: SI("flCor<=flMax"), debe: veredicto(cr.deflexion.pasa), norma: art("SV.deflex") });
+      h.linea({ n: "ratioCor", que: "Ratio de resistencia de la correa", v: cr.peor ? cr.peor.ratio : cr.lineas.reduce((a, l) => Math.max(a, l.ratio || 0), 0),
+        estilo: "analisis", fmt: "0.000", como: "la peor línea, flexión biaxial AISC Cap. F y H" });
+      h.linea({ que: "  ¿resiste?", f: SI("ratioCor<=1"), debe: veredicto(cr.cumple), norma: "AISC 360-22 Cap. F y H" });
+      if (cr.panel) {
+        h.blanco();
+        h.subseccion("3.2  El panel TR-4 salva la separación de correas");
+        h.cabeceraMagnitudes();
+        h.linea({ n: "capPan", que: "Carga admisible del panel a esa luz (" + cr.panel.tramos + " tramos o más)", v: cr.panel.P_kgfm2,
+          u: "kgf/m²", estilo: "norma", fmt: "0.0", como: "tabla interpolada entre " + cr.panel.entre.join(" y ") + " m",
+          norma: art("D.cobertura.tabla") });
+        h.linea({ n: "demPan", que: "Carga viva que llega al panel", v: cr.panel.demanda_kgfm2, u: "kgf/m²", estilo: "analisis", fmt: "0.0",
+          como: "neta: la tabla ya incluye su peso", norma: art("D.cobertura.neta") });
+        h.linea({ que: "  ¿el panel resiste?", f: SI("demPan<=capPan"), debe: veredicto(cr.panel.cumple), norma: art("D.cobertura.tabla") });
+      }
+    } else {
+      h.nota("Las correas todavía no se pueden verificar (faltan sus datos de diseño): esta sección sale cuando se puedan.");
+    }
+
+    /* 4 · la altura */
+    h.seccion("4. LA ALTURA: LA RIGIDEZ LATERAL DEL PÓRTICO");
+    let k4 = 1;
+    for (const [nom, r] of [["pórtico interior", d.interior], ["pórtico de fachada", d.fachada]]) {
+      if (!r) continue;
+      h.subseccion("4." + (k4++) + "  " + nom.charAt(0).toUpperCase() + nom.slice(1));
+      h.cabeceraMagnitudes();
+      const suf = r === d.interior ? "i" : "f";
+      h.linea({ n: "hAl_" + suf, que: "Altura del alero", v: r.hAlero_m, u: "m", estilo: "modelo", norma: "del modelo" });
+      h.linea({ n: "dW_" + suf, que: "Desplazamiento del alero con viento (" + r.deriva.peor.caso + ")", v: r.deriva.peor.deriva_cm, u: "cm",
+        estilo: "analisis", fmt: "0.000", como: "del análisis, sin factorizar" });
+      h.linea({ n: "rW_" + suf, que: "Deriva por viento", f: "=dW_" + suf + "/(hAl_" + suf + "*100)", debe: r.deriva.peor.relacion, fmt: "0.00000" });
+      h.linea({ n: "lW_" + suf, que: "Límite H/100", v: r.deriva.limite, estilo: "norma", fmt: "0.000", norma: art("SV.viento.H") });
+      h.linea({ que: "  ¿cumple con viento?", f: SI("rW_" + suf + "<=lW_" + suf), debe: veredicto(r.deriva.peor.relacion <= r.deriva.limite + 1e-12),
+        norma: art("SV.viento.H") });
+      if (r.sismo && r.sismo.deriva) {
+        const ds = r.sismo.deriva;
+        h.linea({ n: "dE_" + suf, que: "Desplazamiento inelástico con sismo", v: ds.deriva_cm, u: "cm", estilo: "analisis", fmt: "0.000",
+          como: "elástico × " + String(ds.multiplicador).replace(".", ","), norma: art("S.despl") });
+        h.linea({ n: "rE_" + suf, que: "Deriva por sismo", f: "=dE_" + suf + "/(hAl_" + suf + "*100)", debe: ds.relacion, fmt: "0.00000" });
+        h.linea({ n: "lE_" + suf, que: "Límite de la Tabla N° 14", v: ds.limite, estilo: "norma", fmt: "0.000",
+          norma: art(s.industrial ? "S.deriva.industrial" : "S.deriva") });
+        h.linea({ que: "  ¿cumple con sismo?", f: SI("rE_" + suf + "<=lE_" + suf), debe: veredicto(ds.cumple), norma: art("S.deriva") });
+      }
+      h.blanco();
+    }
+
+    /* 5 · arriostre y dilatación */
+    h.seccion("5. LOS PAÑOS ARRIOSTRADOS Y LA DILATACIÓN");
+    h.cabeceraMagnitudes();
+    const panos = (a) => a.map((k) => (k + 1) + "–" + (k + 2)).join(", ");
+    h.linea({ que: "Paños arriostrados en el techo (entre ejes)", v: panos(m3.panosArriostradosTecho), norma: art("MT.no.diafragma") });
+    h.linea({ que: "Paños arriostrados en las fachadas laterales", v: panos(m3.panosArriostradosFachada), norma: art("MT.dos.direcciones") });
+    h.linea({ que: "¿Techo y fachada en los mismos paños?", v: m3.camino.alineados ? "sí: la viga de alero solo amarra" :
+      "no: la viga de alero trabaja a axial", norma: art("MT.mismo.pano") });
+    h.linea({ que: "Camino de la carga lateral hasta el suelo", v: m3.camino.cierra ? "cierra: hastial → techo → fachada → suelo" : "NO cierra",
+      norma: art("MT.continuidad") });
+    const dl = m3.dilatacion;
+    h.linea({ que: "Longitud entre los paños arriostrados más alejados", v: dl.longitudPresa_m, u: "m", estilo: "modelo", fmt: "0.00",
+      como: "no puede dilatar libremente", norma: art("MT.termica") });
+    h.linea({ que: "Variación de temperatura a considerar", v: dl.deltaT_C, u: "°C", estilo: "norma", fmt: "0", norma: art("MT.deltaT") });
+    h.nota("El alargamiento en mm no se calcula: el coeficiente de dilatación del acero a temperatura ambiente no tiene fuente " +
+      "leída (fila MT.alfa, pendiente). Se dice en vez de inventarlo.");
+
+    /* 6 · hastiales */
+    h.seccion("6. LAS COLUMNAS HASTIALES");
+    h.cabeceraMagnitudes();
+    const ch = m3.columnasHastiales || [];
+    h.linea({ que: "Columnas hastiales en x", v: ch.length ? ch.map((x) => String(x).replace(".", ",")).join(" · ") + " m" : "ninguna",
+      norma: art("MT.hastial") });
+    if (ch.length) {
+      const xs = [0].concat(ch, [f.luz_m]);
+      const tramos = xs.slice(1).map((x, i) => x - xs[i]);
+      h.linea({ n: "tHast", que: "Mayor tramo de muro entre columnas", v: Math.max.apply(null, tramos), u: "m", estilo: "modelo", fmt: "0.00",
+        como: "lo que salva el larguero de fachada", norma: "del modelo" });
+      const pz = d.largo && d.largo.diseno ? d.largo.diseno.piezas.filter((x) => (x.pieza || x.nombre) === "columna hastial")[0] : null;
+      if (pz) {
+        h.linea({ n: "rHast", que: "Ratio de la columna hastial (" + pz.perfil + ")", v: pz.ratio, estilo: "analisis", fmt: "0.000",
+          como: "viento normal al muro, AISC Cap. H" });
+        h.linea({ que: "  ¿resiste?", f: SI("rHast<=1"), debe: veredicto(pz.cumple), norma: "AISC 360-22 Cap. H" });
+      }
+    }
+    return cerrar(h);
+  }
+
   /* ---------- las hojas que hay, y las que faltan ---------------------- */
   const HOJAS = [
+    { id: "datos", nombre: "DATOS", titulo: "Datos del proyecto", listo: true,
+      que: "el sitio, la edificación, los materiales, el suelo, el sistema y los perfiles" },
+    { id: "geometria", nombre: "GEOMETRIA", titulo: "Geometría: por qué estas medidas", listo: true,
+      que: "la separación, la pendiente, los paneles, el peralte y la altura, con lo que verifica cada una" },
     { id: "cargas", nombre: "CARGAS", titulo: "Cargas y combinaciones", listo: true,
       que: "E.020 (muerta, viva, nieve, viento), E.030 y las combinaciones de E.090 y E.060" },
     { id: "diseno", nombre: "DISENO", titulo: "Diseño de barras", listo: false, que: "cada clase de barra por su capítulo del AISC" },
@@ -531,5 +870,5 @@
     { id: "metrado", nombre: "METRADO", titulo: "Metrado", listo: false, que: "acero por clase de barra, concreto y armadura" }
   ];
 
-  return { ART, HOJAS, ANCHOS, armador, hojaCargas };
+  return { ART, HOJAS, ANCHOS, nombreValido, armador, hojaCargas, hojaDatos, hojaGeometria };
 });

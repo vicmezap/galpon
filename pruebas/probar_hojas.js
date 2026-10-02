@@ -68,8 +68,11 @@ cierto("y lo dice en la fila", /del análisis/.test(h0.celdas["G" + h0.nombres.P
 comp("las filas del viento: 10 por dirección transversal con Ci ±0,3, y 2 a lo largo", h0.filasViento, 22);
 
 /* ---- los nombres: ninguno puede ser una celda de Excel ---- */
-const malos = Object.keys(h0.nombres).filter((n) => /^[A-Za-z]{1,3}\d+$/.test(n) || /^[RrCc]$/.test(n) || /^[Rr]\d/.test(n));
-comp("ningún nombre de la hoja se confunde con una celda (vs30 es la celda VS30)", malos, []);
+comp("ningún nombre de la hoja se confunde con una celda (vs30 es la celda VS30)",
+  Object.keys(h0.nombres).filter((n) => !H.nombreValido(n)), []);
+comp("ni con la notación F1C1 de ningún idioma: «fc» lo rechazó el Excel en español; «Z» y «S», el alemán",
+  ["fc", "F", "C", "F2C3", "Z", "S", "Z1S1", "L", "LC", "R", "RC", "R1", "K", "WK", "vs30", "A1"].filter(H.nombreValido), []);
+comp("y los que sí valen", ["fpc", "Zf", "Sf", "Lr", "Lo", "Sc", "U", "fV", "CR_i", "FyCor"].filter((n) => !H.nombreValido(n)), []);
 lanza("y el armador lo impide", () => H.armador("X").nombra("vs30", "C1"), ["no puede ser un nombre de Excel"]);
 lanza("y un nombre repetido", () => { const a = H.armador("X"); a.nombra("Vh", "C1"); a.nombra("Vh", "C2"); }, ["dos veces"]);
 {
@@ -93,13 +96,13 @@ lanza("y un nombre repetido", () => { const a = H.armador("X"); a.nombra("Vh", "
   const V3 = E030.cortanteBasal({ zona: "Z3", suelo: "S2", categoria: "C", pendulo: false, sistema: "OMF",
     T_s: z.T_s, P_kgf: z.P_kgf });
   cerca("con la zona Z3 escrita en la hoja, V es el de la E.030 con Z3", v(conZ3, "V_i"), V3.V_kgf, 1e-9);
-  cerca("(y S cambia con ella: Tabla N° 4)", v(conZ3, "S"), V3.S, 1e-12);
+  cerca("(y S cambia con ella: Tabla N° 4)", v(conZ3, "Sf"), V3.S, 1e-12);
   for (const vs of [300, 400, 549, 600]) {
     const suelo = vs >= 550 ? "S1" : "S2";
     const st = E030.sitio({ zona: "Z4", suelo: suelo, vs30_ms: vs });
     const hv = cambia(cambia(h0, "vsMed", vs), "suelo", suelo);
     comp("con V̄s30 = " + vs + " m/s en " + suelo + ", S, TP y TL interpolados como el motor",
-      [v(hv, "S"), v(hv, "TP"), v(hv, "TL")].map((x) => +x.toFixed(10)), [st.S, st.TP, st.TL].map((x) => +x.toFixed(10)));
+      [v(hv, "Sf"), v(hv, "TP"), v(hv, "TL")].map((x) => +x.toFixed(10)), [st.S, st.TP, st.TL].map((x) => +x.toFixed(10)));
   }
   const ht = cambia(h0, "tipoW", 2);
   const fila = h0.nombres.Vh;   /* una fila del viento cualquiera: la primera tras la cabecera */
@@ -116,7 +119,7 @@ lanza("y un nombre repetido", () => { const a = H.armador("X"); a.nombra("Vh", "
   comp("una plancha que no se fabrica (0,42 mm cae en un hueco) da #N/A, no un peso inventado",
     String(v(cambia(h0, "esp", 0.42), "Dcob")), "#N/A");
   comp("Z4 con S4 da #N/A: «requiere un análisis de respuesta de sitio»",
-    String(v(cambia(h0, "suelo", "S4"), "S")), "#N/A");
+    String(v(cambia(h0, "suelo", "S4"), "Sf")), "#N/A");
   cerca("el péndulo invertido, R₀ = 2,5", v(cambia(h0, "sistema", "pendulo"), "Rs"), 2.5, 1e-12);
   cerca("y una irregularidad escrita en la hoja entra en R como en el motor", v(cambia(cambia(h0, "Ia", 0.75), "Ip", 0.9), "Rs"),
     E030.coefR({ pendulo: false, sistema: "OMF", Ia: 0.75, Ip: 0.9 }).R, 1e-12);
@@ -176,7 +179,7 @@ lanza("y un nombre repetido", () => { const a = H.armador("X"); a.nombra("Vh", "
   cierto("con sus factores en celdas", Object.keys(h0.celdas).some((k) => h0.celdas[k].v === 1.6 && h0.celdas[k].estilo === "norma"));
   lanza("sin las cargas completas no hay hoja", () => H.hojaCargas({ cargas: R.cargas(m3, {}), sitio: {} }), ["no están completas"]);
   comp("las hojas que hay y las que vienen", H.HOJAS.map((x) => [x.id, x.listo]),
-    [["cargas", true], ["diseno", false], ["cimentacion", false], ["metrado", false]]);
+    [["datos", true], ["geometria", true], ["cargas", true], ["diseno", false], ["cimentacion", false], ["metrado", false]]);
   comp("todo texto lleva formato de texto: «1.4-3» no se vuelve una fecha al escribirse",
     Object.keys(h0.celdas).filter((k) => typeof h0.celdas[k].v === "string" && h0.celdas[k].fmt !== "@"), []);
 }
@@ -229,6 +232,55 @@ lanza("y un nombre repetido", () => { const a = H.armador("X"); a.nombra("Vh", "
   cierto("con marco y última fila", h0.marco === "B2:K" + h0.ultima && h0.ultima > 150);
   cierto("las tablas con rejilla, entre C y J", h0.bordes.length > 20 && h0.bordes.every((r) => /^C\d+:J\d+$/.test(r)));
   cierto("los textos largos piden fila más alta", Object.keys(h0.alturas).some((f) => h0.alturas[f] >= 32));
+}
+
+
+/* ================================================================
+   DATOS y GEOMETRÍA · el usuario: «no he visto hojas de cálculo de
+   por qué hay esta altura, esta separación… deberían ir también»
+   ================================================================ */
+{
+  const EJ = require("../src/ejemplo.js");
+  const em = EJ.modelo(), e3 = MON.monta(em.parametros);
+  const eai = R.analisis(e3, em, P, "interior"), eaf = R.analisis(e3, em, P, "fachada");
+  const ecr = R.correas(e3, em, P, eai, eaf), elo = R.longitudinal(e3, em, P, eai, eaf);
+  const hd = H.hojaDatos({ modelo: em, version: "v", fecha: "2026-10-02" });
+  const hg = H.hojaGeometria({ modelo: em, m3: e3, forma: R.forma(e3), interior: eai.r, fachada: eaf.r,
+    correas: ecr, largo: elo, version: "v", fecha: "2026-10-02" });
+
+  comp("DATOS: sus fórmulas dan el número del motor", [hd.nombre, hd.comprobacion.ok, hd.comprobacion.comprobadas], ["DATOS", true, 2]);
+  cerca("Ec = 15000·√f'c (E.060 19.2.2), de la hoja", v(hd, "Ec"), 15000 * Math.sqrt(210), 1e-9);
+  cierto("y es viva: f'c = 280 en la hoja da su Ec", Math.abs(v(cambia(hd, "fpc", 280), "Ec") - 15000 * Math.sqrt(280)) < 1e-9);
+  cierto("la presión neta mínima, de la admisible, el relleno y la sobrecarga",
+    Math.abs(v(hd, "snMin") - (1.5 - 1800 / 1e6 * 150 - 500 / 1e4)) < 1e-12);
+  cierto("lleva los doce perfiles del ejemplo", Object.keys(EJ.PERFILES).every((k) =>
+    Object.keys(hd.celdas).some((c) => hd.celdas[c].v === EJ.PERFILES[k])));
+  const hd0 = H.hojaDatos({ modelo: L.nuevo({}), version: "v", fecha: "x" });
+  cierto("sin datos, DATOS igual se arma: lo que falta dice «—», y no inventa un f'c",
+    hd0.comprobacion.ok && hd0.nombres.Ec === undefined && Object.keys(hd0.celdas).some((c) => hd0.celdas[c].v === "—"));
+
+  comp("GEOMETRIA: sus fórmulas dan el número del motor", [hg.nombre, hg.comprobacion.ok, hg.comprobacion.malas], ["GEOMETRIA", true, []]);
+  cierto("con fórmulas para cada medida (al menos 25)", hg.comprobacion.comprobadas >= 25);
+  comp("solo con funciones que excel.js sabe evaluar", X.funciones(hg).filter((f) => !X.FUNCIONES[f]), []);
+  comp("la separación: paños = REDONDEAR(largo/sep pedida), separación real = largo/paños",
+    [v(hg, "nPan"), v(hg, "sep"), v(hg, "nPort")], [e3.ejes.panos, e3.ejes.sepPorticos_m, e3.ejes.porticos]);
+  cerca("la altura a la cumbre: columna + peralte + pendiente × media luz", v(hg, "hc"), 6 + 1.2 + 0.20 * 10, 1e-12);
+  cerca("el ángulo del techo, atan(pendiente)", v(hg, "theta"), Math.atan(0.2) * 180 / Math.PI, 1e-9);
+  cerca("la separación de correas sobre la pendiente", v(hg, "pasoI"), e3.tijeral.paso_m * Math.sqrt(1 + 0.04), 1e-12);
+  const hg30 = cambia(hg, "pendPct", 30);
+  cierto("es viva: 30 % en la hoja cambia el ángulo y la separación de correas",
+    Math.abs(v(hg30, "theta") - Math.atan(0.3) * 180 / Math.PI) < 1e-9 &&
+    Math.abs(v(hg30, "pasoI") - e3.tijeral.paso_m * Math.sqrt(1.09)) < 1e-12);
+  cerca("la deriva por viento del pórtico interior, del análisis", v(hg, "rW_i"), v(hg, "dW_i") / 100 / v(hg, "hAl_i"), 1e-12);
+  comp("las verificaciones de la deriva, contra H/100 y la Tabla N° 14", [v(hg, "rW_i") <= 0.01, v(hg, "rE_i") <= 0.01], [true, true]);
+  cierto("la esbeltez de la correa contra 70 450/Fy", Math.abs(v(hg, "LdMax") - 70450 / 2530) < 1e-9);
+  cierto("las tablas con rejilla y el marco", hg.bordes.length > 5 && hg.marco === "B2:K" + hg.ultima);
+  comp("GEOMETRIA sin análisis igual se arma, sin lo que sale de él",
+    (() => { const x = H.hojaGeometria({ modelo: em, m3: e3, forma: R.forma(e3), version: "v", fecha: "x" });
+      return [x.comprobacion.ok, x.nombres.rW_i, x.nombres.LdCor]; })(), [true, undefined, undefined]);
+  lanza("sin el galpón montado, no", () => H.hojaGeometria({ modelo: em }), ["necesita el galpón montado"]);
+  comp("y ningún nombre de las dos hojas se confunde con una celda, en ningún idioma",
+    Object.keys(hd.nombres).concat(Object.keys(hg.nombres)).filter((n) => !H.nombreValido(n)), []);
 }
 
 fin();

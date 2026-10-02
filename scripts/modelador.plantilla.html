@@ -399,6 +399,9 @@ table.hx td.h-analisis { color:#3fb26b; font-family:var(--cifra); text-align:rig
 table.hx td.h-nota, table.hx td.h-como, table.hx td.h-fuente { color:var(--suave); font-style:italic; }
 .h-dato { color:#4f8fe8; } .h-norma { color:#a77bd6; } .h-analisis { color:#3fb26b; }
 ul.hojas-l li.falta { color:var(--suave); }
+ul.hojas-l li.sel { font-weight:500; }
+ul.hojas-l li button[data-hoja] { font-family:var(--cifra); font-size:11px; padding:2px 8px; min-width:92px; }
+ul.hojas-l li button[data-hoja][aria-pressed="true"] { background:var(--acero); color:#fff; border-color:var(--acero); }
 .paso-est ul { margin:4px 0 6px 16px; padding:0; font-size:12px; }
 .tarj.paso-est.ok { border-left-color:var(--ok); }
 .nor { font-size:12px; padding:5px 0; border-bottom:1px solid var(--papel-2); line-height:1.4; }
@@ -1616,13 +1619,27 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
   function enExcel() {
     return typeof Office !== "undefined" && Office.context && Office.context.ui && !!Office.context.ui.messageParent;
   }
-  function hojaCargasActual() {
-    var cg = RESULTADOS.cargas(m3, modelo.sitio || {});
-    if (!cg.completo) return { faltas: cg.faltan.map(function (f) { return { paso: f.paso || "cargas", que: f.que, campo: f.campo }; }) };
-    var ai = analisisActual("interior"), af = analisisActual("fachada");
-    return { hoja: HOJAS.hojaCargas({ cargas: cg, sitio: modelo.sitio, proyecto: modelo.proyecto, interior: ai.ok ? ai.r : null,
-      fachada: af.ok ? af.r : null, version: BUILD, fecha: new Date().toISOString().slice(0, 10) }),
-      sinAnalisis: !ai.ok || !af.ok };
+  /* CADA HOJA, de lo que ya calculó la ventana (las mismas cachés que sus pasos): { hoja } o { faltas } */
+  var hojaSel = "datos";
+  function hojaActual(id) {
+    var fecha = new Date().toISOString().slice(0, 10);
+    var ai = analisisActual("interior"), af = analisisActual("fachada"), sin = !ai.ok || !af.ok;
+    if (id === "datos") return { hoja: HOJAS.hojaDatos({ modelo: modelo, version: BUILD, fecha: fecha }) };
+    if (id === "geometria") {
+      /* los parámetros, los MISMOS con que se montó m3: los de los campos, no los del último guardado */
+      var conPar = Object.assign({}, modelo, { parametros: paraElMotor(VISTAS.datosModelo(datos())) });
+      return { hoja: HOJAS.hojaGeometria({ modelo: conPar, m3: m3, forma: RESULTADOS.forma(m3),
+        interior: ai.ok ? ai.r : null, fachada: af.ok ? af.r : null,
+        correas: sin ? null : correasActual(), largo: sin ? null : largoActual(), version: BUILD, fecha: fecha }),
+        sinAnalisis: sin };
+    }
+    if (id === "cargas") {
+      var cg = RESULTADOS.cargas(m3, modelo.sitio || {});
+      if (!cg.completo) return { faltas: cg.faltan.map(function (f) { return { paso: f.paso || "cargas", que: f.que, campo: f.campo }; }) };
+      return { hoja: HOJAS.hojaCargas({ cargas: cg, sitio: modelo.sitio, proyecto: modelo.proyecto, interior: ai.ok ? ai.r : null,
+        fachada: af.ok ? af.r : null, version: BUILD, fecha: fecha }), sinAnalisis: sin };
+    }
+    return null;
   }
   function celdaTexto(c, x) {
     if (x === null || x === undefined || x === "") return "";
@@ -1670,33 +1687,60 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
       $("derecha").innerHTML = "";
       return;
     }
+    /* todas las hojas listas se arman: la lista dice de cada una si se puede escribir, y la elegida se ve */
+    var listas = HOJAS.HOJAS.filter(function (x) { return x.listo; });
+    if (!listas.some(function (x) { return x.id === hojaSel; })) hojaSel = listas[0].id;
+    var arm = {};
+    listas.forEach(function (x) {
+      try { arm[x.id] = hojaActual(x.id); } catch (e) { arm[x.id] = { error: e.message.split("\n")[0] }; }
+    });
+    var buena = function (id) { var a = arm[id]; return !!(a && a.hoja && a.hoja.comprobacion.ok); };
     var lista = HOJAS.HOJAS.map(function (x) {
-      var st = hojaEstado[x.nombre];
-      return '<li class="' + (x.listo ? "" : "falta") + '"><b>' + esc(x.titulo) + "</b> · " + esc(x.que) +
+      var st = hojaEstado[x.nombre], a = arm[x.id], est = "";
+      if (x.listo) {
+        est = a.error ? " · <i>no se arma: " + esc(a.error) + "</i>" : a.faltas ? " · <i>faltan " + a.faltas.length + " dato(s)</i>"
+          : " · " + a.hoja.comprobacion.comprobadas + " fórmulas" + (a.hoja.comprobacion.ok ? "" : " · <i>no dan el motor</i>");
+      }
+      return '<li class="' + (x.listo ? "" : "falta") + (x.id === hojaSel ? " sel" : "") + '">' +
+        (x.listo ? '<button type="button" class="b" data-hoja="' + x.id + '" aria-pressed="' + (x.id === hojaSel) + '">' +
+          esc(x.nombre) + "</button> " : "") +
+        "<b>" + esc(x.titulo) + "</b> · " + esc(x.que) + est +
         (x.listo ? "" : " · <i>todavía no</i>") + (st ? ' <span class="st-' + st.estado + '">' + esc(st.texto) + "</span>" : "") +
         "</li>";
     }).join("");
-    var r = hojaCargasActual(), cuerpo;
-    if (r.faltas) {
-      cuerpo = '<p class="lead">la hoja de cargas todavía no se puede escribir: falta lo que sigue</p>' + listaFaltas(r.faltas, true);
+    var todas = listas.filter(function (x) { return buena(x.id); });
+    var r = arm[hojaSel], cuerpo, x0 = listas.filter(function (x) { return x.id === hojaSel; })[0];
+    if (r.error) {
+      cuerpo = '<p class="lead mal">la hoja ' + esc(x0.nombre) + " no se pudo armar: " + esc(r.error) + "</p>";
+    } else if (r.faltas) {
+      cuerpo = '<p class="lead">la hoja de ' + esc(x0.titulo.toLowerCase()) + " todavía no se puede escribir: falta lo que sigue</p>" +
+        listaFaltas(r.faltas, true);
     } else {
       var h = r.hoja, chk = h.comprobacion;
       var puede = chk.ok && enExcel();
-      cuerpo = '<div class="tarj"><h4>CARGAS · ' + chk.comprobadas + " fórmulas</h4>" +
-        (chk.ok ? '<p class="sub">todas dan el número del motor (fila H.coincide)</p>'
+      cuerpo = '<div class="tarj"><h4>' + esc(h.nombre) + " · " + chk.comprobadas + " fórmulas</h4>" +
+        (chk.ok ? '<p class="sub">' + (chk.comprobadas ? "todas dan el número del motor (fila H.coincide)"
+          : "son datos: no lleva fórmulas que comprobar") + "</p>"
           : '<p class="sub mal">' + chk.malas.length + " fórmula(s) no dan el número del motor: la hoja no se escribe</p>" +
             "<ul>" + chk.malas.slice(0, 8).map(function (x) {
               return "<li>" + esc(x.celda + " · " + x.que + " · " + x.formula + " da " + x.sale + ", el motor " + x.debe) + "</li>";
             }).join("") + "</ul>") +
-        (r.sinAnalisis ? '<p class="sub">sin el análisis de los dos pórticos, el cortante basal no se escribe</p>' : "") +
-        '<button type="button" class="b pri" id="b-hoja-cargas"' + (puede ? "" : " disabled") + ">Escribir la hoja CARGAS en el libro</button>" +
-        (enExcel() ? "" : '<p class="pie">Para escribirla hay que abrir el modelador desde Excel: aquí se ve, pero no hay libro.</p>') +
+        (r.sinAnalisis ? '<p class="sub">sin el análisis de los dos pórticos, lo que sale de él (cortante, deriva, correas) no se escribe</p>' : "") +
+        '<button type="button" class="b pri" id="b-hoja-una"' + (puede ? "" : " disabled") + ">Escribir la hoja " + esc(h.nombre) + "</button> " +
+        '<button type="button" class="b" id="b-hoja-todas"' + (todas.length && enExcel() ? "" : " disabled") + ">Escribir las " +
+        todas.length + " hojas listas, en orden</button>" +
+        (enExcel() ? "" : '<p class="pie">Para escribirlas hay que abrir el modelador desde Excel: aquí se ven, pero no hay libro.</p>') +
         "</div>" + vistaHoja(h);
     }
     $("centro").innerHTML = '<div class="hoja"><h2>Hojas Excel</h2><p class="lead">el cálculo se queda en las hojas, ' +
-      "con fórmulas vivas</p><ul class=\"hojas-l\">" + lista + "</ul>" + cuerpo + "</div>";
-    var b = $("b-hoja-cargas");
+      "con fórmulas vivas · elige una para verla</p><ul class=\"hojas-l\">" + lista + "</ul>" + cuerpo + "</div>";
+    var b = $("b-hoja-una");
     if (b && b.onclick !== undefined) b.onclick = function () { mandaHoja(r.hoja); };
+    var bt = $("b-hoja-todas");
+    if (bt && bt.onclick !== undefined) bt.onclick = function () {
+      todas.forEach(function (x) { mandaHoja(arm[x.id].hoja, true); });
+      recalcula();
+    };
     $("derecha").innerHTML = '<div class="tarj"><h4>Qué es cada color</h4>' +
       '<p class="pie"><span class="h-dato">azul</span>: dato del proyecto, se puede cambiar en la hoja · ' +
       '<span class="h-norma">morado</span>: valor o tabla de la norma · <b>negro</b>: fórmula viva · ' +
@@ -1704,16 +1748,20 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
       '<div class="tarj"><h4>Cómo se lee</h4><p class="pie">Cada magnitud tiene un nombre en la hoja, que es su símbolo: ' +
       "la barra de fórmulas dice <code>=Lo*(0.25+4.6/SQRT(Ai))</code> y no un cruce de celdas. Las tablas de la norma " +
       "van al final, en la sección 6, y si cambias la zona o el V̄s30 en la hoja, se recalcula sola. " +
-      "Lo que cambia QUÉ filas hay —las aberturas, si hay nieve— se cambia aquí, en Cargas.</p>" +
-      '<p class="pie">La vista enseña el tablero de la hoja, de C a J. Las tablas de la norma van al final, como anexo (sección 6).</p></div>';
+      "Lo que cambia QUÉ filas hay —las aberturas, si hay nieve— se cambia en Datos.</p>" +
+      '<p class="pie">La vista enseña el tablero de la hoja, de C a J. Las tablas de la norma van al final, como anexo.</p></div>' +
+      '<div class="tarj"><h4>Por qué estas medidas</h4><p class="pie">GEOMETRIA dice qué verifica cada medida: la separación ' +
+      "de pórticos, la correa y el panel; la pendiente, la cobertura; la altura, la deriva. DATOS reúne lo que se eligió, con " +
+      "lo que sale solo de ello (Ec, la presión neta).</p></div>";
   }
-  function mandaHoja(h) {
+  /* el panel las escribe una tras otra, en el orden en que llegan (su cola) */
+  function mandaHoja(h, sinPintar) {
     try {
       var sp = ESCRITOR.paraEnviar(h);
       hojaEstado[h.nombre] = { estado: "mandada", texto: "escribiéndose…" };
       LIBRO.troceaMensaje("hojas", JSON.stringify(sp)).forEach(manda);
     } catch (e) { hojaEstado[h.nombre] = { estado: "mal", texto: e.message.split("\n")[0] }; }
-    recalcula();
+    if (!sinPintar) recalcula();
   }
 
   /* ---------- LO QUE TODAVIA NO TIENE PANTALLA ----------
@@ -2476,6 +2524,9 @@ ul.combs .id { display:inline-block; min-width:62px; color:var(--suave); }
       vePaso("hojas");
       return;
     }
+    /* Hojas Excel: qué hoja se ve */
+    var hb = ev.target.closest ? ev.target.closest("button[data-hoja]") : null;
+    if (hb) { hojaSel = hb.getAttribute("data-hoja"); recalcula(); return; }
     /* acero o alambre */
     var md = ev.target.closest ? ev.target.closest("button[data-modo3d]") : null;
     if (md) { modo3d = md.getAttribute("data-modo3d"); repinta(); return; }

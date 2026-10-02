@@ -231,6 +231,8 @@
     RADIANS: numerica((x) => x * Math.PI / 180),
     POWER: numerica((a, b) => Math.pow(a, b)),
     PI: () => Math.PI,
+    /* ROUND de Excel: la mitad se aleja del cero (2,5 → 3; −2,5 → −3), no al par */
+    ROUND: numerica((x, n) => { const k = Math.pow(10, n); return Math.sign(x) * Math.round(Math.abs(x) * k) / k; }),
     NA: () => NA,
     ISNA: (args, ev) => ev(args[0]) === NA,
     INDEX: (args, ev) => {

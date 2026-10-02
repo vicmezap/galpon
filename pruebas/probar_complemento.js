@@ -555,14 +555,27 @@ cierto("y Comprobación oye a la zapata de LOS DOS pórticos",
     /modelo\.proyecto = m\.proyecto/.test(modeHtml));
   /* HOJAS EXCEL · E9: se ve aquí, se comprueba aquí, se escribe desde el panel */
   pulsa(M.dom, "pasos", "data-paso", "hojas");
-  cierto("en Hojas Excel, las cuatro hojas: cargas lista y las demás dicen que todavía no",
-    /Cargas y combinaciones/.test(sel()) && (sel().match(/todavía no<\/i>/g) || []).length === 3);
-  cierto("sin las cargas completas, dice qué falta y lleva a Datos",
-    /la hoja de cargas todavía no se puede escribir/.test(sel()) && /data-ir="datos"/.test(sel()));
+  cierto("en Hojas Excel, seis hojas: DATOS, GEOMETRIA y CARGAS listas, y las demás dicen que todavía no",
+    /Cargas y combinaciones/.test(sel()) && /Geometría: por qué estas medidas/.test(sel()) &&
+    (sel().match(/todavía no<\/i>/g) || []).length === 3 &&
+    ["datos", "geometria", "cargas"].every((id) => sel().indexOf('data-hoja="' + id + '"') >= 0));
+  cierto("de entrada se ve DATOS, que se arma siempre: lo que falta sale como «—»",
+    /data-hoja="datos" aria-pressed="true"/.test(sel()) && /DATOS · 0 fórmulas/.test(sel()) && /class="hx"/.test(sel()));
+  cierto("y la lista dice de CARGAS cuántos datos le faltan", /faltan \d+ dato\(s\)/.test(sel()));
+  for (const fn of M.dom.nodos.centro._ev.click) fn({ target: { closest: (q) => q === "button[data-hoja]" ?
+    { getAttribute: () => "cargas" } : null } });
+  cierto("al elegir CARGAS sin las cargas completas, dice qué falta y lleva a Datos",
+    /la hoja de cargas y combinaciones todavía no se puede escribir/.test(sel()) && /data-ir="datos"/.test(sel()) &&
+    /data-hoja="cargas" aria-pressed="true"/.test(sel()));
   cierto("el panel derecho explica los colores", /verde/.test(pinto(M.dom, "derecha").innerHTML) &&
     /H\.analisis/.test(pinto(M.dom, "derecha").innerHTML));
   cierto("la hoja SOLO se escribe si todas las fórmulas dan el número del motor, y fuera de Excel no se ofrece",
     /var puede = chk\.ok && enExcel\(\);/.test(modeHtml) && /ESCRITOR\.paraEnviar\(h\)/.test(modeHtml));
+  cierto("«escribir todas» manda solo las que pasan la guarda, en el orden de la lista",
+    /var todas = listas\.filter\(function \(x\) \{ return buena\(x\.id\); \}\);/.test(modeHtml) &&
+    /todas\.forEach\(function \(x\) \{ mandaHoja\(arm\[x\.id\]\.hoja, true\); \}\);/.test(modeHtml));
+  cierto("y el panel las escribe EN COLA: dos Excel.run a la vez se pisarían",
+    /var colaHojas = Promise\.resolve\(\);/.test(panelHtml) && /colaHojas = colaHojas\.then\(function \(\) \{\s*return Excel\.run/.test(panelHtml));
   cierto("se manda troceada, como el modelo", /LIBRO\.troceaMensaje\("hojas"/.test(modeHtml));
   cierto("y la ventana oye si se escribió o no", /msg\.a === "hojasOk" \|\| msg\.a === "hojasMal"/.test(modeHtml));
   cierto("EL PANEL LA ESCRIBE con escritor.js dentro de Excel.run, y contesta",
@@ -795,8 +808,17 @@ cierto("el panel se hornea con una lista corta y propia",
     /Reemplaza lo que haya/.test(pinto(M.dom, "centro").innerHTML));
   for (const fn of M.dom.nodos.centro._ev.click) fn({ target: { id: "b-ejemplo", closest: () => null } });
   const c = pinto(M.dom, "centro").innerHTML;
-  cierto("al pulsarlo, va a Hojas Excel con la hoja CARGAS lista: todas las fórmulas dan el número del motor",
-    /CARGAS · \d+ fórmulas/.test(c) && /todas dan el número del motor/.test(c));
+  cierto("al pulsarlo, va a Hojas Excel con las tres hojas listas y sin faltas",
+    /(DATOS|GEOMETRIA|CARGAS) · \d+ fórmulas/.test(c) && !/faltan \d+ dato/.test(c) && /Escribir las 3 hojas listas/.test(c));
+  const ve = (id) => {
+    for (const fn of M.dom.nodos.centro._ev.click) fn({ target: { closest: (q) => q === "button[data-hoja]" ?
+      { getAttribute: () => id } : null } });
+    return pinto(M.dom, "centro").innerHTML;
+  };
+  const cG = ve("geometria"), cC = ve("cargas");
+  cierto("GEOMETRIA: sus fórmulas dan el número del motor", /GEOMETRIA · \d+ fórmulas/.test(cG) &&
+    /todas dan el número del motor/.test(cG) && /LA NAVE/.test(cG) && /RIGIDEZ LATERAL/.test(cG));
+  cierto("CARGAS: también", /CARGAS · \d+ fórmulas/.test(cC) && /todas dan el número del motor/.test(cC));
   cierto("y los datos quedan en los formularios", pinto(M.dom, "ma_acero").value === "A36" && pinto(M.dom, "ed_dist").value !== "");
   cierto("NINGÚN campo traía valor antes: el ejemplo no es un valor por omisión", /EJEMPLO\.modelo\(\)/.test(modeHtml) &&
     (modeHtml.match(/EJEMPLO\.modelo\(\)/g) || []).length === 1);
