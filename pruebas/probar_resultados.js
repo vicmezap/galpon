@@ -357,6 +357,15 @@ comp("NI UNA línea de Cimentación sin procedencia válida",
   const cr = R.correas(m3, Object.assign({}, mok, { diseno: DZC }), P);
   cierto("con ellos, verifica cada línea con el C8X11.5 del modelo", cr.ok && cr.perfil === "C8X11.5" && cr.lineas.length === 13);
   cierto("y las de puntal llevan la axial del sistema a lo largo", cr.lineas.some((l) => l.puntal));
+  /* LA VIVA DE LA CORREA NO ES LA DEL PÓRTICO · fila CR.Lr: el pórtico la reduce con su área (más de 40 m²),
+     la correa recoge unos pocos m² y lleva Lo entera. Estaba al revés, del lado inseguro. */
+  const aiC = R.analisis(m3, Object.assign({}, mok, { diseno: DZC }), P, "interior");
+  cierto("el pórtico SÍ reduce la viva por su área (Art. 10)", aiC.cargas.cargas.Lr_kgfm2 < aiC.cargas.cargas.Lo_kgfm2);
+  comp("pero la correa y el panel llevan Lo, sin reducir", [cr.Lr_kgfm2, aiC.cargas.cargas.Lo_kgfm2], [30, 30]);
+  const tipC = cr.lineas.reduce((a, l) => (l.ancho_m > a.ancho_m ? l : a));
+  cerca("y la flecha se calcula con 0,5·Lo", cr.deflexion.delta_cm,
+    5 * (0.5 * 30 * tipC.ancho_m * Math.cos(tipC.theta_grad * Math.PI / 180) / 100) * Math.pow(cr.L_m * 100, 4) /
+    (384 * require("../src/acero.js").E_ACERO * P.busca("C8X11.5").Ix_cm4), 1e-9);
   comp("NI UNA línea de Correas sin procedencia válida",
     cr.fichas.reduce((a, f) => a.concat(f.lineas), []).filter((l) => V.ORIGENES.indexOf(l.origen) < 0).map((l) => l.q), []);
   const crNo = R.correas(m3, L.asignaPerfil(Object.assign({}, mok, { diseno: DZC }), { clase: "correa" }, "C3X4.1").modelo, P);

@@ -45,7 +45,7 @@
     "D.DIS.E5", "D.DIS.cartela", "D.DIS.unicos",
     "LG.factores", "LG.techo.armadura", "LG.correa.puntal", "LG.cerramiento", "LG.esquina", "LG.cordon",
     "T.varillas", "SV.hastial.L", "MT.mismo.pano", "E.A8.Cm.transv",
-    "CR.cargas", "CR.simple", "CR.combinaciones", "CR.segundo.orden", "D.DIS.correas",
+    "CR.cargas", "CR.simple", "CR.combinaciones", "CR.segundo.orden", "D.DIS.correas", "CR.Lr",
     "F.hipotesis", "SV.deflex", "SV.carga.defl", "SV.correa.Ld", "D.cobertura.tabla", "CAT.precor"
   ]);
 
@@ -705,6 +705,11 @@
       }
     }
 
+    /* LA VIVA DE LA CORREA NO ES LA DEL PÓRTICO · fila CR.Lr. La reducción del Art. 10 va con el área de
+       influencia DEL ELEMENTO: la del pórtico (luz × separación) pasa de 40 m², la de una correa (separación ×
+       ancho que recoge) casi nunca. La correa y el panel llevan Lo sin reducir. Estaba mal: recibían la Lr
+       reducida del pórtico, del lado inseguro (salió al escribir el ejemplo de la separación de pórticos). */
+    const LrCorrea = c.Lo_kgfm2 > 0 ? c.Lo_kgfm2 : c.Lr_kgfm2;
     const unit = (x, y) => { const m = Math.hypot(x, y); return [x / m, y / m]; };
     const lineas = [];
     const yMax = Math.max.apply(null, tr.map((t) => Math.max(g.yDe[t.a], g.yDe[t.b])));
@@ -726,7 +731,7 @@
         const t = tr[k], ell = t.L_m / 2;
         ancho += ell;
         vec.D[1] -= c.D_kgfm2 * ell;
-        if (c.Lr_kgfm2 > 0) vec.Lr[1] -= c.Lr_kgfm2 * ell;
+        if (LrCorrea > 0) vec.Lr[1] -= LrCorrea * ell;
         if (hayS) vec.S[1] -= c.S.Qt_kgfm2 * ell * Math.abs(t.dx_m) / t.L_m;
         const ntx = -t.dy_m / t.L_m, nty = t.dx_m / t.L_m;
         for (const w of vientos) {
@@ -787,7 +792,7 @@
 
     /* EL SERVICIO de la correa típica · filas SV.deflex, SV.carga.defl y SV.correa.Ld */
     const tip = lineas.reduce((a, l) => (l.ancho_m > a.ancho_m ? l : a));
-    const viva = hayS ? c.S.Qt_kgfm2 : c.Lr_kgfm2;
+    const viva = hayS ? c.S.Qt_kgfm2 : LrCorrea;
     const wServ = 0.5 * viva * tip.ancho_m * Math.cos(tip.theta_grad * Math.PI / 180);
     const delta = 5 * (wServ / 100) * Math.pow(Lc, 4) / (384 * AC.E_ACERO * p.Ix_cm4);
     const deflexion = { delta_cm: delta, limite_cm: Lc / 240, pasa: delta <= Lc / 240 + 1e-12,
@@ -803,7 +808,7 @@
     }
     const peor = lineas.filter((l) => typeof l.ratio === "number").reduce((a, l) => (!a || l.ratio > a.ratio ? l : a), null);
     const cumple = lineas.every((l) => l.cumple) && deflexion.pasa && panel.cumple;
-    return Object.assign(base, { lineas: lineas, L_m: L, tensores: n, peor: peor, deflexion: deflexion, Ld: Ld,
+    return Object.assign(base, { lineas: lineas, L_m: L, tensores: n, peor: peor, deflexion: deflexion, Ld: Ld, Lr_kgfm2: LrCorrea,
       panel: panel, cumple: cumple, combinaciones: combos.length,
       art: ART["CR.cargas"], artSimple: ART["CR.simple"], artCombos: ART["CR.combinaciones"] });
   }

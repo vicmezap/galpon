@@ -88,6 +88,18 @@
       "nota": "La correa se toma simplemente apoyada en cada paño, que es como se diseña si no se garantiza la continuidad en el empalme sobre el tijeral. Los tensores parten el tramo del eje menor y no tocan el mayor; el Lb del pandeo lateral es también la luz partida. Con continuidad los momentos bajarían, pero hay que detallarla: no se supone."
     },
     {
+      "id": "CR.Lr",
+      "grupo": "Las correas",
+      "magnitud": "La carga viva de techo de la correa y del panel",
+      "valor": "Lo sin reducir (30 kgf/m² en cobertura liviana), no la Lr reducida del pórtico",
+      "unidad": "kgf/m²",
+      "estado": "adoptado",
+      "editable": false,
+      "clave": true,
+      "fuente": "E.020 Art. 10 (filas Lr.red.formula, Lr.red.Ai y Lr.red.min40): la reducción es con el área de influencia del elemento",
+      "nota": "ESTABA MAL: la correa y el panel recibían la Lr reducida con el área tributaria del PÓRTICO (luz × separación, más de 40 m²). El Art. 10 reduce con Ai = k·At del elemento que se diseña, y una correa recoge su separación por el ancho entre correas: unos 7 m² en el Proyecto 1, lejos de los 40 que exige la limitación a). Se toma Lo sin reducir, que además queda del lado seguro en cualquier correa. Salió al escribir el ejemplo de la separación de pórticos (2026-10-03)."
+    },
+    {
       "id": "CR.combinaciones",
       "grupo": "Las correas",
       "magnitud": "Con qué combinaciones se diseña la correa",

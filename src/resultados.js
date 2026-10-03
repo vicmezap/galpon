@@ -522,7 +522,7 @@
       }
     }
 
-    let Lr = null, S = null;
+    let Lr = null, Lo = null, S = null;
     if (typeof s.hayNieve !== "boolean") {
       faltan.push({ campo: "cp_nieve", paso: "datos", que: "si en el sitio puede acumularse nieve (E.020 Art. 7.1 d) (en Datos › Cargas permanentes)" });
     } else if (!s.hayNieve) {
@@ -530,6 +530,7 @@
       const At = f.luz_m * f.sep_m;
       const rd = E020.reduceViva({ Lo_kgfm2: vt.Lo_kgfm2, At_m2: At });
       Lr = rd.reducido ? rd.Lr_kgfm2 : vt.Lo_kgfm2;
+      Lo = vt.Lo_kgfm2;
       L1.push(ln("Carga viva de techo Lo", n2(vt.Lo_kgfm2, 0) + " kgf/m²", "norma",
         { fuente: "Lr.liviana" }));
       L1.push(ln("Área tributaria de un pórtico", n2(At, 1) + " m²", "geometria",
@@ -657,7 +658,7 @@
     }
 
     if (D !== null && (Lr !== null || S !== null) && viento && sismo) {
-      out.cargas = { D_kgfm2: D, Lr_kgfm2: Lr, S: S, viento: viento, sismo: sismo };
+      out.cargas = { D_kgfm2: D, Lr_kgfm2: Lr, Lo_kgfm2: Lo, S: S, viento: viento, sismo: sismo };
     }
     out.completo = !faltan.length && !!out.cargas;
     return out;
