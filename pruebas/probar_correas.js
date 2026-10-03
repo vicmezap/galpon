@@ -175,19 +175,26 @@ function correa(n) {
 }
 const c0 = correa(0), c1 = correa(1), c2 = correa(2);
 cierto("una correa trae al menos flexión biaxial y cortante", c0.ratios.length >= 3);
-cierto("y los tres capítulos son F2, F6 y G2",
-  c0.ratios.map((x) => x.cap).sort().join(",") === "F2,F6,G2");
+cierto("y los capítulos son F2, F6, G2 y H: la flexión en los dos ejes va por el H (fila H.biaxial)",
+  c0.ratios.map((x) => x.cap).sort().join(",") === "F2,F6,G2,H");
+const cap = (c, k) => c.ratios.filter((x) => x.cap === k)[0];
+/* ESTABA MAL: sin axial se tomaba el mayor de los dos ratios, no su suma (0,492 en vez de 0,749).
+   El AISC 360-22 lo dice en la User Note del F1 y en el Comentario H1.1: la interacción también
+   vale para la flexión biaxial sin carga axial. */
+cerca("y manda la SUMA de los dos ejes: Mrx/Mcx + Mry/Mcy (H1-1b con Pr = 0)", c0.ratio,
+  cap(c0, "F2").valor + cap(c0, "F6").valor, 1e-12);
+cierto("que es más que el mayor de los dos solo", c0.ratio > Math.max(cap(c0, "F2").valor, cap(c0, "F6").valor));
 
 /* EL TENSOR ES LA PIEZA BARATA QUE EVITA SUBIR DE PERFIL, medido. */
-cerca("sin tensores el ratio es 0,492", c0.ratio, 0.492, 0.005);
-cerca("con uno baja a 0,228", c1.ratio, 0.228, 0.005);
-cerca("o sea un 54 % menos", 1 - c1.ratio / c0.ratio, 0.537, 0.02);
+cerca("sin tensores el ratio es 0,749", c0.ratio, 0.749, 0.005);
+cerca("con uno baja a 0,293", c1.ratio, 0.293, 0.005);
+cerca("o sea un 61 % menos", 1 - c1.ratio / c0.ratio, 0.610, 0.02);
 cierto("y con dos baja algo más", c2.ratio < c1.ratio);
 /* Y la razón principal NO es el momento del eje débil, que aquí es pequeño:
    es que el tensor arriostra lateralmente y ACORTA Lb, sacando la correa de
    la zona de pandeo elástico. Distinguirlo importa. */
-cierto("sin tensores está en pandeo lateral ELÁSTICO", /Lb > Lr/.test(c0.gobierna));
-cierto("con un tensor pasa a inelástico", /Lp < Lb/.test(c1.gobierna));
+cierto("sin tensores el eje mayor está en pandeo lateral ELÁSTICO", /Lb > Lr/.test(cap(c0, "F2").estado));
+cierto("con un tensor pasa a inelástico", /Lp < Lb/.test(cap(c1, "F2").estado));
 cerca("porque Lb se parte en dos", c1.Lb_cm, c0.Lb_cm / 2, 1e-9);
 /* El momento del eje menor también baja, pero aporta menos en este caso. */
 cerca("el momento del eje menor se divide por 4", c1.Muy_kgfcm, c0.Muy_kgfcm / 4, 1e-9);

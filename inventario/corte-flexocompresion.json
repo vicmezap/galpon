@@ -162,6 +162,18 @@
       "fuente": "AISC H1-1b · E.090 8.1-1b"
     },
     {
+      "id": "H.biaxial",
+      "grupo": "Fuerzas combinadas",
+      "magnitud": "Flexión biaxial sin carga axial",
+      "valor": "Mrx/Mcx + Mry/Mcy ≤ 1,0   (H1-1b con Pr = 0)",
+      "unidad": "—",
+      "estado": "verificado",
+      "editable": false,
+      "clave": true,
+      "fuente": "AISC 360-22 · User Note del F1 («H1–H3: Members subjected to biaxial flexure or to combined flexure and axial force») y Comentario H1.1 («they also permit the consideration of biaxial bending without the presence of axial load»)",
+      "nota": "ESTABA MAL: elemento.js solo aplicaba el Cap. H con axial y momento a la vez; con flexión en los dos ejes y sin axial tomaba el MAYOR de los dos ratios, no su suma. Es el caso de toda correa de techo, que flexiona en los dos ejes por la pendiente del faldón. Salió al escribir el ejemplo de la separación de pórticos del Proyecto 1 (2026-10-03): la correa de 6,18 m daba 0,723 por F2 solo, y con la interacción da 0,761."
+    },
+    {
       "id": "H.phi",
       "grupo": "Fuerzas combinadas",
       "magnitud": "El φc que va dentro de la interacción",

@@ -37,7 +37,7 @@
   "use strict";
 
   const ART = INV.declara("elemento.js", [
-    "T.menor", "C.Pn", "F.phi", "V.Vn", "H.1a", "H.Pr", "E.C3.arriostre"
+    "T.menor", "C.Pn", "F.phi", "V.Vn", "H.1a", "H.Pr", "E.C3.arriostre", "H.biaxial"
   ]);
 
   /* Los estados límite que este módulo sabe comprobar, en el orden del AISC.
@@ -263,6 +263,14 @@
           "elemento: «" + id + "» trae fuerzas de PRIMER ORDEN.\n" +
           "  Aunque aquí no haya interacción, el Capítulo C pide el segundo orden para\n" +
           "  cualquier efecto dependiente de la carga. Amplifícalas antes.");
+      }
+      /* FLEXIÓN BIAXIAL SIN AXIAL · fila H.biaxial. También va por el Cap. H: H1-1b con Pr = 0 deja
+         Mrx/Mcx + Mry/Mcy ≤ 1. El caso de TODA correa de techo, que flexiona en los dos ejes por la
+         pendiente. Estaba mal: sin axial se tomaba el mayor de los dos ratios en vez de sumarlos, del
+         lado inseguro (salió al escribir el ejemplo de la separación de pórticos). */
+      if (Mux !== 0 && Muy !== 0) {
+        const v = Math.abs(Mux) / Mcx + Math.abs(Muy) / Mcy;
+        ratios.push({ estado: "flexión biaxial · H1-1b con Pr = 0", valor: v, art: ART["H.biaxial"], cap: "H", manda: true });
       }
     }
 
